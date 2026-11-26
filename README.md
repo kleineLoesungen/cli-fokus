@@ -84,6 +84,24 @@ verschluckt (die zsh-Einstellung `interactive_comments`).
 
 Aufschreiben soll nie länger dauern als der Gedanke selbst.
 
+### Nachträglich ändern
+
+Thema vergessen, Person fehlt, Termin verschoben? `fokus ändern` nimmt dieselbe
+Schreibweise wie das Aufschreiben und ändert **nur, was du angibst**:
+
+```
+fokus ändern 4 #haus                  Thema geben oder wechseln
+fokus ändern 4 @tom                   Person dazu
+fokus ändern 4 freitag                neuer Termin
+fokus ändern 4 Keller und Dachboden   neuer Text, Thema und Personen bleiben
+fokus ändern 4 ohne termin            Termin weg
+fokus ändern 4 ohne thema             Thema weg (zurück in den Eingang)
+fokus ändern 4 ohne @anna             Person weg
+```
+
+Mehreres geht auf einmal: `fokus ändern 4 #haus @tom freitag`. Tippst du nur
+`fokus ändern 4`, zeigt Fokus die Aufgabe und fragt, was sich ändern soll.
+
 ---
 
 ## Themen: höchstens drei sind wichtig
@@ -134,6 +152,16 @@ fokus themen ordnen arbeit projekt gesundheit
 Ein viertes wichtiges Thema gibt es nicht. Das ist keine Einstellung, sondern
 der Kern von Fokus: Wenn alles wichtig ist, ist nichts mehr wichtig, und Fokus
 könnte dir nicht mehr helfen, zu wählen.
+
+Hast du dich vertippt oder willst ein Thema anders nennen:
+
+```
+fokus themen umbenennen arbiet arbeit
+fokus themen umbenennen haus Haus und Garten
+```
+
+Fokus ändert den Namen in der Liste und in allen Aufgaben, auch in den
+erledigten. Gibt es das neue Thema schon, werden beide zu einem.
 
 Ein Thema unter der Linie ist nicht weg. Seine Aufgaben bleiben, sie zählen nur
 so lange als „nicht wichtig“, bis du es wieder nach oben holst.
@@ -339,10 +367,12 @@ Danach ist deine Liste wieder ehrlich.
 | `fokus heute 4 statt 2` | tauscht Aufgabe 2 gegen Aufgabe 4 |
 | `fokus später 4` | nimmt Aufgabe 4 wieder von heute |
 | `fokus fertig 4` | hakt Aufgabe 4 ab |
+| `fokus ändern 4 #haus @tom freitag` | ändert Thema, Person, Termin oder Text |
 | `fokus jetzt` | zeigt nur eine Aufgabe, mit Uhr |
 | `fokus alles` | zeigt alle Aufgaben in den vier Feldern |
 | `fokus themen` | zeigt deine Themen und wie es dort vorangeht |
 | `fokus themen ordnen` | wählt die drei wichtigen Themen |
+| `fokus themen umbenennen haus garten` | benennt ein Thema überall um |
 | `fokus @anna` | zeigt alles, was du mit Anna hast |
 | `fokus personen` | zeigt alle Personen mit offenen Aufgaben |
 | `fokus abgeben 4 @tom` | gibt Aufgabe 4 an Tom und merkt sie als „warte auf“ |
@@ -456,7 +486,8 @@ passt:
 | `fokus + Bericht @` | deine Personen |
 | `fokus + Bericht mor` | `morgen` (und andere Termine) |
 | `fokus abgeben 4 ` | deine Personen |
-| `fokus themen ordnen ` | deine Themen |
+| `fokus ändern ` | die Nummern; danach `#`, `@`, Termine und `ohne` |
+| `fokus themen ordnen ` / `umbenennen ` | deine Themen |
 
 ```
 fokus fertig ⇥

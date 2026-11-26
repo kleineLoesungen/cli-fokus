@@ -13,13 +13,22 @@ pub struct Parsed {
 /// So bleibt „Termin morgen absagen“ ein Text ohne Termin, und „Präsentation
 /// vorbereiten morgen“ ist morgen fällig.
 pub fn parse_new(input: &str, today: NaiveDate) -> Parsed {
+    parse(input, today, 1)
+}
+
+/// Wie `parse_new`, aber der Termin darf allein stehen: `fokus ändern 4 morgen`.
+pub fn parse_change(input: &str, today: NaiveDate) -> Parsed {
+    parse(input, today, 0)
+}
+
+fn parse(input: &str, today: NaiveDate, min_words: usize) -> Parsed {
     let tokens: Vec<&str> = input.split_whitespace().collect();
     let words: Vec<usize> = (0..tokens.len())
         .filter(|&i| !tags::is_tag(tokens[i], '#') && !tags::is_tag(tokens[i], '@'))
         .collect();
     for k in (1..=4).rev() {
-        // Mindestens ein Wort muss als Text übrig bleiben.
-        if words.len() <= k {
+        // Beim Aufschreiben muss mindestens ein Wort als Text übrig bleiben.
+        if words.len() < k + min_words {
             continue;
         }
         let tail = &words[words.len() - k..];
@@ -89,5 +98,15 @@ mod tests {
     #[test]
     fn nur_ein_termin_ist_keine_aufgabe() {
         assert_eq!(p("morgen"), ("morgen".into(), None));
+    }
+
+    #[test]
+    fn beim_aendern_darf_der_termin_allein_stehen() {
+        let r = parse_change("morgen", heute());
+        assert_eq!(r.text, "");
+        assert_eq!(r.due.map(date::to_file), Some("27.11.2026".into()));
+        let r = parse_change("#haus in 2 wochen", heute());
+        assert_eq!(r.text, "#haus");
+        assert!(r.due.is_some());
     }
 }

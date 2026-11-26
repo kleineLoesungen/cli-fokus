@@ -892,6 +892,10 @@ pub fn help(path: &Path) -> String {
         ("fokus heute 4", "legt Aufgabe 4 auf heute"),
         ("fokus später 4", "nimmt Aufgabe 4 wieder von heute"),
         ("fokus fertig 4", "hakt Aufgabe 4 ab"),
+        (
+            "fokus ändern 4 morgen",
+            "ändert Text, #thema, @person oder Termin",
+        ),
         ("fokus jetzt", "zeigt nur eine Aufgabe, mit Uhr"),
         ("fokus alles", "zeigt alle Aufgaben in vier Feldern"),
         (
@@ -899,6 +903,10 @@ pub fn help(path: &Path) -> String {
             "zeigt deine Themen und wie es dort vorangeht",
         ),
         ("fokus themen ordnen", "wählt die drei wichtigen Themen"),
+        (
+            "fokus themen umbenennen a b",
+            "benennt Thema a in b um (überall)",
+        ),
         ("fokus @anna", "zeigt alles, was du mit Anna hast"),
         ("fokus personen", "zeigt alle Personen mit offenen Aufgaben"),
         (

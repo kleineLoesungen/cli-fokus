@@ -143,6 +143,36 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
                 println!("{}", ops::strike(store, nr)?);
             }
         }
+        Some("ändern" | "aendern" | "bearbeiten") => {
+            let Some(first) = rest.first() else {
+                return Err("Welche Aufgabe? Zum Beispiel: fokus ändern 4 morgen".into());
+            };
+            let nr = ops::parse_nr(first)?;
+            let mut change = rest[1..].join(" ");
+            if change.trim().is_empty() {
+                if !term::is_interactive() {
+                    return Err(format!(
+                        "Was soll sich ändern? Zum Beispiel: fokus ändern {nr} morgen"
+                    ));
+                }
+                let i = store.find(nr).ok_or_else(|| ops::not_found(nr))?;
+                println!(" Aufgabe {nr}: {}", view::summary(store, &store.tasks[i]));
+                println!(
+                    " {}",
+                    term::dim(
+                        "Schreib nur, was sich ändert: neuer Text, #thema, @person, Termin, ohne termin, ohne thema, ohne @name"
+                    )
+                );
+                change = term::read_line(" Neu: ")
+                    .map_err(term::io_err)?
+                    .unwrap_or_default();
+                if change.is_empty() {
+                    println!(" Nichts geändert.");
+                    return Ok(());
+                }
+            }
+            println!("{}", ops::change(store, nr, &change)?);
+        }
         Some("abgeben") => {
             let (nr, person) = match rest {
                 [nr, person] => (ops::parse_nr(nr)?, person.as_str()),
@@ -165,7 +195,19 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
                 println!("{}", ops::reorder_interactive(store)?);
                 print!("{}", view::topics(store));
             }
-            _ => print!("{}", view::topics(store)),
+            Some("umbenennen") => match &rest[1..] {
+                [old, new @ ..] if !new.is_empty() => {
+                    println!("{}", ops::rename_topic(store, old, &new.join(" "))?);
+                    print!("{}", view::topics(store));
+                }
+                _ => return Err("So geht es: fokus themen umbenennen haus garten".into()),
+            },
+            Some(other) => {
+                return Err(format!(
+                    "„{other}“ kenne ich bei Themen nicht. Es gibt: fokus themen ordnen, fokus themen umbenennen"
+                ));
+            }
+            None => print!("{}", view::topics(store)),
         },
         Some("personen" | "leute") => print!("{}", view::persons(store)),
         Some(p) if p.starts_with('@') => print!("{}", view::person(store, &args[0])),

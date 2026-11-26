@@ -18,6 +18,7 @@ const COMMANDS: &[(&str, &str)] = &[
     ("alles", "alle Aufgaben in vier Feldern"),
     ("themen", "deine Themen"),
     ("personen", "alle Personen mit offenen Aufgaben"),
+    ("ändern", "Text, Thema, Person oder Termin ändern"),
     ("abgeben", "Aufgabe an jemanden geben"),
     ("streichen", "Aufgabe streichen"),
     ("aufräumen", "Liegengebliebenes durchgehen"),
@@ -82,11 +83,21 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
         "jetzt" if prev.len() == 1 => nrs(&|t| t.status != Status::Waiting),
         "abgeben" if prev.len() == 1 => nrs(&|t| t.status != Status::Waiting),
         "abgeben" if prev.len() == 2 => persons(store),
-        "themen" | "thema" if prev.len() == 1 => {
-            vec![(
+        "themen" | "thema" if prev.len() == 1 => vec![
+            (
                 "ordnen".into(),
                 "ordnen          die drei wichtigen Themen wählen".into(),
-            )]
+            ),
+            (
+                "umbenennen".into(),
+                "umbenennen      ein Thema umbenennen oder zusammenlegen".into(),
+            ),
+        ],
+        "themen" | "thema" if prev.len() == 2 && prev[1].eq_ignore_ascii_case("umbenennen") => {
+            topics(store)
+                .into_iter()
+                .map(|(v, d)| (v.trim_start_matches('#').to_string(), d))
+                .collect()
         }
         "themen" | "thema" if prev[1].eq_ignore_ascii_case("ordnen") => {
             let chosen: Vec<String> = prev[2..].iter().map(|w| tags::key(w)).collect();
@@ -95,6 +106,48 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
                 .map(|(v, d)| (v.trim_start_matches('#').to_string(), d))
                 .filter(|(v, _)| !chosen.contains(&tags::key(v)))
                 .collect()
+        }
+        "ändern" | "aendern" | "bearbeiten" if prev.len() == 1 => nrs(&|_| true),
+        "ändern" | "aendern" | "bearbeiten" => {
+            if cur.starts_with('#') {
+                topics(store)
+            } else if cur.starts_with('@') {
+                persons(store)
+            } else if prev.last().is_some_and(|w| w.eq_ignore_ascii_case("ohne")) {
+                let mut v = vec![
+                    (
+                        "termin".to_string(),
+                        "termin          Termin entfernen".to_string(),
+                    ),
+                    (
+                        "thema".to_string(),
+                        "thema           Thema entfernen".to_string(),
+                    ),
+                ];
+                v.extend(persons(store));
+                v
+            } else if cur.is_empty() {
+                Vec::new()
+            } else {
+                let c = cur.to_lowercase();
+                std::iter::once("ohne")
+                    .chain(DATE_WORDS.iter().copied())
+                    .filter(|w| w.starts_with(&c))
+                    .map(|w| {
+                        (
+                            w.to_string(),
+                            format!(
+                                "{w:<16}{}",
+                                if w == "ohne" {
+                                    "etwas entfernen"
+                                } else {
+                                    "Termin"
+                                }
+                            ),
+                        )
+                    })
+                    .collect()
+            }
         }
         f if f == "neu" || f.starts_with('+') => {
             if cur.starts_with('#') {
@@ -280,8 +333,27 @@ mod tests {
     }
 
     #[test]
+    fn aendern_bietet_nummern_dann_themen_personen_und_ohne() {
+        assert_eq!(werte(&["ändern", ""]), vec!["1", "2", "3", "4"]);
+        assert_eq!(
+            werte(&["ändern", "2", "#"]),
+            vec!["#arbeit", "#eigenes-projekt", "#haus"]
+        );
+        assert_eq!(werte(&["ändern", "2", "oh"]), vec!["ohne"]);
+        assert_eq!(
+            werte(&["ändern", "2", "ohne", ""]),
+            vec!["termin", "thema", "@anna", "@tom"]
+        );
+        assert_eq!(werte(&["themen", ""]), vec!["ordnen", "umbenennen"]);
+        assert_eq!(
+            werte(&["themen", "umbenennen", ""]),
+            vec!["arbeit", "eigenes-projekt", "haus"]
+        );
+        assert!(werte(&["themen", "umbenennen", "haus", ""]).is_empty());
+    }
+
+    #[test]
     fn themen_ordnen_bietet_jedes_thema_einmal() {
-        assert_eq!(werte(&["themen", ""]), vec!["ordnen"]);
         assert_eq!(
             werte(&["themen", "ordnen", "haus", ""]),
             vec!["arbeit", "eigenes-projekt"]

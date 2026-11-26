@@ -22,14 +22,7 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     if let Some(tag) = task.topic_tag()
         && let Some(above) = store.ensure_topic(&tag)
     {
-        let name = tags::display(&tag);
-        notes.push(if above {
-            format!("Neues Thema „{name}“. Es steht über der Linie und zählt als wichtig.")
-        } else {
-            format!(
-                "Neues Thema „{name}“. Über der Linie sind schon {IMPORTANT_LIMIT} Themen, also zählt es als nicht wichtig. Ändern: fokus themen ordnen"
-            )
-        });
+        notes.push(new_topic_note(&tag, above));
     }
     let i = store.add_task(task);
     let t = &store.tasks[i];
@@ -171,6 +164,228 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
         t.display(),
         term::dim(&format!("Alles zu {shown}: fokus @{}", tags::key(name)))
     ))
+}
+
+fn new_topic_note(tag: &str, above: bool) -> String {
+    let name = tags::display(tag);
+    if above {
+        format!("Neues Thema „{name}“. Es steht über der Linie und zählt als wichtig.")
+    } else {
+        format!(
+            "Neues Thema „{name}“. Über der Linie sind schon {IMPORTANT_LIMIT} Themen, also zählt es als nicht wichtig. Ändern: fokus themen ordnen"
+        )
+    }
+}
+
+/// `fokus ändern 4 …` – ändert nur, was angegeben ist, in derselben Schreibweise
+/// wie beim Aufschreiben. Dazu `ohne termin`, `ohne thema`, `ohne @anna`.
+pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
+    let i = index(store, nr)?;
+    let today = store.today;
+
+    let tokens: Vec<&str> = raw.split_whitespace().collect();
+    let mut clear_due = false;
+    let mut clear_topic = false;
+    let mut drop_persons: Vec<String> = Vec::new();
+    let mut rest: Vec<&str> = Vec::new();
+    let mut k = 0;
+    while k < tokens.len() {
+        if tokens[k].eq_ignore_ascii_case("ohne") && k + 1 < tokens.len() {
+            let next = tokens[k + 1];
+            let handled = match next.to_lowercase().as_str() {
+                "termin" | "datum" => {
+                    clear_due = true;
+                    true
+                }
+                "thema" => {
+                    clear_topic = true;
+                    true
+                }
+                _ if tags::is_tag(next, '@') => {
+                    drop_persons.push(tags::key(tags::clean(next)));
+                    true
+                }
+                _ => false,
+            };
+            if handled {
+                k += 2;
+                continue;
+            }
+        }
+        rest.push(tokens[k]);
+        k += 1;
+    }
+
+    let parsed = input::parse_change(&rest.join(" "), today);
+    let given: Vec<&str> = parsed.text.split_whitespace().collect();
+    let new_topic = given
+        .iter()
+        .find(|w| tags::is_tag(w, '#'))
+        .map(|w| tags::clean(w).to_string());
+    let new_persons: Vec<&str> = given
+        .iter()
+        .copied()
+        .filter(|w| tags::is_tag(w, '@'))
+        .collect();
+    let new_words: Vec<&str> = given
+        .iter()
+        .copied()
+        .filter(|w| !tags::is_tag(w, '#') && !tags::is_tag(w, '@'))
+        .collect();
+    if parsed.due.is_none()
+        && !clear_due
+        && !clear_topic
+        && drop_persons.is_empty()
+        && new_topic.is_none()
+        && new_persons.is_empty()
+        && new_words.is_empty()
+    {
+        return Err(format!(
+            "Was soll sich ändern? Zum Beispiel: fokus ändern {nr} morgen"
+        ));
+    }
+
+    let is_person = |w: &str, key: &str| tags::is_tag(w, '@') && tags::key(tags::clean(w)) == key;
+    let mut words: Vec<String> = store.tasks[i]
+        .text
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    if !new_words.is_empty() {
+        // Neuer Text; Personen und Thema der Aufgabe bleiben, wenn nichts anderes dasteht.
+        let kept: Vec<String> = words
+            .iter()
+            .filter(|w| tags::is_tag(w, '@') || tags::is_tag(w, '#'))
+            .cloned()
+            .collect();
+        words = new_words
+            .iter()
+            .map(|w| w.to_string())
+            .chain(kept)
+            .collect();
+    }
+    words.retain(|w| !drop_persons.iter().any(|k| is_person(w, k)));
+    for p in &new_persons {
+        let k = tags::key(tags::clean(p));
+        if !words.iter().any(|w| is_person(w, &k)) {
+            words.push(p.to_string());
+        }
+    }
+    if clear_topic || new_topic.is_some() {
+        words.retain(|w| !tags::is_tag(w, '#'));
+    }
+    if let Some(tp) = &new_topic {
+        words.push(format!("#{tp}"));
+    }
+    if !words
+        .iter()
+        .any(|w| !tags::is_tag(w, '#') && !tags::is_tag(w, '@'))
+    {
+        return Err("Dann bliebe von der Aufgabe kein Text übrig.".into());
+    }
+
+    let mut notes = Vec::new();
+    if let Some(tp) = &new_topic
+        && let Some(above) = store.ensure_topic(tp)
+    {
+        notes.push(new_topic_note(tp, above));
+    }
+    let t = &mut store.tasks[i];
+    t.text = words.join(" ");
+    if let Some(d) = parsed.due {
+        t.due = Some(d);
+    } else if clear_due {
+        t.due = None;
+    }
+    t.since = today;
+    let t = &store.tasks[i];
+    let mut msg = format!(
+        " {} Aufgabe {nr} geändert: {}",
+        term::green("✓"),
+        view::summary(store, t)
+    );
+    for n in notes {
+        msg.push_str(&format!("\n   {}", term::dim(&n)));
+    }
+    Ok(msg)
+}
+
+/// `fokus themen umbenennen haus garten` – in der Liste und in allen Aufgaben,
+/// auch den erledigten. Gibt es das neue Thema schon, werden beide eins.
+pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, String> {
+    let all: Vec<String> = store.all_topics().cloned().collect();
+    let from = match old.trim().parse::<usize>() {
+        Ok(n) if (1..=all.len()).contains(&n) => all[n - 1].clone(),
+        _ => all
+            .iter()
+            .find(|a| tags::key(a) == tags::key(old))
+            .cloned()
+            .ok_or_else(|| {
+                format!(
+                    "Ein Thema „{}“ kenne ich nicht. Deine Themen: fokus themen",
+                    old.trim_start_matches('#')
+                )
+            })?,
+    };
+    let new_name = tags::display(new.trim().trim_start_matches('#'));
+    if tags::key(&new_name).is_empty() {
+        return Err(
+            "Wie soll das Thema heißen? Zum Beispiel: fokus themen umbenennen haus garten".into(),
+        );
+    }
+    let from_key = tags::key(&from);
+    let merge_into = all
+        .iter()
+        .find(|n| tags::key(n) == tags::key(&new_name) && tags::key(n) != from_key)
+        .cloned();
+    let target = merge_into.clone().unwrap_or_else(|| new_name.clone());
+    let new_tag = format!("#{}", tags::to_tag(&target));
+
+    let mut changed = 0;
+    for t in &mut store.tasks {
+        if t.topic_tag().map(|g| tags::key(&g)) != Some(from_key.clone()) {
+            continue;
+        }
+        let words: Vec<String> = t
+            .text
+            .split_whitespace()
+            .map(|w| {
+                if tags::is_tag(w, '#') && tags::key(tags::clean(w)) == from_key {
+                    new_tag.clone()
+                } else {
+                    w.to_string()
+                }
+            })
+            .collect();
+        t.text = words.join(" ");
+        if t.is_active() {
+            changed += 1;
+        }
+    }
+
+    let count = match changed {
+        0 => "keine offene Aufgabe".to_string(),
+        1 => "1 offene Aufgabe".to_string(),
+        n => format!("{n} offene Aufgaben"),
+    };
+    if let Some(target) = merge_into {
+        store.important.retain(|n| tags::key(n) != from_key);
+        store.other.retain(|n| tags::key(n) != from_key);
+        Ok(format!(
+            " {} „{from}“ und „{target}“ sind jetzt ein Thema: „{target}“ ({count} umgezogen).",
+            term::green("✓")
+        ))
+    } else {
+        for n in store.important.iter_mut().chain(store.other.iter_mut()) {
+            if tags::key(n) == from_key {
+                *n = new_name.clone();
+            }
+        }
+        Ok(format!(
+            " {} „{from}“ heißt jetzt „{new_name}“ ({count} geändert).",
+            term::green("✓")
+        ))
+    }
 }
 
 /// Gibt einer Aufgabe ein Thema (Nummer aus der Themenliste oder ein Name).
@@ -416,6 +631,59 @@ mod tests {
         add(&mut s, "Keller ausmisten #haus").unwrap();
         set_topic(&mut s, 1, "Eigenes Projekt").unwrap();
         assert_eq!(s.tasks[0].text, "Keller ausmisten #eigenes-projekt");
+    }
+
+    #[test]
+    fn aendern_aendert_nur_was_dasteht() {
+        let mut s = leer();
+        add(&mut s, "Mit @anna Urlaub abstimmen").unwrap();
+        change(&mut s, 1, "#familie").unwrap();
+        assert_eq!(s.tasks[0].text, "Mit @anna Urlaub abstimmen #familie");
+        change(&mut s, 1, "@tom morgen").unwrap();
+        assert_eq!(s.tasks[0].text, "Mit @anna Urlaub abstimmen #familie @tom");
+        assert!(s.tasks[0].due.is_some());
+        change(&mut s, 1, "ohne termin ohne @anna").unwrap();
+        assert_eq!(s.tasks[0].text, "Mit Urlaub abstimmen #familie @tom");
+        assert!(s.tasks[0].due.is_none());
+        change(&mut s, 1, "Urlaub buchen").unwrap();
+        assert_eq!(s.tasks[0].text, "Urlaub buchen #familie @tom");
+        change(&mut s, 1, "ohne thema").unwrap();
+        assert_eq!(s.tasks[0].text, "Urlaub buchen @tom");
+        assert!(change(&mut s, 1, "").is_err());
+    }
+
+    #[test]
+    fn aendern_legt_ein_neues_thema_an() {
+        let mut s = leer();
+        add(&mut s, "Keller ausmisten").unwrap();
+        let msg = change(&mut s, 1, "#haus").unwrap();
+        assert!(msg.contains("Neues Thema „Haus“"));
+        assert_eq!(s.important, vec!["Haus"]);
+    }
+
+    #[test]
+    fn umbenennen_aendert_liste_und_aufgaben() {
+        let mut s = leer();
+        add(&mut s, "Bericht #arbiet").unwrap();
+        add(&mut s, "Angebot #arbiet").unwrap();
+        done(&mut s, 2).unwrap();
+        rename_topic(&mut s, "arbiet", "Arbeit").unwrap();
+        assert_eq!(s.important, vec!["Arbeit"]);
+        assert_eq!(s.tasks[0].text, "Bericht #arbeit");
+        // Auch Erledigtes zieht mit, damit die Wochenpunkte stimmen.
+        assert_eq!(s.tasks[1].text, "Angebot #arbeit");
+    }
+
+    #[test]
+    fn umbenennen_auf_ein_vorhandenes_thema_legt_zusammen() {
+        let mut s = leer();
+        add(&mut s, "A #arbeit").unwrap();
+        add(&mut s, "B #job").unwrap();
+        let msg = rename_topic(&mut s, "job", "arbeit").unwrap();
+        assert!(msg.contains("ein Thema"));
+        assert_eq!(s.important, vec!["Arbeit"]);
+        assert_eq!(s.tasks[1].text, "B #arbeit");
+        assert!(rename_topic(&mut s, "gibtsnicht", "x").is_err());
     }
 
     #[test]
