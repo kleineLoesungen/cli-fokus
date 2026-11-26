@@ -877,6 +877,154 @@ pub fn person(store: &Store, raw: &str) -> String {
     out
 }
 
+/// `fokus #arbeit` – alles in einem Thema.
+pub fn topic(store: &Store, raw: &str) -> String {
+    let k = tags::key(tags::clean(raw));
+    if k.is_empty() {
+        return topics(store);
+    }
+    let in_topic = |t: &Task| t.topic_tag().is_some_and(|g| tags::key(&g) == k);
+    let name = store
+        .all_topics()
+        .find(|n| tags::key(n) == k)
+        .cloned()
+        .unwrap_or_else(|| tags::display(raw));
+    let important = store.important.iter().any(|n| tags::key(n) == k);
+
+    let mut open: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| matches!(t.status, Status::Today | Status::Open) && in_topic(t))
+        .collect();
+    open.sort_by_key(|t| (t.status != Status::Today, t.due.is_none(), t.due, t.since));
+    let mut waiting: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == Status::Waiting && in_topic(t))
+        .collect();
+    waiting.sort_by_key(|t| t.since);
+    let done: Vec<String> = store
+        .tasks
+        .iter()
+        .filter(|t| {
+            t.status == Status::Done
+                && in_topic(t)
+                && t.done_on.is_some_and(|d| (store.today - d).num_days() < 7)
+        })
+        .map(Task::display)
+        .collect();
+
+    if open.is_empty() && waiting.is_empty() && done.is_empty() {
+        return format!(
+            "\n Im Thema „{name}“ ist gerade nichts offen.\n {}\n",
+            term::dim("Deine Themen: fokus themen")
+        );
+    }
+    let width = term::width().min(90);
+    let blocks = vec![
+        Block {
+            title: name.to_uppercase(),
+            hint: if important {
+                "wichtig"
+            } else {
+                "unter der Linie, nicht wichtig"
+            }
+            .into(),
+            rows: open
+                .iter()
+                .map(|t| {
+                    let mut r = row(
+                        store,
+                        t,
+                        if t.status == Status::Today {
+                            "▶"
+                        } else {
+                            "·"
+                        },
+                    );
+                    r.right = (String::new(), Tone::Plain);
+                    r
+                })
+                .collect(),
+            note: open.is_empty().then(|| "Nichts offen bei dir.".to_string()),
+        },
+        Block {
+            title: "LIEGT BEI ANDEREN".into(),
+            hint: String::new(),
+            rows: waiting.iter().map(|t| waiting_row(store, t)).collect(),
+            note: None,
+        },
+    ];
+    let mut out = String::from("\n");
+    out.push_str(&layout(&blocks, width));
+    if !done.is_empty() {
+        let line = format!("In den letzten 7 Tagen erledigt: {}", done.join(", "));
+        out.push_str(&format!(
+            " {}\n",
+            term::dim(&term::truncate(&line, width - 2))
+        ));
+    }
+    if open.iter().any(|t| t.status == Status::Today) {
+        out.push_str(&format!(" {}\n", term::dim("▶ steht auf heute")));
+    }
+    out
+}
+
+fn waiting_row(store: &Store, t: &Task) -> Row {
+    let who = t
+        .waiting_for
+        .as_deref()
+        .map(tags::display)
+        .unwrap_or_default();
+    let tone_age = if store.is_stale(t) {
+        Tone::Warn
+    } else {
+        Tone::Dim
+    };
+    Row {
+        nr: t.nr,
+        mark: "·",
+        text: t.display(),
+        mid: (format!("bei {who}"), Tone::Plain),
+        right: (date::age_label(t.since, store.today), tone_age),
+        faded: false,
+    }
+}
+
+/// `fokus warten` – alles, was bei anderen liegt, das Älteste zuerst.
+pub fn waiting(store: &Store) -> String {
+    let mut list: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == Status::Waiting)
+        .collect();
+    if list.is_empty() {
+        return format!(
+            "\n Du wartest gerade auf niemanden.\n {}\n",
+            term::dim("Abgeben geht so: fokus abgeben 4 @tom")
+        );
+    }
+    list.sort_by_key(|t| t.since);
+    let stale = list.iter().any(|t| store.is_stale(t));
+    let blocks = vec![Block {
+        title: "WARTE AUF".into(),
+        hint: if stale {
+            "→ nachhaken: fokus aufräumen".into()
+        } else {
+            String::new()
+        },
+        rows: list.iter().map(|t| waiting_row(store, t)).collect(),
+        note: None,
+    }];
+    let mut out = String::from("\n");
+    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&format!(
+        " {}\n",
+        term::dim("Zurück zu dir: fokus heute <Nr> · kam erledigt zurück: fokus fertig <Nr>")
+    ));
+    out
+}
+
 /// `fokus hilfe`
 pub fn help(path: &Path) -> String {
     let rows: &[(&str, &str)] = &[
@@ -909,6 +1057,8 @@ pub fn help(path: &Path) -> String {
         ),
         ("fokus @anna", "zeigt alles, was du mit Anna hast"),
         ("fokus personen", "zeigt alle Personen mit offenen Aufgaben"),
+        ("fokus #arbeit", "zeigt alles im Thema Arbeit"),
+        ("fokus warten", "zeigt alles, was bei anderen liegt"),
         (
             "fokus abgeben 4 @tom",
             "gibt Aufgabe 4 an Tom und merkt sie als „warte auf“",

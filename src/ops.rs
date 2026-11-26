@@ -25,6 +25,9 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
         notes.push(new_topic_note(&tag, above));
     }
     let i = store.add_task(task);
+    let nr = store.tasks[i].nr;
+    let due_today = due_today_note(store, nr);
+    let i = store.find(nr).expect("eben angelegt");
     let t = &store.tasks[i];
     let mut msg = format!(
         " {} Aufgabe {}: {}",
@@ -32,7 +35,10 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
         t.nr,
         view::summary(store, t)
     );
-    if store.is_important(t) && store.is_urgent(t) && store.today_open().len() < TODAY_LIMIT {
+    if let Some(n) = due_today {
+        notes.insert(0, n);
+    } else if store.is_important(t) && store.is_urgent(t) && store.today_open().len() < TODAY_LIMIT
+    {
         notes.push(format!(
             "Dringend und wichtig. Auf heute legen: fokus heute {}",
             t.nr
@@ -164,6 +170,25 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
         t.display(),
         term::dim(&format!("Alles zu {shown}: fokus @{}", tags::key(name)))
     ))
+}
+
+/// Was heute fällig ist, gehört auf die Liste für heute – solange dort Platz ist.
+/// Die Grenze von drei bleibt; ist sie erreicht, sagt Fokus, wie man tauscht.
+fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
+    let i = store.find(nr)?;
+    let t = &store.tasks[i];
+    if t.status != Status::Open || t.due.is_none_or(|d| d > store.today) {
+        return None;
+    }
+    if store.today_open().len() >= TODAY_LIMIT {
+        return Some(format!(
+            "Fällig heute, aber auf heute stehen schon {TODAY_LIMIT}. Tauschen: fokus heute {nr} statt <Nr>"
+        ));
+    }
+    let i = store.move_to_end(i);
+    store.tasks[i].status = Status::Today;
+    store.suggested = false;
+    Some("Fällig heute, darum steht sie jetzt auf heute.".into())
 }
 
 fn new_topic_note(tag: &str, above: bool) -> String {
@@ -298,6 +323,12 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
         t.due = None;
     }
     t.since = today;
+    if parsed.due.is_some()
+        && let Some(n) = due_today_note(store, nr)
+    {
+        notes.insert(0, n);
+    }
+    let i = index(store, nr)?;
     let t = &store.tasks[i];
     let mut msg = format!(
         " {} Aufgabe {nr} geändert: {}",
@@ -650,6 +681,37 @@ mod tests {
         change(&mut s, 1, "ohne thema").unwrap();
         assert_eq!(s.tasks[0].text, "Urlaub buchen @tom");
         assert!(change(&mut s, 1, "").is_err());
+    }
+
+    #[test]
+    fn termin_heute_kommt_auf_die_liste_solange_platz_ist() {
+        let mut s = leer();
+        let msg = add(&mut s, "Rechnung zahlen heute").unwrap();
+        assert!(msg.contains("steht sie jetzt auf heute"));
+        add(&mut s, "Keller").unwrap();
+        add(&mut s, "Bericht morgen").unwrap();
+        // Ein Termin morgen ändert an der Liste nichts.
+        assert_eq!(s.today_open().len(), 1);
+        change(&mut s, 2, "heute").unwrap();
+        assert_eq!(s.today_open().len(), 2);
+        // Andere Änderungen legen nichts auf heute, auch wenn heute fällig.
+        later(&mut s, 2).unwrap();
+        change(&mut s, 2, "#haus").unwrap();
+        assert_eq!(s.today_open().len(), 1);
+    }
+
+    #[test]
+    fn termin_heute_bei_voller_liste_nennt_den_tausch() {
+        let mut s = leer();
+        for t in ["A", "B", "C", "D"] {
+            add(&mut s, t).unwrap();
+        }
+        for nr in 1..=3 {
+            put_today(&mut s, nr, None).unwrap();
+        }
+        let msg = change(&mut s, 4, "heute").unwrap();
+        assert!(msg.contains("fokus heute 4 statt <Nr>"), "{msg}");
+        assert_eq!(s.today_open().len(), 3);
     }
 
     #[test]

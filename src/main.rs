@@ -211,6 +211,8 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         },
         Some("personen" | "leute") => print!("{}", view::persons(store)),
         Some(p) if p.starts_with('@') => print!("{}", view::person(store, &args[0])),
+        Some(p) if p.starts_with('#') => print!("{}", view::topic(store, &args[0])),
+        Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
         Some("aufräumen" | "aufraeumen") => review::run(store)?,
         Some("datei") => {
             println!(" Deine Aufgaben liegen in {}", store.path.display());

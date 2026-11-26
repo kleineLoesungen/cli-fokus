@@ -1,462 +1,240 @@
 # Fokus
 
-**Weniger Liste, mehr erledigt.**
+**Weniger Liste, mehr erledigt.** Ein kleiner Helfer fürs Terminal auf dem Mac,
+der jeden Morgen eine Frage beantwortet: *Was ist heute dran?*
 
-Fokus ist ein kleiner Helfer fürs Terminal auf dem Mac. Er beantwortet jeden
-Morgen eine einzige Frage: *Was ist heute dran?* Und er hilft dir, das dann
-auch zu tun, statt den Tag mit Dringendem zu füllen, das gar nicht wichtig ist.
+## Die Idee
 
----
+* Du schreibst Aufgaben auf, wie sie dir einfallen: ein Satz, fertig.
+* Fokus erkennt selbst, was **dringend** ist (Termin bis übermorgen oder
+  verstrichen) und was **wichtig** ist (Thema über der Linie, siehe unten).
+* Auf **heute** stehen höchstens **drei** offene Aufgaben, und **wichtig**
+  sind höchstens **drei** Themen. Mehr nicht, damit Wählen nötig bleibt.
 
-## Die Idee in drei Sätzen
-
-1. Du schreibst Aufgaben auf, so wie sie dir einfallen: ein Satz, fertig.
-2. Fokus erkennt selbst, was **dringend** ist (am Termin) und was **wichtig**
-   ist (an deinem Thema).
-3. Für heute wählst du **höchstens drei** Aufgaben, und für jetzt **genau eine**.
-
-Du musst nichts bewerten, keine Prioritäten vergeben und keine Stunden
-schätzen. Fokus fragt nur dann nach, wenn eine Aufgabe zu lange liegt.
+Du vergibst keine Prioritäten und schätzt keine Stunden.
 
 ---
 
-## So sieht ein Tag aus
+## Typische Situationen
 
-Morgens tippst du einfach:
+### Morgens: Was ist heute dran?
 
 ```
 fokus
 ```
-
-und siehst:
-
 ```
- Donnerstag, 26. November                                    1 von 3 erledigt
- ────────────────────────────────────────────────────────────────────────────
+ Donnerstag, 26. November                                  1 von 3 erledigt
+ ──────────────────────────────────────────────────────────────────────────
 
  HEUTE
-     ✓ Angebot an Kunden schicken                                   Arbeit
-   2 ▶ Präsentation vorbereiten                      fällig morgen  Arbeit
-   4 · Laufschuhe kaufen                                            Gesundheit
+     ✓ Angebot an Kunden schicken                                 Arbeit
+   2 ▶ Präsentation vorbereiten                    fällig morgen  Arbeit
+   4 · Laufschuhe kaufen                                          Gesundheit
 
  DRINGEND, ABER NICHT WICHTIG   → schnell erledigen oder abgeben
-   6 · Reisekosten abrechnen                         fällig morgen  Haus
+   6 · Reisekosten abrechnen                       fällig morgen  Haus
 
- 6 weitere offen · 1 wartet auf andere → fokus alles
+ 4 weitere offen · 2 warten auf andere
+ 2 liegen schon lange → fokus aufräumen
 ```
 
-Die Zahl vor jeder Aufgabe ist ihre **Nummer**. Mit ihr sagst du Fokus, welche
-Aufgabe du meinst: `fokus fertig 2`. Der Pfeil ▶ zeigt, womit du anfangen
-solltest.
+Die Zahl ist die **Nummer** der Aufgabe, ▶ zeigt, womit du anfängst. Morgens
+stellt Fokus die Liste selbst zusammen (dringend und wichtig zuerst); tauschen
+kannst du jederzeit.
 
-Mehr brauchst du an den meisten Tagen nicht.
+```
+fokus heute 5            Aufgabe 5 auf heute
+fokus heute 5 statt 2    tauschen, wenn heute voll ist
+fokus später 2           wieder von heute herunter
+fokus fertig 2           abhaken – dann ist wieder ein Platz frei
+```
 
----
-
-## Aufgaben aufschreiben
+### Dir fällt etwas ein
 
 ```
 fokus + Präsentation vorbereiten #arbeit morgen
-fokus + Urlaub abstimmen @anna #familie
-fokus + Laufschuhe kaufen #gesundheit
-fokus + Mama zurückrufen
+```
+```
+ ✓ Aufgabe 1: Präsentation vorbereiten · Arbeit · fällig morgen (Freitag 27.11.)
 ```
 
-* `#arbeit` ist das **Thema**. Das darfst du weglassen, dann landet die
-  Aufgabe erst einmal im Eingang.
-* `@anna` ist eine **Person**, mit der die Aufgabe zu tun hat. Auch das ist
-  freiwillig.
-* `morgen`, `freitag`, `3.12.`, `in 2 wochen` oder `nächste woche` ist der
-  **Termin**. Den gibst du nur an, wenn es wirklich einen gibt. Er steht **am
-  Ende**: „Termin morgen absagen“ hat deshalb keinen Termin, „Präsentation
-  vorbereiten morgen“ schon.
+`#thema` und `@person` sind freiwillig, der Termin auch. Er steht **am Ende**
+(`heute`, `morgen`, `freitag`, `3.12.`, `in 2 wochen`, `nächste woche`). Ist
+etwas **heute** fällig, kommt es gleich auf die Liste für heute, solange dort
+Platz ist.
 
-Fokus sagt dir sofort, was es verstanden hat:
+Bei Zeichen wie `'` oder `?` im Text: nur `fokus +` tippen, dann fragt Fokus.
+
+### Etwas hat sich geändert
 
 ```
- ✓ Aufgabe 2: Präsentation vorbereiten · Arbeit · fällig morgen (Freitag 27.11.)
+fokus ändern 4 #haus @tom freitag     Thema, Person, Termin
+fokus ändern 4 Keller und Dachboden   neuer Text, der Rest bleibt
+fokus ändern 4 ohne termin            auch: ohne thema, ohne @anna
 ```
 
-Enthält dein Text Zeichen wie `'` oder `?`, tippst du nur `fokus +` und
-Enter. Dann fragt Fokus nach dem Text, und das Terminal kommt nicht
-durcheinander. Dasselbe hilft, falls dein Terminal alles ab `#` als Kommentar
-verschluckt (die zsh-Einstellung `interactive_comments`).
-
-Aufschreiben soll nie länger dauern als der Gedanke selbst.
-
-### Nachträglich ändern
-
-Thema vergessen, Person fehlt, Termin verschoben? `fokus ändern` nimmt dieselbe
-Schreibweise wie das Aufschreiben und ändert **nur, was du angibst**:
-
-```
-fokus ändern 4 #haus                  Thema geben oder wechseln
-fokus ändern 4 @tom                   Person dazu
-fokus ändern 4 freitag                neuer Termin
-fokus ändern 4 Keller und Dachboden   neuer Text, Thema und Personen bleiben
-fokus ändern 4 ohne termin            Termin weg
-fokus ändern 4 ohne thema             Thema weg (zurück in den Eingang)
-fokus ändern 4 ohne @anna             Person weg
-```
-
-Mehreres geht auf einmal: `fokus ändern 4 #haus @tom freitag`. Tippst du nur
-`fokus ändern 4`, zeigt Fokus die Aufgabe und fragt, was sich ändern soll.
-
----
-
-## Themen: höchstens drei sind wichtig
-
-Ein Thema ist ein Bereich deines Lebens, zum Beispiel *Arbeit*, *Familie*,
-*Gesundheit*, *Haus* oder *Projekt*. Anlegen darfst du so viele, wie du
-willst: Ein Thema entsteht, sobald du es zum ersten Mal mit `#` schreibst.
-
-Die Themen stehen in einer **Reihenfolge**, und eine Linie trennt sie:
-
-```
-fokus themen
-```
-
-```
- DEINE THEMEN   offen    letzte 7 Tage
- 1  Arbeit          1    ○ ○ ○ ○ ○ ○ ●
- 2  Projekt         1    ○ ○ ○ ○ ○ ○ ○
- 3  Gesundheit      2    ○ ○ ○ ○ ○ ○ ○   seit 12 Tagen nichts erledigt
- ─── wichtig ───────────────────────────────
-    Haus            2    ○ ○ ○ ○ ○ ○ ○
-    Familie         3    ○ ○ ○ ○ ○ ○ ○
-    ohne Thema      1
-```
-
-Jeder Punkt ist ein Tag, ganz rechts ist heute. Ein voller Punkt heißt: An dem
-Tag hast du in diesem Thema etwas erledigt. Bleibt ein wichtiges Thema eine
-Woche lang leer, sagt Fokus es dir.
-
-Über der Linie stehen **höchstens drei** Themen. Ihre Aufgaben gelten als
-wichtig, alle anderen nicht. Die ersten drei Themen, die du anlegst, landen
-von selbst dort; jedes weitere kommt unter die Linie, und Fokus sagt dir das.
-
-Welche drei es sind, bestimmst du jederzeit neu:
-
-```
-fokus themen ordnen
-```
-
-Fokus zeigt alle Themen mit Nummern und fragt, welche drei dir gerade am
-wichtigsten sind. Du tippst sie der Reihe nach, etwa `2 1 4`. Die übrigen
-rutschen unter die Linie. Es geht auch in einem Schritt:
-
-```
-fokus themen ordnen arbeit projekt gesundheit
-```
-
-Ein viertes wichtiges Thema gibt es nicht. Das ist keine Einstellung, sondern
-der Kern von Fokus: Wenn alles wichtig ist, ist nichts mehr wichtig, und Fokus
-könnte dir nicht mehr helfen, zu wählen.
-
-Hast du dich vertippt oder willst ein Thema anders nennen:
-
-```
-fokus themen umbenennen arbiet arbeit
-fokus themen umbenennen haus Haus und Garten
-```
-
-Fokus ändert den Namen in der Liste und in allen Aufgaben, auch in den
-erledigten. Gibt es das neue Thema schon, werden beide zu einem.
-
-Ein Thema unter der Linie ist nicht weg. Seine Aufgaben bleiben, sie zählen nur
-so lange als „nicht wichtig“, bis du es wieder nach oben holst.
-
----
-
-## Personen: Was habe ich mit wem?
-
-Schreibst du `@anna` in eine Aufgabe, findest du sie später über die Person
-wieder. Das hilft vor allem in dem Moment, in dem du Anna triffst und dich
-fragst, was du eigentlich mit ihr besprechen wolltest:
-
-```
-fokus @anna
-```
-
-```
- ANNA
-   8 · Urlaub abstimmen @anna                                       Familie
-   9 · Geburtstag Tom planen @anna                  fällig Sonntag  Familie
-
- WARTE AUF ANNA
-  10 · Fotos vom Wochenende schicken                                seit 5 Tagen
-```
-
-Alle Personen, bei denen gerade etwas offen ist, siehst du so:
-
-```
-fokus personen
-```
-
-```
- PERSONEN      mit dir    warte auf
- Anna                2            1
- Tom                 1            –
- Steuerberater       –            1
-```
-
-Personen ohne offene Aufgaben tauchen hier nicht auf. Eine Person entsteht,
-sobald du sie zum ersten Mal mit `@` schreibst; ein Adressbuch gibt es nicht.
-
-### Abgeben und warten
-
-Manches musst nicht du erledigen. Mit
-
-```
-fokus abgeben 4 @tom
-```
-
-gibst du Aufgabe 4 an Tom. Sie verschwindet von deiner Liste und steht unter
-„Warte auf Tom“. Kommt sie erledigt zurück, hakst du sie wie jede andere ab.
-Liegt sie länger als eine Woche, fragt Fokus beim Aufräumen, ob du nachhaken
-willst.
-
-Eine Person ändert übrigens nichts daran, ob eine Aufgabe wichtig ist. Das
-entscheidet allein das Thema.
-
----
-
-## Wie Fokus „dringend“ und „wichtig“ erkennt
-
-| | Woran Fokus es erkennt |
-|---|---|
-| **Dringend** | Der Termin ist heute, morgen oder übermorgen, oder er ist schon verstrichen. |
-| **Wichtig** | Die Aufgabe gehört zu einem Thema über der Linie. |
-
-Daraus ergeben sich vier Felder, mit je einem Rat:
-
-```
-fokus alles
-```
-
-```
-                       DRINGEND                     NICHT DRINGEND
-           ┌───────────────────────────────┬───────────────────────────────┐
-   WICHTIG │  2 ▶ Präsentation vor… morgen │  3   Website fürs Projekt     │
-           │                               │  4 ▶ Laufschuhe kaufen        │
-           │                               │  5   Laufplan erstellen       │
-           │                           TUN │                        PLANEN │
-           ├───────────────────────────────┼───────────────────────────────┤
- UNWICHTIG │  6   Reisekosten abre… morgen │  9   Geburtstag Tom … Sonntag │
-           │                               │  7   Keller ausmisten 18 Tage │
-           │                               │ 11   Mama zurückrufen         │
-           │          SCHNELL ODER ABGEBEN │                    STREICHEN? │
-           └───────────────────────────────┴───────────────────────────────┘
- ▶ steht auf heute · ohne Thema zählt als nicht wichtig
-```
-
-* **Tun:** gehört auf die Liste für heute.
-* **Planen:** Das ist die wertvollste Ecke. Diese Aufgaben gehen am leichtesten
-  unter, weil sie nie drängeln.
-* **Schnell oder abgeben:** bündeln, in zehn Minuten wegarbeiten, oder mit
-  `fokus abgeben` jemand anderem geben.
-* **Streichen?:** Was hier ohne Termin 30 Tage unberührt liegt, räumt Fokus von
-  selbst ins Archiv. Weg ist es nicht: Es steht unten in deiner Datei.
-
-In einem schmalen Fenster stehen die vier Felder untereinander statt
-nebeneinander.
-
----
-
-## Heute: höchstens drei
-
-**Morgens schlägt Fokus dir die Liste vor:** zuerst, was dringend und wichtig
-ist, dann, was gestern liegen blieb, dann Wichtiges ohne Eile. Unwichtiges
-schlägt Fokus nie vor. Über der Liste steht dann „Vorschlag von Fokus“, und du
-kannst ihn übernehmen oder austauschen.
-
-```
-fokus heute 4
-```
-
-legt Aufgabe 4 auf die Liste für heute. Sind schon drei darauf, fragt Fokus,
-welche dafür weichen soll. Das ist Absicht: Eine vierte Aufgabe passt nur dann,
-wenn eine andere warten darf. Ohne Rückfrage geht es so:
-
-```
-fokus heute 4 statt 2
-```
-
-Weitere Befehle für die Liste:
-
-```
-fokus fertig 2       hakt Aufgabe 2 ab
-fokus später 2       nimmt Aufgabe 2 wieder von heute herunter
-```
-
-Die Nummer einer erledigten Aufgabe vergibt Fokus erst am nächsten Tag neu.
-So erwischst du nie aus Versehen eine andere Aufgabe, wenn du nach einer
-älteren Ansicht tippst.
-
----
-
-## Jetzt: genau eine
+### Jetzt loslegen
 
 ```
 fokus jetzt
 ```
 
-Der Bildschirm wird leer, bis auf die Aufgabe mit dem Pfeil ▶:
+Der Bildschirm zeigt nur noch die Aufgabe mit ▶ und eine 25-Minuten-Uhr.
+`f` fertig, `p` Pause, `s` später, `q` zurück.
+
+### Der Überblick über alles
 
 ```
- ╭──────────────────────────────────────────────────────╮
- │                                                      │
- │    Präsentation vorbereiten                          │
- │    Arbeit · fällig morgen                            │
- │                                                      │
- │    ━━━━━━━━━━━━━━━━━━━━━━━━━░░░░░░░░░░░░    18:42    │
- │                                                      │
- │    [f] fertig   [p] Pause   [s] später   [q] zurück  │
- │                                                      │
- ╰──────────────────────────────────────────────────────╯
+fokus alles
+```
+```
+                       DRINGEND                    NICHT DRINGEND
+           ┌──────────────────────────────┬──────────────────────────────┐
+   WICHTIG │  2 ▶ Präsentation vo… morgen │  5   Website-Texte    12.12. │
+           │                              │  3   Urlaub abstimme…        │
+           │                              │  4 ▶ Laufschuhe kauf…        │
+           │                          TUN │                       PLANEN │
+           ├──────────────────────────────┼──────────────────────────────┤
+ UNWICHTIG │  6   Reisekosten abr… morgen │  7   Keller ausmist… 18 Tage │
+           │                              │ 10   Mama zurückruf…         │
+           │         SCHNELL ODER ABGEBEN │                   STREICHEN? │
+           └──────────────────────────────┴──────────────────────────────┘
 ```
 
-Die Uhr läuft 25 Minuten. Dann klingelt es einmal, und du kannst mit `w`
-weitere 25 Minuten anhängen oder aufhören. Hakst du die Aufgabe mit `f` ab,
-bietet Fokus dir gleich die nächste von heute an.
+**Planen** ist die wertvollste Ecke: Das drängelt nie und geht darum am
+leichtesten unter. Was unter **Streichen?** 30 Tage ohne Termin liegt, räumt
+Fokus selbst ins Archiv.
 
-`fokus jetzt 5` nimmt dir statt der ersten Aufgabe die Nummer 5 vor.
+### Woran hänge ich in einem Thema?
 
----
+```
+fokus #arbeit
+```
+```
+ ARBEIT   wichtig
+   2 ▶ Präsentation vorbereiten                 fällig morgen
+   5 · Website-Texte                            fällig 12.12.
 
-## Aufräumen in zwei Minuten
+ LIEGT BEI ANDEREN
+   8 · Vertrag prüfen                                 bei Tom  seit 12 Tagen
 
-Einmal pro Woche, oder wenn Fokus dich unten in der Tagesansicht daran
-erinnert:
+ In den letzten 7 Tagen erledigt: Angebot an Kunden schicken
+```
+
+### Komme ich bei dem voran, was mir wichtig ist?
+
+```
+fokus themen
+```
+```
+ DEINE THEMEN   offen    letzte 7 Tage
+ 1  Arbeit          3    ○ ○ ○ ○ ○ ○ ●
+ 2  Familie         2    ○ ○ ○ ○ ○ ○ ○
+ 3  Gesundheit      1    ○ ○ ○ ○ ○ ○ ○
+ ─── wichtig ───────────────────────────────
+    Haus            2    ○ ○ ○ ○ ○ ○ ○
+    ohne Thema      1
+```
+
+Ein Punkt je Tag, rechts ist heute. Über der Linie stehen höchstens drei
+Themen; die ersten drei, die du anlegst, landen dort von selbst.
+
+```
+fokus themen ordnen                    fragt, welche drei wichtig sind
+fokus themen umbenennen arbiet arbeit  überall; gibt es „arbeit“ schon, wird es eins
+```
+
+### Du triffst Anna
+
+```
+fokus @anna
+```
+```
+ ANNA
+   3 · Urlaub abstimmen @anna                                   Familie
+
+ WARTE AUF ANNA
+   9 · Fotos vom Wochenende schicken                            seit 5 Tagen
+```
+
+`fokus personen` listet alle, bei denen gerade etwas offen ist.
+
+### Worauf warte ich noch?
+
+```
+fokus abgeben 8 @tom     Aufgabe 8 liegt jetzt bei Tom
+fokus warten
+```
+```
+ WARTE AUF   → nachhaken: fokus aufräumen
+   8 · Vertrag prüfen                                 bei Tom  seit 12 Tagen
+   9 · Fotos vom Wochenende schicken                 bei Anna  seit 5 Tagen
+```
+
+Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
+`fokus fertig 8`.
+
+### Einmal pro Woche: aufräumen
 
 ```
 fokus aufräumen
 ```
 
-Fokus zeigt dir jede Aufgabe, die seit zwei Wochen unberührt liegt (oder seit
-einer Woche bei jemand anderem), und du drückst eine Taste:
+Fokus geht alles durch, was seit zwei Wochen liegt (oder seit einer Woche bei
+jemand anderem). Eine Taste je Aufgabe:
 
 ```
  Keller ausmisten · Haus · seit 18 Tagen
  [h] heute  [w] diese Woche  [t] anderes Thema  [b] behalten  [f] erledigt  [x] streichen
 ```
 
-```
- Fotos vom Wochenende schicken · wartet auf Anna · seit 12 Tagen
- [n] nachhaken (auf heute)  [z] zurück zu mir  [b] weiter warten  [f] erledigt  [x] streichen
-```
-
-* **diese Woche** gibt der Aufgabe den Sonntag als Termin.
-* **behalten** heißt: Sie bleibt, wie sie ist, und Fokus fragt in zwei Wochen
-  wieder.
-* **nachhaken** legt „Bei Anna nachhaken: …“ als neue Aufgabe auf heute.
-* **Enter** überspringt eine Aufgabe, **q** hört auf.
-
-Danach ist deine Liste wieder ehrlich.
+Bei Abgegebenem gibt es zusätzlich `[n] nachhaken` (legt „Bei Tom nachhaken: …“
+auf heute) und `[z] zurück zu mir`.
 
 ---
 
-## Alle Befehle auf einen Blick
+## Alle Befehle
 
-| Du tippst | Fokus … |
+| Befehl | |
 |---|---|
-| `fokus` | zeigt, was heute dran ist |
-| `fokus + Text #thema @person termin` | schreibt eine Aufgabe auf |
-| `fokus +` | fragt nach dem Text |
-| `fokus heute 4` | legt Aufgabe 4 auf heute |
-| `fokus heute 4 statt 2` | tauscht Aufgabe 2 gegen Aufgabe 4 |
-| `fokus später 4` | nimmt Aufgabe 4 wieder von heute |
-| `fokus fertig 4` | hakt Aufgabe 4 ab |
-| `fokus ändern 4 #haus @tom freitag` | ändert Thema, Person, Termin oder Text |
-| `fokus jetzt` | zeigt nur eine Aufgabe, mit Uhr |
-| `fokus alles` | zeigt alle Aufgaben in den vier Feldern |
-| `fokus themen` | zeigt deine Themen und wie es dort vorangeht |
-| `fokus themen ordnen` | wählt die drei wichtigen Themen |
-| `fokus themen umbenennen haus garten` | benennt ein Thema überall um |
-| `fokus @anna` | zeigt alles, was du mit Anna hast |
-| `fokus personen` | zeigt alle Personen mit offenen Aufgaben |
-| `fokus abgeben 4 @tom` | gibt Aufgabe 4 an Tom und merkt sie als „warte auf“ |
-| `fokus streichen 4` | streicht Aufgabe 4 (sie bleibt im Archiv der Datei) |
-| `fokus aufräumen` | geht liegengebliebene Aufgaben mit dir durch |
-| `fokus datei` | öffnet deine Aufgabendatei im Texteditor |
-| `fokus einrichten` | richtet den Kurzbefehl `f` und die Tab-Taste ein |
-| `fokus deinstallieren` | entfernt Fokus wieder |
-| `fokus hilfe` | zeigt diese Liste |
+| `fokus` | was heute dran ist |
+| `fokus + Text #thema @person termin` | aufschreiben |
+| `fokus heute 4` · `später 4` · `fertig 4` | Liste für heute |
+| `fokus ändern 4 …` | Text, Thema, Person, Termin ändern |
+| `fokus streichen 4` | weg damit (bleibt im Archiv der Datei) |
+| `fokus jetzt` | nur eine Aufgabe, mit Uhr |
+| `fokus alles` | die vier Felder |
+| `fokus #arbeit` · `fokus themen` | ein Thema · alle Themen |
+| `fokus themen ordnen` · `umbenennen a b` | Themen pflegen |
+| `fokus @anna` · `fokus personen` | eine Person · alle Personen |
+| `fokus abgeben 4 @tom` · `fokus warten` | abgeben · was bei anderen liegt |
+| `fokus aufräumen` | Liegengebliebenes durchgehen |
+| `fokus datei` | die Aufgabendatei im Texteditor öffnen |
+| `fokus hilfe` | diese Liste |
 
-Hinter `fertig`, `später`, `streichen` und `heute` dürfen auch mehrere Nummern
-stehen: `fokus fertig 2 5`.
+Statt `fokus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
+Befehle, Nummern samt Text, `#themen`, `@personen` und Termine.
 
 ---
 
-## Wo deine Aufgaben liegen
+## Deine Daten
 
-In einer einzigen Textdatei: `Dokumente/Fokus.md`. `fokus datei` öffnet sie
-im Texteditor. Du kannst sie jederzeit lesen und ändern; eine neue Zeile wie
-`- Fahrrad reparieren #haus` unter „Offen“ reicht, Nummer und Datum ergänzt
-Fokus beim nächsten Aufruf. Was Fokus nicht versteht, landet unter „Notizen“,
-statt verloren zu gehen.
-
-```markdown
-## Themen
-1. Arbeit
-2. Projekt
-3. Gesundheit
----
-- Haus
-- Familie
-
-## Heute · 26.11.2026
-- [x] Angebot an Kunden schicken #arbeit  [Nr. 1 · erledigt 26.11.2026]
-- [ ] Präsentation vorbereiten #arbeit  [Nr. 2 · fällig 27.11.2026 · seit 26.11.2026]
-- [ ] Laufschuhe kaufen #gesundheit  [Nr. 4 · seit 26.11.2026]
-
-## Warte auf
-- [ ] Fotos vom Wochenende schicken #familie  [Nr. 10 · wartet auf @anna · seit 26.11.2026]
-
-## Eingang
-- [ ] Mama zurückrufen  [Nr. 11 · seit 26.11.2026]
-
-## Offen
-- [ ] Website fürs Projekt #projekt  [Nr. 3 · seit 26.11.2026]
-- [ ] Reisekosten abrechnen #haus  [Nr. 6 · fällig 27.11.2026 · seit 26.11.2026]
-```
-
-Darunter folgen, sobald es sie gibt, „Erledigt“ und „Archiv“.
-
-Es gibt kein Konto, keine Cloud und kein Abo. Sichert dein Mac den Ordner
-Dokumente in iCloud, liegt die Datei allerdings auch dort; das entscheidet dein
-Mac, nicht Fokus. Wenn du Fokus eines Tages nicht mehr magst, bleibt dir eine
-lesbare Liste.
-
----
+Alles steht in einer Textdatei: `Dokumente/Fokus.md`. Du kannst sie mit jedem
+Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
+reparieren #haus` reicht, den Rest ergänzt Fokus. Kein Konto, keine Cloud –
+außer dein Mac sichert den Ordner Dokumente in iCloud.
 
 ## Was Fokus absichtlich nicht kann
 
-* **Keine Prioritätsstufen** wie A/B/C oder 1 bis 5. Das ergibt sich aus Thema
-  und Termin.
-* **Mehr als drei wichtige Themen gibt es nicht.** Das ist der Kern von Fokus,
-  keine Einstellung.
-* **Keine Unteraufgaben, Projekte oder Abhängigkeiten.** Wird eine Aufgabe zu
-  groß, schreib den nächsten Schritt als eigene Aufgabe auf.
-* **Kein Adressbuch.** Eine Person ist nur ein Name an einer Aufgabe, ohne
-  Telefonnummer, Rolle oder Zuständigkeit.
-* **Keine Erinnerungen per Mitteilung.** Fokus meldet sich, wenn du ihn
-  aufrufst, nicht dazwischen.
-* **Kein Teilen und kein Abgleich.** Es ist deine Liste. „Abgeben“ heißt nur,
-  dass du dir merkst, wer gerade dran ist; Fokus schickt niemandem etwas.
-
-Jede dieser Funktionen wäre eine weitere Sache, die gepflegt werden will. Genau
-das soll Fokus dir abnehmen.
+Keine Prioritätsstufen, keine Unteraufgaben, kein Adressbuch, keine
+Mitteilungen, kein Teilen. Und kein viertes wichtiges Thema. Alles davon wäre
+etwas, das gepflegt werden will.
 
 ---
 
-## Installieren
+## Installieren, aktualisieren, entfernen
 
-Einmalig brauchst du dafür Rust, die Sprache, in der Fokus geschrieben ist. Die
-Anleitung steht auf [rustup.rs](https://rustup.rs); es ist ein einziger Befehl
-im Terminal.
-
-Dann, in diesem Ordner:
+Einmalig brauchst du [Rust](https://rustup.rs). Dann im Projektordner:
 
 ```bash
 cargo install --path .
@@ -466,66 +244,18 @@ cargo install --path .
 fokus einrichten
 ```
 
-`fokus einrichten` fragt drei Dinge: ob `f` als Kurzbefehl funktionieren
-soll, ob jedes neue Terminalfenster gleich die Liste für heute zeigt und ob die
-Tab-Taste ergänzen soll. Es ändert dafür nur deine `.zshrc`, in einem
-markierten Block, den es beim nächsten Aufruf ersetzt statt verdoppelt.
+`fokus einrichten` fragt, ob `f` als Kurzbefehl gehen soll, ob jedes neue
+Terminalfenster die Liste für heute zeigt und ob die Tab-Taste ergänzen soll
+(zsh). Es schreibt dafür einen markierten Block in deine `.zshrc`.
 
-### Die Tab-Taste
+**Aktualisieren:** `cargo install --path .` noch einmal. Deine Aufgaben bleiben.
 
-Ist sie eingerichtet, ergänzt die Tab-Taste nach `fokus `, was an der Stelle
-passt:
+**Entfernen:** `fokus deinstallieren`. Es zeigt erst, was es tut, und fragt
+nach. Deine Aufgaben bleiben, außer du sagst ausdrücklich ja – dann kommen sie
+in den Papierkorb.
 
-| Du tippst, dann Tab | Fokus bietet an |
-|---|---|
-| `fokus ` | alle Befehle, mit kurzer Erklärung |
-| `fokus fertig ` | die Nummern, mit dem Text der Aufgabe |
-| `fokus später ` | nur die Aufgaben von heute |
-| `fokus heute ` | alles, was noch nicht auf heute steht |
-| `fokus + Bericht #` | deine Themen, die wichtigen zuerst |
-| `fokus + Bericht @` | deine Personen |
-| `fokus + Bericht mor` | `morgen` (und andere Termine) |
-| `fokus abgeben 4 ` | deine Personen |
-| `fokus ändern ` | die Nummern; danach `#`, `@`, Termine und `ohne` |
-| `fokus themen ordnen ` / `umbenennen ` | deine Themen |
-
-```
-fokus fertig ⇥
-1   Präsentation vorbereiten  · heute
-2   Keller ausmisten
-3   Urlaub abstimmen @anna
-```
-
-Das funktioniert in der zsh, der Standard-Shell auf dem Mac. Fokus fragt
-dafür bei jedem Tab kurz die eigene Datei; die Vorschläge sind also immer
-aktuell.
-
----
-
-## Deinstallieren
-
-```bash
-fokus deinstallieren
-```
-
-Fokus zeigt erst, was es tun würde, und fragt einmal nach. Dann entfernt es
-den Block aus deiner `.zshrc` und löscht das Programm.
-
-Deine Aufgaben bleiben, außer du sagst ausdrücklich „ja“. Dann legt Fokus die
-Datei in den **Papierkorb**, nicht ins Nichts: Wer es sich anders überlegt,
-holt sie dort wieder heraus.
-
----
-
-## Für Neugierige
-
-* Fokus ist ein einziges kleines Programm ohne Hintergrunddienst. Es läuft nur,
-  während du es aufrufst.
-* `FOKUS_DATEI=/pfad/zur/datei.md` nimmt eine andere Datei, etwa zum
-  Ausprobieren.
-* Tests: `cargo test`. Sie setzen den Tag mit `FOKUS_HEUTE=2026-11-26` fest.
-
----
+Zum Ausprobieren mit einer Spieldatei: `export FOKUS_DATEI=/tmp/spiel.md`.
+Tests: `cargo test`.
 
 ## Lizenz
 

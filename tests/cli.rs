@@ -205,3 +205,37 @@ fn deinstallieren_ohne_terminal_aendert_nichts() {
     // Auch keine leere Aufgabendatei angelegt.
     assert!(!s.file().exists());
 }
+
+#[test]
+fn ein_thema_zeigt_offenes_abgegebenes_und_erledigtes() {
+    let s = Sandbox::new("thema");
+    s.ok(&["+", "Präsentation", "#arbeit", "morgen"]);
+    s.ok(&["+", "Vertrag", "prüfen", "#arbeit"]);
+    s.ok(&["+", "Rechnung", "#arbeit"]);
+    s.ok(&["+", "Keller", "#haus"]);
+    s.ok(&["abgeben", "2", "@tom"]);
+    s.ok(&["fertig", "3"]);
+    let out = s.ok(&["#arbeit"]);
+    assert!(out.contains("ARBEIT   wichtig"), "{out}");
+    assert!(out.contains("Präsentation"));
+    assert!(out.contains("LIEGT BEI ANDEREN"));
+    assert!(out.contains("bei Tom"));
+    assert!(out.contains("erledigt: Rechnung"));
+    assert!(!out.contains("Keller"));
+}
+
+#[test]
+fn warten_zeigt_das_aelteste_zuerst() {
+    let s = Sandbox::new("warten");
+    assert!(s.ok(&["warten"]).contains("auf niemanden"));
+    s.ok_on("2026-11-10", &["+", "Alt"]);
+    s.ok_on("2026-11-10", &["abgeben", "1", "@tom"]);
+    s.ok(&["+", "Neu"]);
+    s.ok(&["abgeben", "2", "@anna"]);
+    let out = s.ok(&["warten"]);
+    let alt = out.find("Alt").unwrap();
+    let neu = out.find("Neu").unwrap();
+    assert!(alt < neu, "{out}");
+    assert!(out.contains("seit 16 Tagen"));
+    assert!(out.contains("nachhaken"));
+}

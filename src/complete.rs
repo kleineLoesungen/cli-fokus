@@ -20,6 +20,7 @@ const COMMANDS: &[(&str, &str)] = &[
     ("personen", "alle Personen mit offenen Aufgaben"),
     ("ändern", "Text, Thema, Person oder Termin ändern"),
     ("abgeben", "Aufgabe an jemanden geben"),
+    ("warten", "alles, was bei anderen liegt"),
     ("streichen", "Aufgabe streichen"),
     ("aufräumen", "Liegengebliebenes durchgehen"),
     ("datei", "Aufgabendatei öffnen"),
@@ -51,6 +52,9 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
     let Some(first) = prev.first().map(|s| s.to_lowercase()) else {
         if cur.starts_with('@') {
             return persons(store);
+        }
+        if cur.starts_with('#') {
+            return topics(store);
         }
         return COMMANDS
             .iter()
@@ -302,6 +306,8 @@ mod tests {
         assert!(v.contains(&"heute".to_string()));
         assert!(v.contains(&"deinstallieren".to_string()));
         assert_eq!(werte(&["@"]), vec!["@anna", "@tom"]);
+        assert_eq!(werte(&["#"]), vec!["#arbeit", "#eigenes-projekt", "#haus"]);
+        assert!(werte(&[""]).contains(&"warten".to_string()));
     }
 
     #[test]
