@@ -264,7 +264,7 @@ fn ueberfaelliges_erscheint_am_naechsten_tag_im_aufraeumen() {
     // Ohne Thema, also unwichtig: Fokus schlägt sie morgens nicht für heute vor.
     s.ok(&["+", "Steuer", "heute"]);
     s.ok(&["später", "1"]);
-    assert!(s.ok(&["aufräumen"]).contains("Alles frisch"));
+    assert!(s.ok(&["aufräumen"]).contains("Nichts aufzuräumen"));
     let out = s.ok_on("2026-11-27", &["aufräumen"]);
     assert!(out.contains("Steuer"), "{out}");
     assert!(out.contains("seit gestern fällig"));

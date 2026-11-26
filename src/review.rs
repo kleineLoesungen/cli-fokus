@@ -38,10 +38,29 @@ pub fn run(store: &mut Store) -> Result<(), String> {
     let nrs = candidates(store);
 
     if nrs.is_empty() {
-        println!(
-            "\n Alles frisch. Nichts ist überfällig, nichts liegt länger als {} Tage.",
-            STALE_OPEN_DAYS
-        );
+        // Überfälliges auf der Liste für heute ist schon eingeplant – aber nicht „frisch“.
+        let planned = store
+            .tasks
+            .iter()
+            .filter(|t| t.status == Status::Today && t.due.is_some_and(|d| d < store.today))
+            .count();
+        println!("\n Nichts aufzuräumen.");
+        match planned {
+            0 => println!(
+                " {}",
+                term::dim(&format!(
+                    "Nichts ist überfällig, nichts liegt länger als {STALE_OPEN_DAYS} Tage."
+                ))
+            ),
+            1 => println!(
+                " {}",
+                term::dim("1 überfällige Aufgabe steht schon auf heute.")
+            ),
+            n => println!(
+                " {}",
+                term::dim(&format!("{n} überfällige Aufgaben stehen schon auf heute."))
+            ),
+        }
         return Ok(());
     }
 

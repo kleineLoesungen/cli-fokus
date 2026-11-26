@@ -256,15 +256,20 @@ fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     if t.status != Status::Open || t.due.is_none_or(|d| d > store.today) {
         return None;
     }
+    let why = if t.due < Some(store.today) {
+        "Schon überfällig"
+    } else {
+        "Fällig heute"
+    };
     if store.today_open().len() >= TODAY_LIMIT {
         return Some(format!(
-            "Fällig heute, aber auf heute stehen schon {TODAY_LIMIT}. Tauschen: fokus heute {nr} statt <Nr>"
+            "{why}, aber auf heute stehen schon {TODAY_LIMIT}. Tauschen: fokus heute {nr} statt <Nr>"
         ));
     }
     let i = store.move_to_end(i);
     store.tasks[i].status = Status::Today;
     store.suggested = false;
-    Some("Fällig heute, darum steht sie jetzt auf heute.".into())
+    Some(format!("{why}, darum steht sie jetzt auf heute."))
 }
 
 fn new_topic_note(tag: &str, above: bool) -> String {
