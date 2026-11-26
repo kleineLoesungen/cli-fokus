@@ -5,7 +5,7 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 
-use crate::store::{IMPORTANT_LIMIT, Status, Store, TODAY_LIMIT, Task};
+use crate::store::{IMPORTANT_LIMIT, KEEP_DAYS, Status, Store, TODAY_LIMIT, Task};
 use crate::{date, tags, term};
 
 #[derive(Clone, Copy)]
@@ -41,8 +41,8 @@ struct Block {
     note: Option<String>,
 }
 
-fn due_cell(store: &Store, t: &Task) -> (String, Tone) {
-    match t.due {
+fn due_cell(store: &Store, task: &Task) -> (String, Tone) {
+    match task.due {
         None => (String::new(), Tone::Plain),
         Some(d) => {
             let n = (d - store.today).num_days();
@@ -53,7 +53,13 @@ fn due_cell(store: &Store, t: &Task) -> (String, Tone) {
             } else {
                 Tone::Dim
             };
-            (date::due_label(d, store.today), t)
+            let label = date::due_label(d, store.today);
+            let label = if task.every.is_some() {
+                format!("↻ {label}")
+            } else {
+                label
+            };
+            (label, t)
         }
     }
 }
@@ -274,7 +280,12 @@ pub fn today(store: &Store) -> String {
         .iter()
         .filter(|t| t.status == Status::Waiting)
         .count();
-    let stale = store.tasks.iter().filter(|t| store.is_stale(t)).count();
+    let overdue = store.tasks.iter().filter(|t| store.is_overdue(t)).count();
+    let stale = store
+        .tasks
+        .iter()
+        .filter(|t| !store.is_overdue(t) && store.is_stale(t))
+        .count();
     let mut parts = Vec::new();
     if rest > 0 {
         parts.push(format!("{rest} weitere offen"));
@@ -285,6 +296,9 @@ pub fn today(store: &Store) -> String {
             if waiting == 1 { "wartet" } else { "warten" }
         ));
     }
+    if overdue > 0 {
+        parts.push(format!("{overdue} überfällig"));
+    }
     if stale > 0 {
         parts.push(format!(
             "{stale} {} schon lange",
@@ -292,7 +306,7 @@ pub fn today(store: &Store) -> String {
         ));
     }
     if !parts.is_empty() {
-        let next = if stale > 0 {
+        let next = if stale + overdue > 0 {
             "fokus aufräumen"
         } else {
             "fokus alles"
@@ -1025,6 +1039,67 @@ pub fn waiting(store: &Store) -> String {
     out
 }
 
+/// `fokus archiv` – Erledigtes und Gestrichenes der letzten 14 Tage.
+pub fn archive(store: &Store) -> String {
+    let today = store.today;
+    let mut list: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.is_restorable(today))
+        .collect();
+    if list.is_empty() {
+        return format!(
+            "\n Im Archiv ist nichts. {}\n",
+            term::dim(&format!(
+                "Erledigtes und Gestrichenes bleibt hier {KEEP_DAYS} Tage."
+            ))
+        );
+    }
+    list.sort_by_key(|t| std::cmp::Reverse(t.done_on.or(t.archived_on)));
+    let when = |d: Option<NaiveDate>| match d.map(|d| (today - d).num_days()) {
+        Some(0) => "heute".to_string(),
+        Some(1) => "gestern".to_string(),
+        Some(n) => format!("vor {n} Tagen"),
+        None => String::new(),
+    };
+    let rows = |status: Status| -> Vec<Row> {
+        list.iter()
+            .filter(|t| t.status == status)
+            .map(|t| Row {
+                nr: t.nr,
+                mark: if status == Status::Done { "✓" } else { "×" },
+                text: t.display(),
+                mid: (when(t.done_on.or(t.archived_on)), Tone::Dim),
+                right: topic_cell(store, t),
+                faded: false,
+            })
+            .collect()
+    };
+    let blocks = vec![
+        Block {
+            title: "ERLEDIGT".into(),
+            hint: String::new(),
+            rows: rows(Status::Done),
+            note: None,
+        },
+        Block {
+            title: "GESTRICHEN".into(),
+            hint: String::new(),
+            rows: rows(Status::Archived),
+            note: None,
+        },
+    ];
+    let mut out = String::from("\n");
+    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&format!(
+        " {}\n",
+        term::dim(&format!(
+            "Zurückholen: fokus zurück <Nr> · nach {KEEP_DAYS} Tagen löscht Fokus endgültig"
+        ))
+    ));
+    out
+}
+
 /// `fokus hilfe`
 pub fn help(path: &Path) -> String {
     let rows: &[(&str, &str)] = &[
@@ -1065,8 +1140,13 @@ pub fn help(path: &Path) -> String {
         ),
         (
             "fokus streichen 4",
-            "streicht Aufgabe 4 (sie bleibt im Archiv)",
+            "streicht Aufgabe 4 (14 Tage im Archiv)",
         ),
+        (
+            "fokus archiv",
+            "zeigt Erledigtes und Gestrichenes, 14 Tage lang",
+        ),
+        ("fokus zurück 4", "holt Aufgabe 4 aus dem Archiv zurück"),
         (
             "fokus aufräumen",
             "geht liegengebliebene Aufgaben mit dir durch",
@@ -1096,7 +1176,7 @@ pub fn help(path: &Path) -> String {
     }
     out.push_str(&format!(
         "\n {}\n {}\n {}\n",
-        term::dim("Termine: heute, morgen, übermorgen, freitag, 3.12., in 2 wochen, nächste woche"),
+        term::dim("Termine: heute, morgen, freitag, 3.12., in 2 wochen · jeden montag, alle 2 wochen freitag"),
         term::dim("Statt „fokus“ geht auch „f“, wenn du „fokus einrichten“ benutzt hast."),
         term::dim(&format!("Deine Aufgaben liegen in {}", path.display())),
     ));
@@ -1110,9 +1190,12 @@ pub fn summary(store: &Store, t: &Task) -> String {
         Some(n) => parts.push(n),
         None => parts.push("im Eingang, ohne Thema".into()),
     }
+    if let (Some(n), Some(d)) = (t.every, t.due) {
+        parts.push(format!("↻ {}", date::recurrence_label(n, d)));
+    }
     if let Some(d) = t.due {
         parts.push(match (d - store.today).num_days() {
-            -6..=6 => format!("{} ({})", date::due_label(d, store.today), date::exact(d)),
+            -6..=2 => format!("{} ({})", date::due_label(d, store.today), date::exact(d)),
             _ => format!("fällig {}", date::exact(d)),
         });
     }

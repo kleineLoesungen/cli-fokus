@@ -63,6 +63,18 @@ fokus + Präsentation vorbereiten #arbeit morgen
 etwas **heute** fällig, kommt es gleich auf die Liste für heute, solange dort
 Platz ist.
 
+Was regelmäßig ansteht, bekommt eine **Wiederholung** am Ende:
+
+```
+fokus + Wochenplan schreiben #arbeit jeden montag
+fokus + Pflanzen gießen alle 2 wochen am freitag
+```
+
+Hakst du sie ab, legt Fokus gleich die nächste an. Verpasst du einen Termin,
+rückt sie zum nächsten weiter, statt sich zu stapeln. Ändern geht mit
+`fokus ändern 4 alle 4 wochen montag`, beenden mit `ohne wiederholung` oder
+`fokus streichen 4`.
+
 Bei Zeichen wie `'` oder `?` im Text: nur `fokus +` tippen, dann fragt Fokus.
 
 ### Etwas hat sich geändert
@@ -70,7 +82,7 @@ Bei Zeichen wie `'` oder `?` im Text: nur `fokus +` tippen, dann fragt Fokus.
 ```
 fokus ändern 4 #haus @tom freitag     Thema, Person, Termin
 fokus ändern 4 Keller und Dachboden   neuer Text, der Rest bleibt
-fokus ändern 4 ohne termin            auch: ohne thema, ohne @anna
+fokus ändern 4 ohne termin            auch: ohne thema, ohne @anna, ohne wiederholung
 ```
 
 ### Jetzt loslegen
@@ -104,6 +116,25 @@ fokus alles
 **Planen** ist die wertvollste Ecke: Das drängelt nie und geht darum am
 leichtesten unter. Was unter **Streichen?** 30 Tage ohne Termin liegt, räumt
 Fokus selbst ins Archiv.
+
+### Versehentlich abgehakt?
+
+```
+fokus archiv
+```
+```
+ ERLEDIGT
+   2 ✓ Pflanzen gießen                                             heute  Haus
+
+ GESTRICHEN
+   3 × Reisekosten abrechnen                                       gestern
+
+ Zurückholen: fokus zurück <Nr> · nach 14 Tagen löscht Fokus endgültig
+```
+
+`fokus zurück 2` holt die Aufgabe zurück, auf heute, wenn sie dort stand.
+Erledigtes und Gestrichenes behält seine Nummer, solange es im Archiv steht,
+und ist nach **14 Tagen endgültig weg**.
 
 ### Woran hänge ich in einem Thema?
 
@@ -180,12 +211,14 @@ Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
 fokus aufräumen
 ```
 
-Fokus geht alles durch, was seit zwei Wochen liegt (oder seit einer Woche bei
-jemand anderem). Eine Taste je Aufgabe:
+Fokus geht durch, was **überfällig** ist (ab dem Tag nach dem Termin) und was
+seit zwei Wochen liegt (oder seit einer Woche bei jemand anderem). Eine Taste
+je Aufgabe:
 
 ```
- Keller ausmisten · Haus · seit 18 Tagen
- [h] heute  [w] diese Woche  [t] anderes Thema  [b] behalten  [f] erledigt  [x] streichen
+ Steuer abgeben · kein Thema · seit gestern fällig · seit gestern
+ [h] heute  [n] neuer Termin  [w] diese Woche  [t] Thema geben
+ [b] behalten  [f] erledigt  [x] streichen
 ```
 
 Bei Abgegebenem gibt es zusätzlich `[n] nachhaken` (legt „Bei Tom nachhaken: …“
@@ -201,7 +234,8 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus + Text #thema @person termin` | aufschreiben |
 | `fokus heute 4` · `später 4` · `fertig 4` | Liste für heute |
 | `fokus ändern 4 …` | Text, Thema, Person, Termin ändern |
-| `fokus streichen 4` | weg damit (bleibt im Archiv der Datei) |
+| `fokus streichen 4` | weg damit (14 Tage im Archiv) |
+| `fokus archiv` · `fokus zurück 4` | Erledigtes ansehen · zurückholen |
 | `fokus jetzt` | nur eine Aufgabe, mit Uhr |
 | `fokus alles` | die vier Felder |
 | `fokus #arbeit` · `fokus themen` | ein Thema · alle Themen |
@@ -213,7 +247,7 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus hilfe` | diese Liste |
 
 Statt `fokus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
-Befehle, Nummern samt Text, `#themen`, `@personen` und Termine.
+Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen.
 
 ---
 
@@ -221,8 +255,9 @@ Befehle, Nummern samt Text, `#themen`, `@personen` und Termine.
 
 Alles steht in einer Textdatei: `Dokumente/Fokus.md`. Du kannst sie mit jedem
 Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
-reparieren #haus` reicht, den Rest ergänzt Fokus. Kein Konto, keine Cloud –
-außer dein Mac sichert den Ordner Dokumente in iCloud.
+reparieren #haus` reicht, den Rest ergänzt Fokus. Erledigtes und Gestrichenes
+löscht Fokus nach 14 Tagen. Kein Konto, keine Cloud – außer dein Mac sichert
+den Ordner Dokumente in iCloud.
 
 ## Was Fokus absichtlich nicht kann
 

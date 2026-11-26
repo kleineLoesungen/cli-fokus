@@ -7,6 +7,8 @@ use crate::{date, tags};
 pub struct Parsed {
     pub text: String,
     pub due: Option<NaiveDate>,
+    /// Wiederholung alle so viele Wochen (der Wochentag ist der des Termins).
+    pub every: Option<u32>,
 }
 
 /// Der Termin steht am Ende (`#thema` und `@person` dürfen dahinter stehen).
@@ -26,6 +28,22 @@ fn parse(input: &str, today: NaiveDate, min_words: usize) -> Parsed {
     let words: Vec<usize> = (0..tokens.len())
         .filter(|&i| !tags::is_tag(tokens[i], '#') && !tags::is_tag(tokens[i], '@'))
         .collect();
+    // Erst eine Wiederholung („jeden montag“, „alle 2 wochen am freitag“) …
+    for k in (1..=5).rev() {
+        if words.len() < k + min_words {
+            continue;
+        }
+        let tail = &words[words.len() - k..];
+        let phrase: Vec<String> = tail.iter().map(|&i| tokens[i].to_string()).collect();
+        if let Some((every, due)) = date::parse_recurrence(&phrase, today) {
+            return Parsed {
+                text: without(&tokens, tail),
+                due: Some(due),
+                every: Some(every),
+            };
+        }
+    }
+    // … sonst ein einzelner Termin.
     for k in (1..=4).rev() {
         // Beim Aufschreiben muss mindestens ein Wort als Text übrig bleiben.
         if words.len() < k + min_words {
@@ -34,21 +52,26 @@ fn parse(input: &str, today: NaiveDate, min_words: usize) -> Parsed {
         let tail = &words[words.len() - k..];
         let phrase: Vec<String> = tail.iter().map(|&i| tokens[i].to_string()).collect();
         if let Some(due) = date::parse_phrase(&phrase, today) {
-            let text = (0..tokens.len())
-                .filter(|i| !tail.contains(i))
-                .map(|i| tokens[i])
-                .collect::<Vec<_>>()
-                .join(" ");
             return Parsed {
-                text,
+                text: without(&tokens, tail),
                 due: Some(due),
+                every: None,
             };
         }
     }
     Parsed {
         text: tokens.join(" "),
         due: None,
+        every: None,
     }
+}
+
+fn without(tokens: &[&str], skip: &[usize]) -> String {
+    (0..tokens.len())
+        .filter(|i| !skip.contains(i))
+        .map(|i| tokens[i])
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -98,6 +121,20 @@ mod tests {
     #[test]
     fn nur_ein_termin_ist_keine_aufgabe() {
         assert_eq!(p("morgen"), ("morgen".into(), None));
+    }
+
+    #[test]
+    fn wiederholung_am_ende() {
+        let r = parse_new("Wochenplan schreiben #arbeit jeden montag", heute());
+        assert_eq!(r.text, "Wochenplan schreiben #arbeit");
+        assert_eq!(r.every, Some(1));
+        assert_eq!(r.due.map(date::to_file), Some("30.11.2026".into()));
+        let r = parse_new("Pflanzen gießen alle 2 wochen am freitag", heute());
+        assert_eq!(r.text, "Pflanzen gießen");
+        assert_eq!(r.every, Some(2));
+        let r = parse_change("alle 4 wochen montag", heute());
+        assert_eq!(r.text, "");
+        assert_eq!(r.every, Some(4));
     }
 
     #[test]

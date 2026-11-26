@@ -22,6 +22,8 @@ const COMMANDS: &[(&str, &str)] = &[
     ("abgeben", "Aufgabe an jemanden geben"),
     ("warten", "alles, was bei anderen liegt"),
     ("streichen", "Aufgabe streichen"),
+    ("archiv", "Erledigtes und Gestrichenes, 14 Tage"),
+    ("zurück", "aus dem Archiv zurückholen"),
     ("aufräumen", "Liegengebliebenes durchgehen"),
     ("datei", "Aufgabendatei öffnen"),
     ("einrichten", "Kurzbefehl und Tab-Taste einrichten"),
@@ -41,6 +43,8 @@ const DATE_WORDS: &[&str] = &[
     "samstag",
     "sonntag",
     "wochenende",
+    "jeden",
+    "alle",
 ];
 
 /// Vorschläge für das letzte Wort in `words` (es darf leer sein).
@@ -84,6 +88,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
         }
         "fertig" | "erledigt" | "streichen" | "löschen" | "loeschen" => nrs(&|_| true),
         "später" | "spaeter" => nrs(&|t| t.status == Status::Today),
+        "zurück" | "zurueck" | "rückgängig" => archived(store, &mentioned),
         "jetzt" if prev.len() == 1 => nrs(&|t| t.status != Status::Waiting),
         "abgeben" if prev.len() == 1 => nrs(&|t| t.status != Status::Waiting),
         "abgeben" if prev.len() == 2 => persons(store),
@@ -127,6 +132,10 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
                         "thema".to_string(),
                         "thema           Thema entfernen".to_string(),
                     ),
+                    (
+                        "wiederholung".to_string(),
+                        "wiederholung    Wiederholung beenden".to_string(),
+                    ),
                 ];
                 v.extend(persons(store));
                 v
@@ -145,7 +154,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
                                 if w == "ohne" {
                                     "etwas entfernen"
                                 } else {
-                                    "Termin"
+                                    date_word_hint(w)
                                 }
                             ),
                         )
@@ -163,7 +172,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
                 DATE_WORDS
                     .iter()
                     .filter(|w| w.starts_with(&c))
-                    .map(|w| (w.to_string(), format!("{w:<16}Termin")))
+                    .map(|w| (w.to_string(), format!("{w:<16}{}", date_word_hint(w))))
                     .collect()
             } else {
                 Vec::new()
@@ -194,6 +203,36 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<(String, String)>
                 }
                 _ => {}
             }
+            (t.nr.to_string(), term::truncate(&d, 70))
+        })
+        .collect()
+}
+
+fn date_word_hint(w: &str) -> &'static str {
+    match w {
+        "jeden" => "Wiederholung: jeden montag",
+        "alle" => "Wiederholung: alle 2 wochen freitag",
+        _ => "Termin",
+    }
+}
+
+/// Was im Archiv steht, mit Text – für `fokus zurück`.
+fn archived(store: &Store, skip: &[u32]) -> Vec<(String, String)> {
+    let mut tasks: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.is_restorable(store.today) && !skip.contains(&t.nr))
+        .collect();
+    tasks.sort_by_key(|t| t.nr);
+    tasks
+        .iter()
+        .map(|t| {
+            let how = if t.status == Status::Done {
+                "erledigt"
+            } else {
+                "gestrichen"
+            };
+            let d = format!("{:<4}{}  · {how}", t.nr, t.display());
             (t.nr.to_string(), term::truncate(&d, 70))
         })
         .collect()
@@ -348,7 +387,7 @@ mod tests {
         assert_eq!(werte(&["ändern", "2", "oh"]), vec!["ohne"]);
         assert_eq!(
             werte(&["ändern", "2", "ohne", ""]),
-            vec!["termin", "thema", "@anna", "@tom"]
+            vec!["termin", "thema", "wiederholung", "@anna", "@tom"]
         );
         assert_eq!(werte(&["themen", ""]), vec!["ordnen", "umbenennen"]);
         assert_eq!(
@@ -356,6 +395,16 @@ mod tests {
             vec!["arbeit", "eigenes-projekt", "haus"]
         );
         assert!(werte(&["themen", "umbenennen", "haus", ""]).is_empty());
+    }
+
+    #[test]
+    fn zurueck_bietet_nur_das_archiv() {
+        let mut s = store();
+        crate::ops::done(&mut s, 2).unwrap();
+        let w: Vec<String> = ["zurück", ""].iter().map(|s| s.to_string()).collect();
+        let v: Vec<String> = candidates(&s, &w).into_iter().map(|(v, _)| v).collect();
+        assert_eq!(v, vec!["2"]);
+        assert_eq!(werte(&["+", "Plan", "je"]), vec!["jeden"]);
     }
 
     #[test]

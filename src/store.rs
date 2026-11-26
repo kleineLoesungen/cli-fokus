@@ -24,6 +24,8 @@ pub const STALE_OPEN_DAYS: i64 = 14;
 pub const STALE_WAITING_DAYS: i64 = 7;
 /// Unwichtiges ohne Termin wandert nach so vielen Tagen ins Archiv.
 pub const ARCHIVE_DAYS: i64 = 30;
+/// So lange stehen Erledigtes und Gestrichenes im Archiv; danach löscht Fokus sie.
+pub const KEEP_DAYS: i64 = 14;
 
 const HEADER: &str = "# Fokus\n\n\
 Deine Aufgaben. Du darfst diese Datei mit jedem Texteditor ändern;\n\
@@ -53,6 +55,8 @@ pub struct Task {
     /// Nur bei erledigten: stand heute auf der Liste für heute.
     pub on_today: bool,
     pub archived_on: Option<NaiveDate>,
+    /// Wiederholung: alle so viele Wochen, am Wochentag des Termins.
+    pub every: Option<u32>,
 }
 
 impl Task {
@@ -67,11 +71,26 @@ impl Task {
             done_on: None,
             on_today: false,
             archived_on: None,
+            every: None,
         }
     }
 
     pub fn is_active(&self) -> bool {
         matches!(self.status, Status::Today | Status::Open | Status::Waiting)
+    }
+
+    /// Seit wie vielen Tagen erledigt oder gestrichen (sonst `None`).
+    pub fn inactive_age(&self, today: NaiveDate) -> Option<i64> {
+        match self.status {
+            Status::Done => self.done_on.map(|d| (today - d).num_days()),
+            Status::Archived => self.archived_on.map(|d| (today - d).num_days()),
+            _ => None,
+        }
+    }
+
+    /// Steht im Archiv und lässt sich mit `fokus zurück` holen.
+    pub fn is_restorable(&self, today: NaiveDate) -> bool {
+        self.inactive_age(today).is_some_and(|a| a <= KEEP_DAYS)
     }
 
     /// Das erste `#thema` im Text.
@@ -259,6 +278,24 @@ impl Store {
             }
         }
 
+        // Nach 14 Tagen im Archiv ist etwas endgültig weg.
+        self.tasks
+            .retain(|t| t.inactive_age(today).is_none_or(|a| a <= KEEP_DAYS));
+
+        // Verpasste Wiederholung: Ist der nächste Termin erreicht, rückt sie dorthin.
+        for t in &mut self.tasks {
+            if t.is_active()
+                && let Some(n) = t.every
+            {
+                let step = chrono::Days::new(7 * n as u64);
+                let mut due = t.due.unwrap_or(today);
+                while due + step <= today {
+                    due = due + step;
+                }
+                t.due = Some(due);
+            }
+        }
+
         // Ein neuer Tag: Liegengebliebenes zurück, dann ein frischer Vorschlag.
         let new_day = list_date != Some(today);
         let mut leftovers = Vec::new();
@@ -292,11 +329,11 @@ impl Store {
         }
         if archived == 1 {
             self.messages.push(format!(
-                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv deiner Datei."
+                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv: fokus archiv"
             ));
         } else if archived > 1 {
             self.messages.push(format!(
-                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv deiner Datei."
+                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv: fokus archiv"
             ));
         }
 
@@ -376,9 +413,9 @@ impl Store {
         self.suggested = !picks.is_empty();
     }
 
-    /// Jede offene Aufgabe bekommt eine Nummer; freie Nummern werden wieder vergeben,
-    /// aber nicht am selben Tag. Wer nach einer älteren Ansicht `fokus fertig 2`
-    /// tippt, soll nicht eine ganz andere Aufgabe erwischen.
+    /// Jede offene Aufgabe bekommt eine Nummer. Was im Archiv steht, behält seine
+    /// Nummer, solange es dort steht: So bleibt `fokus zurück 3` eindeutig, und wer
+    /// nach einer älteren Ansicht `fokus fertig 2` tippt, erwischt keine andere.
     fn assign_numbers(&mut self) {
         let today = self.today;
         let mut used = HashSet::new();
@@ -388,16 +425,13 @@ impl Store {
             }
         }
         for t in &mut self.tasks {
-            if !t.is_active() {
-                let freed_today = t.done_on == Some(today) || t.archived_on == Some(today);
-                if !freed_today || t.nr == 0 || !used.insert(t.nr) {
-                    t.nr = 0;
-                }
+            if !t.is_active() && (!t.is_restorable(today) || t.nr == 0 || !used.insert(t.nr)) {
+                t.nr = 0;
             }
         }
         let mut next = 1;
         for t in &mut self.tasks {
-            if t.is_active() && t.nr == 0 {
+            if (t.is_active() || t.is_restorable(today)) && t.nr == 0 {
                 while used.contains(&next) {
                     next += 1;
                 }
@@ -431,6 +465,16 @@ impl Store {
 
     pub fn all_topics(&self) -> impl Iterator<Item = &String> {
         self.important.iter().chain(self.other.iter())
+    }
+
+    /// Eine erledigte oder gestrichene Aufgabe, die noch im Archiv steht.
+    pub fn find_restorable(&self, nr: u32) -> Option<usize> {
+        if nr == 0 {
+            return None;
+        }
+        self.tasks
+            .iter()
+            .position(|t| !t.is_active() && t.nr == nr && t.is_restorable(self.today))
     }
 
     pub fn find(&self, nr: u32) -> Option<usize> {
@@ -477,6 +521,13 @@ impl Store {
     pub fn is_urgent(&self, t: &Task) -> bool {
         t.due
             .is_some_and(|d| (d - self.today).num_days() <= URGENT_DAYS)
+    }
+
+    /// Termin verstrichen und nicht auf heute. Wiederholungen rücken selbst weiter.
+    pub fn is_overdue(&self, t: &Task) -> bool {
+        matches!(t.status, Status::Open | Status::Waiting)
+            && t.every.is_none()
+            && t.due.is_some_and(|d| d < self.today)
     }
 
     pub fn is_stale(&self, t: &Task) -> bool {
@@ -664,6 +715,7 @@ enum Meta {
     WaitingFor(String),
     DoneOn(NaiveDate),
     ArchivedOn(NaiveDate),
+    Every(u32),
 }
 
 fn parse_meta(inner: &str) -> Option<Vec<Meta>> {
@@ -686,6 +738,12 @@ fn parse_meta(inner: &str) -> Option<Vec<Meta>> {
             Meta::DoneOn(date::from_file(r)?)
         } else if let Some(r) = p.strip_prefix("archiviert") {
             Meta::ArchivedOn(date::from_file(r)?)
+        } else if p.eq_ignore_ascii_case("jede Woche") {
+            Meta::Every(1)
+        } else if let Some(r) = p.strip_prefix("alle")
+            && let Some(n) = r.trim().strip_suffix("Wochen")
+        {
+            Meta::Every(n.trim().parse().ok().filter(|&n| n > 0)?)
         } else {
             return None;
         };
@@ -737,6 +795,7 @@ fn parse_task(
             Meta::WaitingFor(p) => t.waiting_for = Some(p),
             Meta::DoneOn(d) => t.done_on = Some(d),
             Meta::ArchivedOn(d) => t.archived_on = Some(d),
+            Meta::Every(n) => t.every = Some(n),
         }
     }
     t.status = match section {
@@ -769,11 +828,14 @@ fn parse_task(
 fn line(t: &Task) -> String {
     let mut meta = Vec::new();
     if !t.is_active() && t.nr > 0 {
-        // Bleibt bis morgen reserviert, siehe `assign_numbers`.
+        // Bleibt reserviert, solange es im Archiv steht, siehe `assign_numbers`.
         meta.push(format!("Nr. {}", t.nr));
     }
     match t.status {
         Status::Done => {
+            if let Some(d) = t.due {
+                meta.push(format!("fällig {}", date::to_file(d)));
+            }
             if let Some(d) = t.done_on {
                 meta.push(format!("erledigt {}", date::to_file(d)));
             }
@@ -796,6 +858,11 @@ fn line(t: &Task) -> String {
             }
             meta.push(format!("seit {}", date::to_file(t.since)));
         }
+    }
+    match t.every {
+        Some(1) => meta.push("jede Woche".into()),
+        Some(n) => meta.push(format!("alle {n} Wochen")),
+        None => {}
     }
     let check = if t.status == Status::Done { "x" } else { " " };
     format!("- [{check}] {}  [{}]\n", t.text, meta.join(" · "))
@@ -936,10 +1003,10 @@ mod tests {
         );
         // Das Erledigte von gestern zählt heute nicht mehr mit.
         assert!(s.done_today().is_empty());
-        assert!(
-            s.render()
-                .contains("## Erledigt\n- [x] Angebot schicken #arbeit  [erledigt 26.11.2026]")
-        );
+        // Erledigtes behält seine Nummer, solange es im Archiv steht.
+        assert!(s.render().contains(
+            "## Erledigt\n- [x] Angebot schicken #arbeit  [Nr. 1 · erledigt 26.11.2026]"
+        ));
     }
 
     #[test]
@@ -965,6 +1032,42 @@ mod tests {
         let s = lies("## Offen\nirgendein Gedanke\n\n## Notizen\nIdee für später\n");
         let out = s.render();
         assert!(out.contains("## Notizen\nirgendein Gedanke\nIdee für später\n"));
+    }
+
+    #[test]
+    fn nach_14_tagen_ist_das_archiv_weg() {
+        let s = lies(
+            "## Erledigt\n\
+             - [x] Frisch  [Nr. 4 · erledigt 13.11.2026]\n\
+             - [x] Alt  [Nr. 5 · erledigt 11.11.2026]\n\
+             ## Archiv\n\
+             - [ ] Gestrichen  [archiviert 20.11.2026]\n",
+        );
+        let texte: Vec<&str> = s.tasks.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(texte, vec!["Frisch", "Gestrichen"]);
+        // Was im Archiv steht, hat eine Nummer zum Zurückholen.
+        assert!(s.find_restorable(4).is_some());
+        assert!(s.tasks[1].nr > 0);
+        assert!(s.find(4).is_none());
+    }
+
+    #[test]
+    fn verpasste_wiederholung_rueckt_weiter() {
+        // 26.11.2026 ist ein Donnerstag; fällig war Montag, der 9.11.
+        let s = lies(
+            "## Offen\n- [ ] Wochenplan  [Nr. 1 · fällig 09.11.2026 · seit 01.11.2026 · jede Woche]\n",
+        );
+        assert_eq!(s.tasks[0].due, Some(tag(2026, 11, 23)));
+        let s = lies(
+            "## Offen\n- [ ] Gießen  [Nr. 1 · fällig 09.11.2026 · seit 01.11.2026 · alle 2 Wochen]\n",
+        );
+        assert_eq!(s.tasks[0].due, Some(tag(2026, 11, 23)));
+        assert!(s.render().contains("alle 2 Wochen]"));
+        let s = lies(
+            "## Offen\n- [ ] Miete  [Nr. 1 · fällig 16.11.2026 · seit 01.11.2026 · alle 4 Wochen]\n",
+        );
+        assert_eq!(s.tasks[0].due, Some(tag(2026, 11, 16)));
+        assert!(!s.is_overdue(&s.tasks[0]));
     }
 
     #[test]

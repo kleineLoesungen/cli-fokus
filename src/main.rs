@@ -138,6 +138,12 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             println!();
             print!("{}", view::today(store));
         }
+        Some("zurück" | "zurueck" | "rückgängig") => {
+            for nr in numbers(rest, "zurück")? {
+                println!("{}", ops::restore(store, nr)?);
+            }
+        }
+        Some("archiv") => print!("{}", view::archive(store)),
         Some("streichen" | "löschen" | "loeschen") => {
             for nr in numbers(rest, "streichen")? {
                 println!("{}", ops::strike(store, nr)?);

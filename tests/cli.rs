@@ -99,7 +99,7 @@ fn heute_hat_hoechstens_drei_plaetze() {
 }
 
 #[test]
-fn eine_erledigte_nummer_wird_erst_morgen_neu_vergeben() {
+fn eine_erledigte_nummer_bleibt_14_tage_im_archiv_reserviert() {
     let s = Sandbox::new("nummern");
     s.ok(&["+", "Erste"]);
     s.ok(&["+", "Zweite"]);
@@ -107,8 +107,15 @@ fn eine_erledigte_nummer_wird_erst_morgen_neu_vergeben() {
     assert!(s.ok(&["+", "Dritte"]).contains("Aufgabe 3:"));
     assert!(
         s.ok_on("2026-11-27", &["+", "Vierte"])
+            .contains("Aufgabe 4:")
+    );
+    assert!(s.ok_on("2026-11-27", &["archiv"]).contains("Erste"));
+    // Nach 14 Tagen ist sie endgültig weg, und die Nummer ist wieder frei.
+    assert!(
+        s.ok_on("2026-12-11", &["+", "Fünfte"])
             .contains("Aufgabe 1:")
     );
+    assert!(!s.ok_on("2026-12-11", &["archiv"]).contains("Erste"));
 }
 
 #[test]
@@ -238,4 +245,28 @@ fn warten_zeigt_das_aelteste_zuerst() {
     assert!(alt < neu, "{out}");
     assert!(out.contains("seit 16 Tagen"));
     assert!(out.contains("nachhaken"));
+}
+
+#[test]
+fn versehentlich_abgehakt_kommt_zurueck() {
+    let s = Sandbox::new("zurueck");
+    s.ok(&["+", "Präsentation"]);
+    s.ok(&["heute", "1"]);
+    let out = s.ok(&["fertig", "1"]);
+    assert!(out.contains("Versehen? fokus zurück 1"));
+    assert!(s.ok(&["zurück", "1"]).contains("wieder auf heute"));
+    assert!(s.ok(&[]).contains("1 ▶ Präsentation"));
+}
+
+#[test]
+fn ueberfaelliges_erscheint_am_naechsten_tag_im_aufraeumen() {
+    let s = Sandbox::new("ueberfaellig");
+    // Ohne Thema, also unwichtig: Fokus schlägt sie morgens nicht für heute vor.
+    s.ok(&["+", "Steuer", "heute"]);
+    s.ok(&["später", "1"]);
+    assert!(s.ok(&["aufräumen"]).contains("Alles frisch"));
+    let out = s.ok_on("2026-11-27", &["aufräumen"]);
+    assert!(out.contains("Steuer"), "{out}");
+    assert!(out.contains("seit gestern fällig"));
+    assert!(s.ok_on("2026-11-27", &[]).contains("1 überfällig"));
 }

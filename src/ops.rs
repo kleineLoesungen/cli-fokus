@@ -1,6 +1,8 @@
 //! Was die Befehle an den Aufgaben ändern. Jede Funktion liefert die Rückmeldung als Text.
 
 use crate::store::{IMPORTANT_LIMIT, Status, Store, TODAY_LIMIT, Task};
+use chrono::Days;
+
 use crate::{date, input, tags, term, view};
 
 pub fn not_found(nr: u32) -> String {
@@ -17,7 +19,8 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     if parsed.text.trim().is_empty() {
         return Err("Da fehlt noch, was zu tun ist.".into());
     }
-    let task = Task::new(parsed.text, parsed.due, store.today);
+    let mut task = Task::new(parsed.text, parsed.due, store.today);
+    task.every = parsed.every;
     let mut notes = Vec::new();
     if let Some(tag) = task.topic_tag()
         && let Some(above) = store.ensure_topic(&tag)
@@ -114,6 +117,26 @@ pub fn done(store: &mut Store, nr: u32) -> Result<String, String> {
     t.status = Status::Done;
     t.done_on = Some(today);
     let mut msg = format!(" {} Erledigt: {}", term::green("✓"), t.display());
+    // Eine Wiederholung legt beim Abhaken die nächste an.
+    if let (Some(n), Some(due)) = (t.every, t.due) {
+        let step = Days::new(7 * n as u64);
+        let mut next = due + step;
+        while next <= today {
+            next = next + step;
+        }
+        let mut again = Task::new(t.text.clone(), Some(next), today);
+        again.every = Some(n);
+        let j = store.add_task(again);
+        msg.push_str(&format!(
+            "\n   ↻ Nächstes Mal: Aufgabe {}, fällig {}",
+            store.tasks[j].nr,
+            date::exact(next)
+        ));
+    }
+    msg.push_str(&format!(
+        "\n   {}",
+        term::dim(&format!("Versehen? fokus zurück {nr}"))
+    ));
     if was_today && store.today_open().is_empty() {
         msg.push_str(&format!(
             "\n   {}",
@@ -141,11 +164,64 @@ pub fn strike(store: &mut Store, nr: u32) -> Result<String, String> {
     let t = &mut store.tasks[i];
     t.status = Status::Archived;
     t.archived_on = Some(today);
+    let series = if t.every.is_some() {
+        " Die Wiederholung endet damit."
+    } else {
+        ""
+    };
     Ok(format!(
-        " Gestrichen: {}\n   {}",
+        " Gestrichen: {}.{series}\n   {}",
         t.display(),
-        term::dim("Sie steht noch im Archiv deiner Datei (fokus datei).")
+        term::dim(&format!(
+            "14 Tage lang im Archiv. Zurückholen: fokus zurück {nr}"
+        ))
     ))
+}
+
+/// `fokus zurück 4` – holt Erledigtes oder Gestrichenes aus dem Archiv.
+pub fn restore(store: &mut Store, nr: u32) -> Result<String, String> {
+    let i = store.find_restorable(nr).ok_or_else(|| {
+        format!("Im Archiv gibt es keine Aufgabe {nr}. Was drin steht, zeigt: fokus archiv")
+    })?;
+    let today = store.today;
+    let old = store.tasks[i].clone();
+    // Beim Abhaken einer Wiederholung entstand die nächste – die wird wieder entfernt.
+    let mut note = String::new();
+    if old.status == Status::Done && old.every.is_some() {
+        let next = store.tasks.iter().position(|t| {
+            t.is_active()
+                && t.text == old.text
+                && t.every == old.every
+                && t.since == today
+                && t.due > old.due
+        });
+        if let Some(j) = next {
+            let removed = store.tasks.remove(j);
+            note = format!(
+                " Die schon angelegte nächste (Aufgabe {}) ist wieder weg.",
+                removed.nr
+            );
+        }
+    }
+    let i = store.find_restorable(nr).expect("eben gefunden");
+    let back_today =
+        old.status == Status::Done && old.on_today && store.today_open().len() < TODAY_LIMIT;
+    let t = &mut store.tasks[i];
+    t.status = if back_today {
+        Status::Today
+    } else {
+        Status::Open
+    };
+    t.done_on = None;
+    t.archived_on = None;
+    t.on_today = false;
+    t.since = today;
+    let place = if back_today {
+        "wieder auf heute"
+    } else {
+        "wieder offen"
+    };
+    Ok(format!(" Aufgabe {nr} ist {place}: {}.{note}", t.display()))
 }
 
 /// `fokus abgeben 4 @tom`
@@ -212,6 +288,7 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
     let mut clear_due = false;
     let mut clear_topic = false;
     let mut drop_persons: Vec<String> = Vec::new();
+    let mut clear_every = false;
     let mut rest: Vec<&str> = Vec::new();
     let mut k = 0;
     while k < tokens.len() {
@@ -220,6 +297,11 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
             let handled = match next.to_lowercase().as_str() {
                 "termin" | "datum" => {
                     clear_due = true;
+                    clear_every = true;
+                    true
+                }
+                "wiederholung" => {
+                    clear_every = true;
                     true
                 }
                 "thema" => {
@@ -258,6 +340,7 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
         .filter(|w| !tags::is_tag(w, '#') && !tags::is_tag(w, '@'))
         .collect();
     if parsed.due.is_none()
+        && !clear_every
         && !clear_due
         && !clear_topic
         && drop_persons.is_empty()
@@ -321,6 +404,11 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
         t.due = Some(d);
     } else if clear_due {
         t.due = None;
+    }
+    if parsed.every.is_some() {
+        t.every = parsed.every;
+    } else if clear_every {
+        t.every = None;
     }
     t.since = today;
     if parsed.due.is_some()
@@ -712,6 +800,52 @@ mod tests {
         let msg = change(&mut s, 4, "heute").unwrap();
         assert!(msg.contains("fokus heute 4 statt <Nr>"), "{msg}");
         assert_eq!(s.today_open().len(), 3);
+    }
+
+    #[test]
+    fn wiederholung_legt_beim_abhaken_die_naechste_an() {
+        let mut s = leer();
+        let msg = add(&mut s, "Wochenplan #arbeit jeden montag").unwrap();
+        assert!(msg.contains("jeden Montag"), "{msg}");
+        let msg = done(&mut s, 1).unwrap();
+        assert!(
+            msg.contains("Nächstes Mal: Aufgabe 2, fällig Montag 7.12."),
+            "{msg}"
+        );
+        // Versehen: zurück holt die alte und entfernt die nächste wieder.
+        restore(&mut s, 1).unwrap();
+        let offen: Vec<u32> = s
+            .tasks
+            .iter()
+            .filter(|t| t.is_active())
+            .map(|t| t.nr)
+            .collect();
+        assert_eq!(offen, vec![1]);
+        assert_eq!(s.tasks[0].due.map(date::to_file), Some("30.11.2026".into()));
+    }
+
+    #[test]
+    fn zurueck_holt_erledigtes_auf_heute_und_gestrichenes_zurueck() {
+        let mut s = leer();
+        add(&mut s, "A").unwrap();
+        add(&mut s, "B").unwrap();
+        put_today(&mut s, 1, None).unwrap();
+        done(&mut s, 1).unwrap();
+        strike(&mut s, 2).unwrap();
+        assert!(restore(&mut s, 1).unwrap().contains("wieder auf heute"));
+        assert!(restore(&mut s, 2).unwrap().contains("wieder offen"));
+        assert!(restore(&mut s, 2).is_err());
+    }
+
+    #[test]
+    fn aendern_setzt_und_entfernt_die_wiederholung() {
+        let mut s = leer();
+        add(&mut s, "Gießen").unwrap();
+        change(&mut s, 1, "alle 2 wochen freitag").unwrap();
+        assert_eq!(s.tasks[0].every, Some(2));
+        change(&mut s, 1, "ohne wiederholung").unwrap();
+        assert_eq!(s.tasks[0].every, None);
+        assert!(s.tasks[0].due.is_some());
     }
 
     #[test]

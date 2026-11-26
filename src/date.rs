@@ -159,6 +159,40 @@ pub fn parse_phrase(words: &[String], today: NaiveDate) -> Option<NaiveDate> {
     }
 }
 
+/// Liest eine Wiederholung wie `jeden montag`, `jede woche`, `alle 2 wochen freitag`,
+/// `alle 4 wochen am montag`. Ergebnis: alle so viele Wochen, ab diesem Termin.
+pub fn parse_recurrence(words: &[String], today: NaiveDate) -> Option<(u32, NaiveDate)> {
+    let w: Vec<String> = words
+        .iter()
+        .map(|s| {
+            s.to_lowercase()
+                .trim_end_matches([',', '.', '!', '?'])
+                .to_string()
+        })
+        .filter(|s| s != "am")
+        .collect();
+    let at = |wd: &str| weekday_of(wd).map(|d| next_weekday(today, d, false));
+    let (n, due) = match w.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["jeden", wd] => (1, at(wd)?),
+        ["jede", "woche"] | ["wöchentlich"] => (1, today),
+        ["jede", "woche", wd] | ["wöchentlich", wd] => (1, at(wd)?),
+        ["alle", n, "wochen" | "woche"] => (number(n)?, today),
+        ["alle", n, "wochen" | "woche", wd] => (number(n)?, at(wd)?),
+        _ => return None,
+    };
+    let n = u32::try_from(n).ok().filter(|&n| (1..=52).contains(&n))?;
+    Some((n, due))
+}
+
+/// „jeden Montag“, „alle 2 Wochen am Freitag“
+pub fn recurrence_label(every: u32, due: NaiveDate) -> String {
+    if every == 1 {
+        format!("jeden {}", weekday(due))
+    } else {
+        format!("alle {every} Wochen am {}", weekday(due))
+    }
+}
+
 fn single(a: &str, today: NaiveDate) -> Option<NaiveDate> {
     match a {
         "heute" => Some(today),
@@ -180,7 +214,7 @@ fn is_next(a: &str) -> bool {
 
 /// Wochentage, ausgeschrieben oder kurz. „so“ fehlt absichtlich: Es ist zu oft ein
 /// ganz normales Wort am Satzende („… einfach so“).
-fn weekday_of(a: &str) -> Option<Weekday> {
+pub(crate) fn weekday_of(a: &str) -> Option<Weekday> {
     Some(match a {
         "montag" | "mo" => Weekday::Mon,
         "dienstag" | "di" => Weekday::Tue,
@@ -194,7 +228,7 @@ fn weekday_of(a: &str) -> Option<Weekday> {
 }
 
 /// Der nächste solche Wochentag; heute zählt mit, außer `strictly` ist gesetzt.
-fn next_weekday(today: NaiveDate, wd: Weekday, strictly: bool) -> NaiveDate {
+pub(crate) fn next_weekday(today: NaiveDate, wd: Weekday, strictly: bool) -> NaiveDate {
     let now = today.weekday().num_days_from_monday() as i64;
     let target = wd.num_days_from_monday() as i64;
     let mut diff = (target - now).rem_euclid(7);
@@ -204,7 +238,7 @@ fn next_weekday(today: NaiveDate, wd: Weekday, strictly: bool) -> NaiveDate {
     today + Days::new(diff as u64)
 }
 
-fn number(s: &str) -> Option<u64> {
+pub(crate) fn number(s: &str) -> Option<u64> {
     if let Ok(n) = s.parse() {
         return Some(n);
     }
@@ -321,6 +355,32 @@ mod tests {
         assert_eq!(p("absagen"), None);
         assert_eq!(p("in der stadt"), None);
         assert_eq!(p("v2"), None);
+    }
+
+    #[test]
+    fn wiederholungen() {
+        let r = |s: &str| {
+            let w: Vec<String> = s.split_whitespace().map(String::from).collect();
+            parse_recurrence(&w, heute())
+        };
+        assert_eq!(r("jeden montag"), Some((1, d(2026, 11, 30).unwrap())));
+        assert_eq!(r("jeden donnerstag"), Some((1, heute())));
+        assert_eq!(
+            r("alle 2 wochen freitag"),
+            Some((2, d(2026, 11, 27).unwrap()))
+        );
+        assert_eq!(
+            r("alle 4 Wochen am Montag"),
+            Some((4, d(2026, 11, 30).unwrap()))
+        );
+        assert_eq!(r("alle zwei wochen"), Some((2, heute())));
+        assert_eq!(r("jede woche"), Some((1, heute())));
+        assert_eq!(r("jeden tag"), None);
+        assert_eq!(r("alle 0 wochen"), None);
+        assert_eq!(
+            recurrence_label(2, d(2026, 11, 27).unwrap()),
+            "alle 2 Wochen am Freitag"
+        );
     }
 
     #[test]

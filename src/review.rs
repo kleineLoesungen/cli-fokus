@@ -1,33 +1,52 @@
-//! `fokus aufräumen`: eine Taste je liegengebliebener Aufgabe.
+//! `fokus aufräumen`: eine Taste je Aufgabe, die überfällig ist oder lange liegt.
 
 use crate::store::{STALE_OPEN_DAYS, Status, Store};
-use crate::{date, ops, tags, term};
+use crate::{date, input, ops, tags, term};
+
+/// Erst Überfälliges (ab dem Tag nach dem Termin), dann lange Liegendes;
+/// je zuerst, was bei dir liegt, dann, was bei anderen liegt.
+fn candidates(store: &Store) -> Vec<u32> {
+    let pick = |status: Status, overdue: bool| -> Vec<usize> {
+        let mut v: Vec<usize> = (0..store.tasks.len())
+            .filter(|&i| {
+                let t = &store.tasks[i];
+                t.status == status
+                    && if overdue {
+                        store.is_overdue(t)
+                    } else {
+                        !store.is_overdue(t) && store.is_stale(t)
+                    }
+            })
+            .collect();
+        if overdue {
+            v.sort_by_key(|&i| store.tasks[i].due);
+        } else {
+            v.sort_by_key(|&i| store.tasks[i].since);
+        }
+        v
+    };
+    pick(Status::Open, true)
+        .into_iter()
+        .chain(pick(Status::Waiting, true))
+        .chain(pick(Status::Open, false))
+        .chain(pick(Status::Waiting, false))
+        .map(|i| store.tasks[i].nr)
+        .collect()
+}
 
 pub fn run(store: &mut Store) -> Result<(), String> {
-    let mut open: Vec<usize> = (0..store.tasks.len())
-        .filter(|&i| store.tasks[i].status == Status::Open && store.is_stale(&store.tasks[i]))
-        .collect();
-    open.sort_by_key(|&i| store.tasks[i].since);
-    let mut waiting: Vec<usize> = (0..store.tasks.len())
-        .filter(|&i| store.tasks[i].status == Status::Waiting && store.is_stale(&store.tasks[i]))
-        .collect();
-    waiting.sort_by_key(|&i| store.tasks[i].since);
-    let nrs: Vec<u32> = open
-        .into_iter()
-        .chain(waiting)
-        .map(|i| store.tasks[i].nr)
-        .collect();
+    let nrs = candidates(store);
 
     if nrs.is_empty() {
         println!(
-            "\n Alles frisch. Nichts liegt länger als {} Tage herum.",
+            "\n Alles frisch. Nichts ist überfällig, nichts liegt länger als {} Tage.",
             STALE_OPEN_DAYS
         );
         return Ok(());
     }
 
     if !term::is_interactive() {
-        println!("\n Diese Aufgaben liegen schon länger:\n");
+        println!("\n Diese Aufgaben sind überfällig oder liegen schon länger:\n");
         for nr in &nrs {
             let i = store.find(*nr).unwrap();
             println!("   {:>3}  {}", nr, describe(store, i));
@@ -40,9 +59,9 @@ pub fn run(store: &mut Store) -> Result<(), String> {
         "\n {} {}\n {}\n",
         term::bold(&nrs.len().to_string()),
         term::bold(if nrs.len() == 1 {
-            "Aufgabe liegt schon länger."
+            "Aufgabe ist überfällig oder liegt schon länger."
         } else {
-            "Aufgaben liegen schon länger."
+            "Aufgaben sind überfällig oder liegen schon länger."
         }),
         term::dim("Eine Taste je Aufgabe. Enter überspringt, q hört auf.")
     );
@@ -60,7 +79,9 @@ pub fn run(store: &mut Store) -> Result<(), String> {
             } else {
                 "[t] Thema geben"
             };
-            format!("[h] heute  [w] diese Woche  {t}  [b] behalten  [f] erledigt  [x] streichen")
+            format!(
+                "[h] heute  [n] neuer Termin  [w] diese Woche  {t}\n [b] behalten  [f] erledigt  [x] streichen"
+            )
         };
         print!(" {}  ", term::dim(&keys));
 
@@ -83,6 +104,10 @@ pub fn run(store: &mut Store) -> Result<(), String> {
                     Some(ops::put_today(store, nr, None))
                 }
                 ('w', false) => Some(ops::this_week(store, nr)),
+                ('n', false) => {
+                    println!();
+                    Some(ask_due(store, nr))
+                }
                 ('t', false) => {
                     println!();
                     Some(ask_topic(store, nr))
@@ -128,6 +153,35 @@ fn describe(store: &Store, i: usize) -> String {
     }
     parts.push(date::age_label(t.since, store.today));
     parts.join(" · ")
+}
+
+fn ask_due(store: &mut Store, nr: u32) -> Result<String, String> {
+    loop {
+        let answer = term::read_line(
+            "   Neuer Termin (morgen, freitag, 3.12., in 2 wochen; ohne = keiner): ",
+        )
+        .map_err(term::io_err)?
+        .unwrap_or_default();
+        match answer.to_lowercase().as_str() {
+            "" => return Ok(" Termin bleibt.".into()),
+            "ohne" | "ohne termin" | "keiner" | "keinen" => {
+                return ops::change(store, nr, "ohne termin");
+            }
+            _ => {
+                // Nur einen Termin annehmen, nie aus Versehen den Text überschreiben.
+                let parsed = input::parse_change(&answer, store.today);
+                if parsed.due.is_some() && parsed.text.trim().is_empty() {
+                    return ops::change(store, nr, &answer);
+                }
+                println!(
+                    "   {}",
+                    term::red(&format!(
+                        "„{answer}“ verstehe ich nicht als Termin. Noch einmal, oder Enter."
+                    ))
+                );
+            }
+        }
+    }
 }
 
 fn ask_topic(store: &mut Store, nr: u32) -> Result<String, String> {
