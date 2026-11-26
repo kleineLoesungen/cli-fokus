@@ -196,3 +196,12 @@ fn die_vier_felder_passen_in_80_spalten() {
 fn unicode_width(s: &str) -> usize {
     s.chars().count()
 }
+
+#[test]
+fn deinstallieren_ohne_terminal_aendert_nichts() {
+    let s = Sandbox::new("deinstallieren");
+    let err = s.fails(&["deinstallieren"]);
+    assert!(err.contains("Terminalfenster"));
+    // Auch keine leere Aufgabendatei angelegt.
+    assert!(!s.file().exists());
+}

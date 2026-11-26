@@ -1,5 +1,6 @@
 //! Fokus – was ist heute dran?
 
+mod complete;
 mod date;
 mod focus;
 mod input;
@@ -16,6 +17,21 @@ use std::process::ExitCode;
 use store::Store;
 
 fn main() -> ExitCode {
+    // `fokus | head` schließt die Ausgabe vorzeitig. Das ist kein Fehler, nur Schluss.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let payload = info.payload();
+        let msg = payload
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| payload.downcast_ref::<&str>().copied())
+            .unwrap_or("");
+        if msg.contains("Broken pipe") {
+            std::process::exit(0);
+        }
+        default_hook(info);
+    }));
+
     let args: Vec<String> = std::env::args().skip(1).collect();
     match run(&args) {
         Ok(()) => ExitCode::SUCCESS,
@@ -38,6 +54,22 @@ fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         Some("einrichten") => return setup::run(),
+        // Für die Tab-Taste: nur lesen, nie schreiben, nie eine Fehlermeldung.
+        Some("_complete") => {
+            if let Ok(store) = Store::load(store::file_path(), date::today()) {
+                for (value, shown) in complete::candidates(&store, &args[1..]) {
+                    println!("{value}\t{shown}");
+                }
+            }
+            return Ok(());
+        }
+        Some("_zsh") => {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            print!("{}", complete::zsh_script(&exe));
+            return Ok(());
+        }
+        // Vor dem Laden: Deinstallieren soll keine leere Aufgabendatei anlegen.
+        Some("deinstallieren" | "entfernen" | "uninstall") => return setup::uninstall(),
         _ => {}
     }
 

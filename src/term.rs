@@ -150,6 +150,24 @@ pub fn read_line(prompt: &str) -> io::Result<Option<String>> {
     Ok(Some(s.trim().to_string()))
 }
 
+/// Ja oder nein, Enter heißt nein. Für alles, was sich schwer rückgängig machen lässt.
+pub fn ask_no(prompt: &str) -> io::Result<bool> {
+    print!("{prompt}");
+    loop {
+        match read_key()? {
+            'j' | 'y' => {
+                println!("ja");
+                return Ok(true);
+            }
+            'n' | '\n' | '\x1b' => {
+                println!("nein");
+                return Ok(false);
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Ja oder nein, Enter heißt ja.
 pub fn ask_yes(prompt: &str) -> io::Result<bool> {
     print!("{prompt}");

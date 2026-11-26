@@ -79,7 +79,8 @@ Fokus sagt dir sofort, was es verstanden hat:
 
 Enthält dein Text Zeichen wie `'` oder `?`, tippst du nur `fokus +` und
 Enter. Dann fragt Fokus nach dem Text, und das Terminal kommt nicht
-durcheinander.
+durcheinander. Dasselbe hilft, falls dein Terminal alles ab `#` als Kommentar
+verschluckt (die zsh-Einstellung `interactive_comments`).
 
 Aufschreiben soll nie länger dauern als der Gedanke selbst.
 
@@ -348,7 +349,8 @@ Danach ist deine Liste wieder ehrlich.
 | `fokus streichen 4` | streicht Aufgabe 4 (sie bleibt im Archiv der Datei) |
 | `fokus aufräumen` | geht liegengebliebene Aufgaben mit dir durch |
 | `fokus datei` | öffnet deine Aufgabendatei im Texteditor |
-| `fokus einrichten` | richtet den Kurzbefehl `f` ein |
+| `fokus einrichten` | richtet den Kurzbefehl `f` und die Tab-Taste ein |
+| `fokus deinstallieren` | entfernt Fokus wieder |
 | `fokus hilfe` | zeigt diese Liste |
 
 Hinter `fertig`, `später`, `streichen` und `heute` dürfen auch mehrere Nummern
@@ -434,10 +436,53 @@ cargo install --path .
 fokus einrichten
 ```
 
-`fokus einrichten` fragt zwei Dinge: ob `f` als Kurzbefehl funktionieren soll
-und ob jedes neue Terminalfenster gleich die Liste für heute zeigt. Es ändert
-dafür nur deine `.zshrc`, in einem markierten Block, den es beim nächsten
-Aufruf ersetzt statt verdoppelt.
+`fokus einrichten` fragt drei Dinge: ob `f` als Kurzbefehl funktionieren
+soll, ob jedes neue Terminalfenster gleich die Liste für heute zeigt und ob die
+Tab-Taste ergänzen soll. Es ändert dafür nur deine `.zshrc`, in einem
+markierten Block, den es beim nächsten Aufruf ersetzt statt verdoppelt.
+
+### Die Tab-Taste
+
+Ist sie eingerichtet, ergänzt die Tab-Taste nach `fokus `, was an der Stelle
+passt:
+
+| Du tippst, dann Tab | Fokus bietet an |
+|---|---|
+| `fokus ` | alle Befehle, mit kurzer Erklärung |
+| `fokus fertig ` | die Nummern, mit dem Text der Aufgabe |
+| `fokus später ` | nur die Aufgaben von heute |
+| `fokus heute ` | alles, was noch nicht auf heute steht |
+| `fokus + Bericht #` | deine Themen, die wichtigen zuerst |
+| `fokus + Bericht @` | deine Personen |
+| `fokus + Bericht mor` | `morgen` (und andere Termine) |
+| `fokus abgeben 4 ` | deine Personen |
+| `fokus themen ordnen ` | deine Themen |
+
+```
+fokus fertig ⇥
+1   Präsentation vorbereiten  · heute
+2   Keller ausmisten
+3   Urlaub abstimmen @anna
+```
+
+Das funktioniert in der zsh, der Standard-Shell auf dem Mac. Fokus fragt
+dafür bei jedem Tab kurz die eigene Datei; die Vorschläge sind also immer
+aktuell.
+
+---
+
+## Deinstallieren
+
+```bash
+fokus deinstallieren
+```
+
+Fokus zeigt erst, was es tun würde, und fragt einmal nach. Dann entfernt es
+den Block aus deiner `.zshrc` und löscht das Programm.
+
+Deine Aufgaben bleiben, außer du sagst ausdrücklich „ja“. Dann legt Fokus die
+Datei in den **Papierkorb**, nicht ins Nichts: Wer es sich anders überlegt,
+holt sie dort wieder heraus.
 
 ---
 

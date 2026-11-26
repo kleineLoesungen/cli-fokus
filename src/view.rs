@@ -914,7 +914,11 @@ pub fn help(path: &Path) -> String {
             "geht liegengebliebene Aufgaben mit dir durch",
         ),
         ("fokus datei", "öffnet deine Aufgabendatei im Texteditor"),
-        ("fokus einrichten", "richtet den Kurzbefehl f ein"),
+        ("fokus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
+        (
+            "fokus deinstallieren",
+            "entfernt Fokus wieder (deine Aufgaben nur auf Wunsch)",
+        ),
     ];
     let mut out = format!("\n {}\n\n", term::bold("Fokus – was ist heute dran?"));
     for (cmd, what) in rows {
