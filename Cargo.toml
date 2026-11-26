@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Was ist heute dran? Aufgaben nach dringend und wichtig, im Terminal."
 license = "GPL-3.0-or-later"
-repository = "https://github.com/kleineLoesungen/cli-topics"
+repository = "https://github.com/kleineLoesungen/cli-fokus"
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
