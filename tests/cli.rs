@@ -21,14 +21,61 @@ impl Sandbox {
     }
 
     fn run_on(&self, day: &str, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_fokus"))
-            .args(args)
+        self.command(day, args)
             .env("FOKUS_DATEI", self.file())
-            .env("FOKUS_HEUTE", day)
-            .env("NO_COLOR", "1")
-            .env("COLUMNS", "80")
             .output()
             .unwrap()
+    }
+
+    /// Ohne Spieldatei, mit eigenem Zuhause und eigenen Einstellungen: wie echt.
+    fn run_at_home(&self, args: &[&str]) -> Output {
+        self.command("2026-11-26", args)
+            .env_remove("FOKUS_DATEI")
+            .env("HOME", self.dir.join("home"))
+            .output()
+            .unwrap()
+    }
+
+    fn command(&self, day: &str, args: &[&str]) -> Command {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_fokus"));
+        c.args(args)
+            .env("FOKUS_HEUTE", day)
+            .env("FOKUS_EINSTELLUNGEN", self.dir.join("einstellungen"))
+            .env_remove("FOKUS_UNTERWEGS")
+            .env_remove("XDG_CONFIG_HOME")
+            .env("NO_COLOR", "1")
+            .env("COLUMNS", "80");
+        c
+    }
+
+    fn ok_at_home(&self, args: &[&str]) -> String {
+        let out = self.run_at_home(args);
+        assert!(
+            out.status.success(),
+            "fokus {args:?} schlug fehl:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    fn away(&self) -> PathBuf {
+        self.dir.join("icloud").join("Fokus-unterwegs.md")
+    }
+
+    /// Mit Spieldatei und ausdrücklich gesetzter Unterwegs-Datei.
+    fn ok_away(&self, args: &[&str]) -> String {
+        let out = self
+            .command("2026-11-26", args)
+            .env("FOKUS_DATEI", self.file())
+            .env("FOKUS_UNTERWEGS", self.away())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "fokus {args:?} schlug fehl:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
     }
 
     fn ok(&self, args: &[&str]) -> String {
@@ -269,4 +316,214 @@ fn ueberfaelliges_erscheint_am_naechsten_tag_im_aufraeumen() {
     assert!(out.contains("Steuer"), "{out}");
     assert!(out.contains("seit gestern fällig"));
     assert!(s.ok_on("2026-11-27", &[]).contains("1 überfällig"));
+}
+
+#[test]
+fn unterwegs_aufgeschriebenes_wird_abgeholt_und_der_stand_geschrieben() {
+    let s = Sandbox::new("unterwegs");
+    fs::create_dir_all(s.dir.join("icloud")).unwrap();
+    s.ok_away(&["+", "Präsentation", "vorbereiten", "#arbeit", "morgen"]);
+    s.ok_away(&["+", "Vertrag", "prüfen", "@tom", "#arbeit"]);
+    s.ok_away(&["abgeben", "2", "@tom"]);
+
+    let stand = fs::read_to_string(s.away()).unwrap();
+    assert!(stand.contains("Stand: Donnerstag 26.11., "));
+    assert!(stand.contains("## Neu\n"));
+    // Mit Datum statt „morgen“: Am Handy liest man es vielleicht später.
+    assert!(stand.contains("- 1 Präsentation vorbereiten · Arbeit · fällig Freitag 27.11."));
+    assert!(stand.contains("- 2 Vertrag prüfen @tom · bei Tom seit 26.11."));
+
+    // Am Handy: zwei Zeilen unter „Neu“, eine davon ohne Strich, und ein leerer Strich.
+    let vom_handy = stand.replace(
+        "## Neu\n\n",
+        "## Neu\n\n- Trikots bestellen #verein Samstag\nIdee für den Talentpfad\n-\n\n",
+    );
+    fs::write(s.away(), vom_handy).unwrap();
+
+    let out = s.ok_away(&[]);
+    assert!(out.contains("Von unterwegs:"));
+    assert!(
+        out.contains("Aufgabe 3: Trikots bestellen · Verein · fällig übermorgen (Samstag 28.11.)")
+    );
+    assert!(out.contains("Aufgabe 4: Idee für den Talentpfad"));
+
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(datei.contains("Trikots bestellen #verein"));
+    assert!(datei.contains("Idee für den Talentpfad"));
+
+    let stand = fs::read_to_string(s.away()).unwrap();
+    let neu = stand
+        .split("## Neu")
+        .nth(1)
+        .unwrap()
+        .split("## ")
+        .next()
+        .unwrap();
+    assert!(neu.trim().is_empty(), "„Neu“ sollte leer sein: {neu:?}");
+    assert!(stand.contains("- 3 Trikots bestellen · Verein · fällig Samstag 28.11."));
+
+    // Ein zweiter Aufruf legt nichts doppelt an.
+    let out = s.ok_away(&[]);
+    assert!(!out.contains("Von unterwegs:"));
+    assert_eq!(fs::read_to_string(s.file()).unwrap(), datei);
+}
+
+#[test]
+fn ohne_aenderung_bleibt_die_unterwegs_datei_unberuehrt() {
+    let s = Sandbox::new("unterwegs-ruhe");
+    fs::create_dir_all(s.dir.join("icloud")).unwrap();
+    s.ok_away(&["+", "Brot", "kaufen"]);
+    // Eine andere Uhrzeit allein ist kein Grund zum Schreiben.
+    let alt: String = fs::read_to_string(s.away())
+        .unwrap()
+        .lines()
+        .map(|l| {
+            if l.starts_with("Stand: ") {
+                "Stand: Donnerstag 26.11., 00:00".to_string()
+            } else {
+                l.to_string()
+            }
+        })
+        .map(|l| l + "\n")
+        .collect();
+    fs::write(s.away(), &alt).unwrap();
+    s.ok_away(&["alles"]);
+    assert_eq!(fs::read_to_string(s.away()).unwrap(), alt);
+}
+
+#[test]
+fn eine_spieldatei_schreibt_nie_in_die_echte_unterwegs_datei() {
+    let s = Sandbox::new("unterwegs-spiel");
+    let echt = s.dir.join("echt").join("Fokus-unterwegs.md");
+    fs::write(
+        s.dir.join("einstellungen"),
+        format!("unterwegs = {}\n", echt.display()),
+    )
+    .unwrap();
+    s.ok(&["+", "Spielzeug"]);
+    assert!(!echt.exists());
+    assert!(!echt.parent().unwrap().exists());
+}
+
+#[test]
+fn ein_verschwundener_ordner_wird_gemeldet_statt_angelegt() {
+    let s = Sandbox::new("unterwegs-weg");
+    let out = s.ok_away(&["+", "Brot"]);
+    assert!(out.contains("Den Ordner für die Unterwegs-Datei gibt es nicht mehr"));
+    assert!(!s.dir.join("icloud").exists());
+}
+
+#[test]
+fn eine_nicht_geladene_icloud_datei_wird_nicht_ueberschrieben() {
+    let s = Sandbox::new("unterwegs-icloud");
+    let dir = s.dir.join("icloud");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(".Fokus-unterwegs.md.icloud"), "Platzhalter").unwrap();
+    let out = s.ok_away(&["+", "Brot"]);
+    assert!(out.contains("noch nicht vom iCloud-Server geladen"));
+    assert!(!s.away().exists());
+}
+
+#[test]
+fn die_unterwegs_datei_wird_eingeschaltet_und_abgeschaltet() {
+    let s = Sandbox::new("unterwegs-befehl");
+    fs::create_dir_all(s.dir.join("home").join("Documents")).unwrap();
+    s.ok_at_home(&["+", "Brot", "kaufen"]);
+    let ordner = s.dir.join("home").join("iCloud").join("Fokus");
+    let out = s.ok_at_home(&["unterwegs", ordner.to_str().unwrap()]);
+    assert!(out.contains("Fokus schreibt den Stand jetzt nach"));
+    let datei = ordner.join("Fokus-unterwegs.md");
+    assert!(
+        fs::read_to_string(&datei)
+            .unwrap()
+            .contains("- 1 Brot kaufen")
+    );
+    let einstellungen = fs::read_to_string(s.dir.join("einstellungen")).unwrap();
+    assert!(einstellungen.contains("unterwegs = ~/iCloud/Fokus/Fokus-unterwegs.md"));
+
+    assert!(
+        s.ok_at_home(&["unterwegs"])
+            .contains("Die Unterwegs-Datei liegt in")
+    );
+    assert!(
+        s.ok_at_home(&["hilfe"])
+            .contains("Die Unterwegs-Datei liegt in")
+    );
+
+    let out = s.ok_at_home(&["unterwegs", "aus"]);
+    assert!(out.contains("Fokus schreibt keine Unterwegs-Datei mehr"));
+    assert!(!s.dir.join("einstellungen").exists());
+    assert!(
+        s.ok_at_home(&["unterwegs"])
+            .contains("Es gibt noch keine Unterwegs-Datei")
+    );
+}
+
+#[test]
+fn die_unterwegs_datei_kann_nicht_die_aufgabendatei_sein() {
+    let s = Sandbox::new("unterwegs-gleich");
+    let docs = s.dir.join("home").join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    s.ok_at_home(&["+", "Brot"]);
+    let out = s.run_at_home(&["unterwegs", docs.join("Fokus.md").to_str().unwrap()]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("Das ist deine Aufgabendatei selbst"));
+}
+
+#[test]
+fn die_aufgabendatei_zieht_um_und_fokus_findet_sie_wieder() {
+    let s = Sandbox::new("verschieben");
+    let docs = s.dir.join("home").join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    s.ok_at_home(&["+", "Brot", "kaufen"]);
+    assert!(docs.join("Fokus.md").exists());
+
+    let ziel = s.dir.join("home").join("Planung");
+    let out = s.ok_at_home(&["datei", "verschieben", ziel.to_str().unwrap()]);
+    assert!(out.contains("Deine Aufgaben liegen jetzt in"));
+    assert!(!docs.join("Fokus.md").exists());
+    assert!(ziel.join("Fokus.md").exists());
+    let einstellungen = fs::read_to_string(s.dir.join("einstellungen")).unwrap();
+    assert!(einstellungen.contains("datei = ~/Planung/Fokus.md"));
+
+    let out = s.ok_at_home(&["alles"]);
+    assert!(out.contains("Brot kaufen"));
+    assert!(
+        !docs.join("Fokus.md").exists(),
+        "der alte Ort darf nicht wieder entstehen"
+    );
+    assert!(s.ok_at_home(&["hilfe"]).contains("Planung/Fokus.md"));
+
+    // Zurück an den Standardort: Die Einstellung verschwindet wieder.
+    s.ok_at_home(&["datei", "verschieben", docs.to_str().unwrap()]);
+    assert!(docs.join("Fokus.md").exists());
+    assert!(!s.dir.join("einstellungen").exists());
+}
+
+#[test]
+fn beim_umziehen_wird_keine_vorhandene_datei_ueberschrieben() {
+    let s = Sandbox::new("verschieben-belegt");
+    let docs = s.dir.join("home").join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    s.ok_at_home(&["+", "Brot"]);
+    let ziel = s.dir.join("anderswo");
+    fs::create_dir_all(&ziel).unwrap();
+    fs::write(ziel.join("Fokus.md"), "## Offen\n- Fremd\n").unwrap();
+
+    let out = s.run_at_home(&["datei", "verschieben", ziel.to_str().unwrap()]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("Die überschreibe ich nicht"));
+    assert_eq!(
+        fs::read_to_string(ziel.join("Fokus.md")).unwrap(),
+        "## Offen\n- Fremd\n"
+    );
+    assert!(docs.join("Fokus.md").exists());
+    assert!(!s.dir.join("einstellungen").exists());
+}
+
+#[test]
+fn mit_spieldatei_wird_nichts_verschoben() {
+    let s = Sandbox::new("verschieben-spiel");
+    let err = s.fails(&["datei", "verschieben", "/tmp/irgendwo"]);
+    assert!(err.contains("Spieldatei"));
 }

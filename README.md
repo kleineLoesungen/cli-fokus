@@ -205,6 +205,47 @@ fokus warten
 Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
 `fokus fertig 8`.
 
+### Unterwegs: nachsehen und aufschreiben
+
+```
+fokus unterwegs ~/Library/Mobile\ Documents/com~apple~CloudDocs/Fokus
+```
+
+Ab jetzt schreibt Fokus bei jedem Aufruf den Stand in eine zweite Datei,
+`Fokus-unterwegs.md`, in diesem Ordner. Liegt er in iCloud Drive und teilst du
+ihn mit dem Apple-Account deines Handys, siehst du sie dort in der Dateien-App:
+
+```
+# Fokus unterwegs
+
+Stand: Freitag 27.11., 06:10
+
+## Neu
+
+- Trikots bestellen #verein freitag
+Idee für den Talentpfad
+
+## Heute · Freitag 27.11.
+- 2 Präsentation vorbereiten · Arbeit · fällig Samstag 28.11.
+
+## Warte auf
+- 8 Vertrag prüfen · bei Tom seit 12.11.
+
+## Offen
+
+### Arbeit · wichtig
+- 5 Website-Texte · fällig Samstag 12.12.
+```
+
+Was dir unterwegs einfällt, schreibst du unter **Neu**, eine Zeile je Aufgabe,
+wie bei `fokus +`. Beim nächsten Aufruf am Mac holt Fokus die Zeilen ab, legt sie
+als Aufgaben an und leert den Abschnitt. Alles andere schreibt Fokus jedes Mal
+neu; abhaken und ändern geht am Mac. Termine stehen dort mit Datum statt
+„morgen“, weil man sie vielleicht erst später liest.
+
+Deine `Fokus.md` bleibt, wo sie ist: Die Unterwegs-Datei ist nur eine Kopie.
+`fokus unterwegs` zeigt, wo sie liegt, `fokus unterwegs aus` schaltet sie ab.
+
 ### Einmal pro Woche: aufräumen
 
 ```
@@ -244,6 +285,8 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus abgeben 4 @tom` · `fokus warten` | abgeben · was bei anderen liegt |
 | `fokus aufräumen` | Liegengebliebenes durchgehen |
 | `fokus datei` | die Aufgabendatei im Texteditor öffnen |
+| `fokus datei verschieben ort` | die Aufgabendatei an einen anderen Ort legen |
+| `fokus unterwegs ordner` · `unterwegs aus` | Stand fürs Handy, mit „Neu“ zum Aufschreiben |
 | `fokus hilfe` | diese Liste |
 
 Statt `fokus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
@@ -253,16 +296,22 @@ Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen.
 
 ## Deine Daten
 
-Alles steht in einer Textdatei: `Dokumente/Fokus.md`. Du kannst sie mit jedem
-Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
+Alles steht in einer Textdatei, anfangs `Dokumente/Fokus.md`. Du kannst sie mit
+jedem Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
 reparieren #haus` reicht, den Rest ergänzt Fokus. Erledigtes und Gestrichenes
 löscht Fokus nach 14 Tagen. Kein Konto, keine Cloud – außer dein Mac sichert
-den Ordner Dokumente in iCloud.
+den Ordner Dokumente in iCloud, oder du schaltest die Unterwegs-Datei ein.
+
+Woanders hin geht sie mit `fokus datei verschieben ~/Planung` (ein Ordner
+bekommt `Fokus.md`, eine `.md`-Datei bleibt, wie sie heißt). Fokus zieht die
+Datei um und merkt sich den Ort. Liegt dort schon eine Aufgabendatei, fragt
+Fokus, ob es die nehmen soll, und überschreibt nichts. Die Orte stehen in
+`~/.config/fokus/einstellungen`; `fokus einrichten` fragt auch danach.
 
 ## Was Fokus absichtlich nicht kann
 
 Keine Prioritätsstufen, keine Unteraufgaben, kein Adressbuch, keine
-Mitteilungen, kein Teilen. Und kein viertes wichtiges Thema. Alles davon wäre
+Mitteilungen, kein Teilen mit anderen (die Unterwegs-Datei ist für dich). Und kein viertes wichtiges Thema. Alles davon wäre
 etwas, das gepflegt werden will.
 
 ---
@@ -279,17 +328,22 @@ cargo install --path .
 fokus einrichten
 ```
 
-`fokus einrichten` fragt, ob `f` als Kurzbefehl gehen soll, ob jedes neue
+`fokus einrichten` fragt, wo deine Aufgaben liegen sollen, ob es eine
+Unterwegs-Datei geben soll, ob `f` als Kurzbefehl gehen soll, ob jedes neue
 Terminalfenster die Liste für heute zeigt und ob die Tab-Taste ergänzen soll
-(zsh). Es schreibt dafür einen markierten Block in deine `.zshrc`.
+(zsh). Es schreibt dafür einen markierten Block in deine `.zshrc` und die Orte
+in `~/.config/fokus/einstellungen`. Einen Ordner kannst du aus dem Finder ins
+Terminal ziehen, statt den Pfad zu tippen.
 
 **Aktualisieren:** `cargo install --path .` noch einmal. Deine Aufgaben bleiben.
 
 **Entfernen:** `fokus deinstallieren`. Es zeigt erst, was es tut, und fragt
 nach. Deine Aufgaben bleiben, außer du sagst ausdrücklich ja – dann kommen sie
-in den Papierkorb.
+in den Papierkorb. Die Einstellungen löscht es mit, die Unterwegs-Datei nicht.
 
 Zum Ausprobieren mit einer Spieldatei: `export FOKUS_DATEI=/tmp/spiel.md`.
+Solange die gilt, lässt Fokus deine Unterwegs-Datei in Ruhe (außer du setzt
+auch `FOKUS_UNTERWEGS`).
 Tests: `cargo test`.
 
 ## Lizenz

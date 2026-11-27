@@ -1,0 +1,507 @@
+//! Die Unterwegs-Datei: der Stand zum Lesen am Handy und ein Abschnitt „Neu“
+//! für das, was dir unterwegs einfällt.
+//!
+//! Sie ist eine Kopie, nie die Aufgabendatei selbst. Bei jedem Aufruf holt Fokus
+//! zuerst die Zeilen unter „Neu“ als Aufgaben ab und schreibt danach den Stand
+//! neu. Was zwischendurch unter „Neu“ dazukommt, bleibt stehen und kommt beim
+//! nächsten Mal dran. Alles außer „Neu“ schreibt Fokus jedes Mal neu.
+
+use std::fs;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use chrono::{Datelike, NaiveDate};
+
+use crate::store::{Status, Store, Task};
+use crate::{config, date, ops, store, tags, term};
+
+pub const FILE_NAME: &str = "Fokus-unterwegs.md";
+
+const NEW_HEADING: &str = "## Neu";
+const STAND: &str = "Stand: ";
+
+/// Wo die Unterwegs-Datei liegt, oder `None`, wenn es keine gibt.
+///
+/// `FOKUS_UNTERWEGS` geht vor (leer oder „aus“: keine). Mit einer Spieldatei in
+/// `FOKUS_DATEI` gilt die Einstellung nicht: Sonst stünde Spielzeug am Handy.
+pub fn path() -> Option<PathBuf> {
+    if let Some(v) = std::env::var_os("FOKUS_UNTERWEGS") {
+        let s = v.to_string_lossy();
+        if s.trim().is_empty() || s.trim().eq_ignore_ascii_case("aus") {
+            return None;
+        }
+        return Some(file_in(config::expand(s.trim())));
+    }
+    if store::play_file().is_some() {
+        return None;
+    }
+    config::get(config::AWAY_KEY).map(file_in)
+}
+
+/// Ein Ordner bekommt den üblichen Dateinamen, eine `.md`-Datei bleibt, wie sie ist.
+pub fn file_in(p: PathBuf) -> PathBuf {
+    let is_md = p
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("txt"));
+    if is_md && !p.is_dir() {
+        p
+    } else {
+        p.join(FILE_NAME)
+    }
+}
+
+/// Was beim Abholen herauskam.
+#[derive(Default)]
+pub struct Pickup {
+    /// Die Zeilen unter „Neu“, die jetzt Aufgaben sind (so, wie sie dort standen).
+    pub taken: Vec<String>,
+    /// Bestätigungen zum Anzeigen.
+    pub messages: Vec<String>,
+    /// iCloud hat die Datei noch nicht auf den Mac geladen: diesmal nichts tun.
+    pub pending: bool,
+}
+
+/// Holt die Zeilen unter „Neu“ als Aufgaben in die Aufgabendatei.
+pub fn pick_up(store: &mut Store, path: &Path) -> Result<Pickup, String> {
+    if still_in_cloud(path) {
+        return Ok(Pickup {
+            pending: true,
+            messages: vec![
+                "Die Unterwegs-Datei ist noch nicht vom iCloud-Server geladen. Beim nächsten Aufruf hole ich sie ab."
+                    .into(),
+            ],
+            ..Pickup::default()
+        });
+    }
+    let text = read(path)?;
+    let mut pickup = Pickup::default();
+    for raw in new_lines(&text) {
+        let Some(entry) = clean(&raw) else {
+            pickup.taken.push(raw);
+            continue;
+        };
+        // Klappt das Aufschreiben nicht, bleibt die Zeile stehen.
+        if let Ok(msg) = ops::add(store, &entry) {
+            pickup.messages.push(msg);
+            pickup.taken.push(raw);
+        }
+    }
+    Ok(pickup)
+}
+
+/// Schreibt den Stand. Zeilen unter „Neu“, die nicht abgeholt wurden, bleiben
+/// stehen; dafür liest Fokus die Datei direkt vor dem Schreiben noch einmal.
+/// `Ok(true)`, wenn sich etwas geändert hat.
+pub fn write(store: &Store, path: &Path, taken: &[String]) -> Result<bool, String> {
+    if still_in_cloud(path) {
+        return Ok(false);
+    }
+    let dir = path.parent().unwrap_or(Path::new("."));
+    if !dir.as_os_str().is_empty() && !dir.is_dir() {
+        return Err(format!(
+            "Den Ordner für die Unterwegs-Datei gibt es nicht mehr: {}. Neu festlegen: fokus unterwegs <ordner>, abschalten: fokus unterwegs aus",
+            dir.display()
+        ));
+    }
+    let current = read(path)?;
+    let mut keep = new_lines(&current);
+    for t in taken {
+        if let Some(i) = keep.iter().position(|k| k == t) {
+            keep.remove(i);
+        }
+    }
+    let now = chrono::Local::now().format("%H:%M").to_string();
+    let text = render(store, &keep, &now);
+    if without_stand(&text) == without_stand(&current) {
+        return Ok(false);
+    }
+    let tmp = dir.join(format!(
+        ".{}.neu",
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(FILE_NAME)
+    ));
+    fs::write(&tmp, &text)
+        .and_then(|()| fs::rename(&tmp, path))
+        .map_err(|e| format!("Ich kann {} nicht schreiben: {e}", path.display()))?;
+    Ok(true)
+}
+
+fn read(path: &Path) -> Result<String, String> {
+    match fs::read_to_string(path) {
+        Ok(s) => Ok(s),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(format!("Ich kann {} nicht lesen: {e}", path.display())),
+    }
+}
+
+/// iCloud ersetzt nicht geladene Dateien durch `.Name.icloud`. Dann wird sie
+/// angefordert, und Fokus lässt sie diesmal in Ruhe, statt sie für leer zu halten.
+fn still_in_cloud(path: &Path) -> bool {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return false;
+    };
+    let stub = dir.join(format!(".{}.icloud", name.to_string_lossy()));
+    if path.exists() || !stub.exists() {
+        return false;
+    }
+    let _ = Command::new("brctl").arg("download").arg(path).output();
+    true
+}
+
+/// Die nicht leeren Zeilen unter „## Neu“, bis zur nächsten Überschrift.
+fn new_lines(text: &str) -> Vec<String> {
+    let mut inside = false;
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(h) = t.strip_prefix("## ") {
+            inside = h.trim().to_lowercase().starts_with("neu");
+            continue;
+        }
+        if inside && !t.is_empty() {
+            out.push(t.to_string());
+        }
+    }
+    out
+}
+
+/// Aus „- [ ] Trikots bestellen #verein freitag“ wird, was `fokus +` bekäme.
+/// `None` für Zeilen ohne Inhalt, etwa ein einzelnes „-“.
+fn clean(line: &str) -> Option<String> {
+    let mut s = line.trim();
+    for prefix in ["- [ ]", "* [ ]", "- [x]", "-", "*", "•", "+", "–"] {
+        // Nur als eigenes Zeichen vorn: „+49 anrufen“ bleibt, wie es ist.
+        if let Some(rest) = s.strip_prefix(prefix)
+            && (rest.is_empty() || rest.starts_with(char::is_whitespace))
+        {
+            s = rest.trim_start();
+            break;
+        }
+    }
+    let s = s.trim();
+    (!s.is_empty()).then(|| s.to_string())
+}
+
+/// Ohne die Uhrzeit hinter „Stand:“: Die allein ist kein Grund zum Schreiben,
+/// ein neuer Tag schon.
+fn without_stand(text: &str) -> String {
+    text.lines()
+        .map(
+            |l| match l.strip_prefix(STAND).and_then(|r| r.rsplit_once(", ")) {
+                Some((day, _)) => day,
+                None => l,
+            },
+        )
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Die ganze Datei. Termine stehen mit Datum da („fällig Samstag 28.11.“),
+/// nicht als „morgen“: Am Handy liest man sie vielleicht erst übermorgen.
+pub fn render(store: &Store, keep: &[String], now: &str) -> String {
+    let today = store.today;
+    let mut s = String::from("# Fokus unterwegs\n\n");
+    s.push_str(&format!("{STAND}{}, {now}\n\n", date::exact(today)));
+    s.push_str(
+        "Was dir einfällt, schreibst du unter „Neu“: eine Zeile je Aufgabe, wie bei\n\
+         „fokus +“, etwa „Trikots bestellen #verein freitag“. Fokus übernimmt sie beim\n\
+         nächsten Aufruf am Mac. Alles andere schreibt Fokus jedes Mal neu; abhaken\n\
+         und ändern geht am Mac.\n\n",
+    );
+    s.push_str(NEW_HEADING);
+    s.push_str("\n\n");
+    for k in keep {
+        s.push_str(k);
+        s.push('\n');
+    }
+    if !keep.is_empty() {
+        s.push('\n');
+    }
+
+    let done = store.done_today();
+    let open_today = store.today_open();
+    if !done.is_empty() || !open_today.is_empty() {
+        s.push_str(&format!("## Heute · {}\n", date::exact(today)));
+        for &i in &done {
+            s.push_str(&format!("- ✓ {}\n", store.tasks[i].display()));
+        }
+        for &i in &open_today {
+            s.push_str(&item(store, &store.tasks[i], true));
+        }
+        s.push('\n');
+    }
+
+    let mut soon: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == Status::Open && store.is_urgent(t))
+        .collect();
+    soon.sort_by_key(|t| (t.due, t.nr));
+    if !soon.is_empty() {
+        s.push_str("## Bald fällig\n");
+        for t in &soon {
+            s.push_str(&item(store, t, true));
+        }
+        s.push('\n');
+    }
+
+    let mut waiting: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == Status::Waiting)
+        .collect();
+    waiting.sort_by_key(|t| (t.since, t.nr));
+    if !waiting.is_empty() {
+        s.push_str("## Warte auf\n");
+        for t in &waiting {
+            let mut line = format!("- {} {}", t.nr, t.display());
+            if let Some(p) = &t.waiting_for {
+                line.push_str(&format!(" · bei {}", tags::display(p)));
+            }
+            line.push_str(&format!(" seit {}", short_date(t.since, today)));
+            if let Some(d) = t.due {
+                line.push_str(&format!(" · {}", due_text(t, d, today)));
+            }
+            s.push_str(&line);
+            s.push('\n');
+        }
+        s.push('\n');
+    }
+
+    let rest: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == Status::Open && !store.is_urgent(t))
+        .collect();
+    if !rest.is_empty() {
+        s.push_str("## Offen\n");
+        let mut groups: Vec<(Option<String>, bool)> = store
+            .important
+            .iter()
+            .map(|n| (Some(n.clone()), true))
+            .chain(store.other.iter().map(|n| (Some(n.clone()), false)))
+            .collect();
+        groups.push((None, false));
+        for (name, important) in groups {
+            let key = name.as_deref().map(tags::key);
+            let mut tasks: Vec<&&Task> = rest
+                .iter()
+                .filter(|t| t.topic_tag().map(|tag| tags::key(&tag)) == key)
+                .collect();
+            if tasks.is_empty() {
+                continue;
+            }
+            tasks.sort_by_key(|t| (t.due.is_none(), t.due, t.nr));
+            let title = match &name {
+                Some(n) if important => format!("{n} · wichtig"),
+                Some(n) => n.clone(),
+                None => "Ohne Thema".into(),
+            };
+            s.push_str(&format!("\n### {title}\n"));
+            for t in tasks {
+                s.push_str(&item(store, t, false));
+            }
+        }
+        s.push('\n');
+    }
+
+    if !store.tasks.iter().any(Task::is_active) {
+        s.push_str("Gerade ist nichts offen.\n\n");
+    }
+    s.trim_end().to_string() + "\n"
+}
+
+fn item(store: &Store, t: &Task, with_topic: bool) -> String {
+    let mut line = format!("- {} {}", t.nr, t.display());
+    if with_topic && let Some(n) = store.topic_name(t) {
+        line.push_str(&format!(" · {n}"));
+    }
+    if let Some(d) = t.due {
+        line.push_str(&format!(" · {}", due_text(t, d, store.today)));
+    }
+    line.push('\n');
+    line
+}
+
+fn due_text(t: &Task, d: NaiveDate, today: NaiveDate) -> String {
+    let when = if d.year() == today.year() {
+        date::exact(d)
+    } else {
+        format!("{} {}", date::weekday(d), date::to_file(d))
+    };
+    match t.every {
+        Some(n) => format!("↻ {}, nächstes Mal {when}", date::recurrence_label(n, d)),
+        None if d < today => format!("überfällig seit {when}"),
+        None => format!("fällig {when}"),
+    }
+}
+
+fn short_date(d: NaiveDate, today: NaiveDate) -> String {
+    if d.year() == today.year() {
+        date::short(d)
+    } else {
+        date::to_file(d)
+    }
+}
+
+/// `fokus unterwegs`, `fokus unterwegs <ordner>`, `fokus unterwegs aus`
+pub fn command(args: &[String]) -> Result<String, String> {
+    let arg = args.join(" ");
+    let arg = arg.trim();
+    if arg.is_empty() {
+        return Ok(match path() {
+            Some(p) => format!(
+                " Die Unterwegs-Datei liegt in {}\n {}",
+                p.display(),
+                term::dim(
+                    "Anderer Ort: fokus unterwegs <ordner> · abschalten: fokus unterwegs aus"
+                )
+            ),
+            None => format!(
+                " Es gibt noch keine Unterwegs-Datei.\n {}",
+                term::dim(
+                    "Einschalten: fokus unterwegs <ordner>, am besten ein geteilter Ordner in iCloud Drive"
+                )
+            ),
+        });
+    }
+    if std::env::var_os("FOKUS_UNTERWEGS").is_some() {
+        return Err("Gerade gilt FOKUS_UNTERWEGS. Ohne die Variable noch einmal versuchen.".into());
+    }
+    if let Some(p) = store::play_file() {
+        return Err(format!(
+            "Gerade gilt die Spieldatei FOKUS_DATEI={}. Die Unterwegs-Datei gehört zu deinen echten Aufgaben; ohne FOKUS_DATEI noch einmal versuchen.",
+            p.display()
+        ));
+    }
+    if arg.eq_ignore_ascii_case("aus") {
+        let before = path();
+        config::set(config::AWAY_KEY, None)?;
+        return Ok(match before {
+            Some(p) => format!(
+                " {} Fokus schreibt keine Unterwegs-Datei mehr. Die letzte bleibt in {}",
+                term::green("✓"),
+                p.display()
+            ),
+            None => " Es gab keine Unterwegs-Datei.".into(),
+        });
+    }
+    let target = file_in(config::typed_path(arg).ok_or("Wohin? Zum Beispiel: fokus unterwegs ~/Library/Mobile\\ Documents/com~apple~CloudDocs/Fokus")?);
+    set(&target)?;
+    let mut msg = format!(
+        " {} Fokus schreibt den Stand jetzt nach {}\n   {}",
+        term::green("✓"),
+        target.display(),
+        term::dim("Am Handy unter „Neu“ aufschreiben; beim nächsten Aufruf hier holt Fokus es ab.")
+    );
+    if !in_cloud(&target) {
+        msg.push_str(&format!(
+            "\n   {}",
+            term::yellow(
+                "Der Ordner liegt nicht in iCloud Drive. Damit du die Datei am Handy siehst, muss er in einen Cloud-Ordner."
+            )
+        ));
+    }
+    Ok(msg)
+}
+
+/// Legt den Ort fest (auch aus `fokus einrichten`). Den Ordner legt Fokus an.
+pub fn set(target: &Path) -> Result<(), String> {
+    if same_file(target, &store::file_path()) {
+        return Err(
+            "Das ist deine Aufgabendatei selbst. Die Unterwegs-Datei braucht einen eigenen Ort."
+                .into(),
+        );
+    }
+    if let Some(dir) = target.parent() {
+        fs::create_dir_all(dir)
+            .map_err(|e| format!("Ich kann den Ordner {} nicht anlegen: {e}", dir.display()))?;
+    }
+    config::set(config::AWAY_KEY, Some(target))
+}
+
+/// iCloud Drive oder ein anderer Cloud-Ordner (Dropbox, OneDrive, Google Drive …).
+pub fn in_cloud(p: &Path) -> bool {
+    let s = p.to_string_lossy();
+    s.contains("/Library/Mobile Documents/") || s.contains("/Library/CloudStorage/")
+}
+
+/// Gleich, auch wenn einer der Pfade über einen Link oder `..` geht.
+pub fn same_file(a: &Path, b: &Path) -> bool {
+    let canon = |p: &Path| {
+        p.canonicalize().unwrap_or_else(|_| {
+            match (
+                p.parent().and_then(|d| d.canonicalize().ok()),
+                p.file_name(),
+            ) {
+                (Some(d), Some(n)) => d.join(n),
+                _ => p.to_path_buf(),
+            }
+        })
+    };
+    canon(a) == canon(b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nur_zeilen_unter_neu_zaehlen() {
+        let text = "# Fokus unterwegs\n\nWas dir einfällt …\n\n## Neu\n\n- Trikots bestellen #verein\nIdee ohne Strich\n\n## Heute · Freitag 27.11.\n- 2 Präsentation\n";
+        assert_eq!(
+            new_lines(text),
+            vec!["- Trikots bestellen #verein", "Idee ohne Strich"]
+        );
+        assert!(new_lines("## Heute\n- 1 A\n").is_empty());
+    }
+
+    #[test]
+    fn striche_und_kaestchen_fallen_weg() {
+        assert_eq!(clean("- [ ] Laufen gehen").as_deref(), Some("Laufen gehen"));
+        assert_eq!(clean("* Brot").as_deref(), Some("Brot"));
+        assert_eq!(clean("+ Brot morgen").as_deref(), Some("Brot morgen"));
+        assert_eq!(clean("-"), None);
+        assert_eq!(clean("+49 anrufen").as_deref(), Some("+49 anrufen"));
+        assert_eq!(clean("Einfach so").as_deref(), Some("Einfach so"));
+    }
+
+    #[test]
+    fn was_zwischendurch_dazukam_bleibt_unter_neu_stehen() {
+        let dir = std::env::temp_dir().join(format!("fokus-unterwegs-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join(FILE_NAME);
+        // Abgeholt wurde „A“; während Fokus lief, kam am Handy „B“ dazu.
+        fs::write(&file, "# Fokus unterwegs\n\n## Neu\n\n- A\n- B\n").unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 27).unwrap();
+        let store = Store::parse("## Offen\n- [ ] A\n", dir.join("Fokus.md"), today);
+        assert!(write(&store, &file, &["- A".to_string()]).unwrap());
+        let text = fs::read_to_string(&file).unwrap();
+        assert_eq!(new_lines(&text), vec!["- B"]);
+        assert!(text.contains("- 1 A"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn ein_ordner_bekommt_den_dateinamen() {
+        assert_eq!(
+            file_in(PathBuf::from("/nirgends/Fokus")),
+            PathBuf::from("/nirgends/Fokus/Fokus-unterwegs.md")
+        );
+        assert_eq!(
+            file_in(PathBuf::from("/nirgends/Liste.md")),
+            PathBuf::from("/nirgends/Liste.md")
+        );
+    }
+
+    #[test]
+    fn die_uhrzeit_allein_ist_keine_aenderung() {
+        let a = "# x\n\nStand: Freitag 27.11., 06:10\n\n## Neu\n";
+        let b = "# x\n\nStand: Freitag 27.11., 07:45\n\n## Neu\n";
+        let c = "# x\n\nStand: Samstag 28.11., 06:10\n\n## Neu\n";
+        assert_eq!(without_stand(a), without_stand(b));
+        assert_ne!(without_stand(a), without_stand(c));
+    }
+}

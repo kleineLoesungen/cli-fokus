@@ -1,6 +1,8 @@
 //! Fokus – was ist heute dran?
 
+mod away;
 mod complete;
+mod config;
 mod date;
 mod focus;
 mod input;
@@ -46,7 +48,10 @@ fn run(args: &[String]) -> Result<(), String> {
     let first = args.first().map(|s| s.to_lowercase());
     match first.as_deref() {
         Some("hilfe" | "help" | "-h" | "--help" | "?") => {
-            print!("{}", view::help(&store::file_path()));
+            print!(
+                "{}",
+                view::help(&store::file_path(), away::path().as_deref())
+            );
             return Ok(());
         }
         Some("--version" | "-v" | "version") => {
@@ -70,15 +75,62 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         // Vor dem Laden: Deinstallieren soll keine leere Aufgabendatei anlegen.
         Some("deinstallieren" | "entfernen" | "uninstall") => return setup::uninstall(),
+        // Vor dem Laden: Sonst schriebe Fokus am Ende die alte Datei wieder hin.
+        Some("datei")
+            if args
+                .get(1)
+                .is_some_and(|a| matches!(a.to_lowercase().as_str(), "verschieben" | "nach")) =>
+        {
+            println!("{}", setup::move_data(&args[2..].join(" "))?);
+            return Ok(());
+        }
         _ => {}
     }
 
     let mut store = Store::load(store::file_path(), date::today())?;
+
+    // Was unterwegs dazukam, kommt zuerst in die Liste.
+    let away_before = away::path();
+    let mut pickup = away::Pickup::default();
+    if let Some(p) = &away_before {
+        match away::pick_up(&mut store, p) {
+            Ok(got) => pickup = got,
+            Err(e) => println!(" {}", term::yellow(&e)),
+        }
+        if pickup.pending {
+            for m in &pickup.messages {
+                println!(" {}", term::dim(m));
+            }
+        } else if !pickup.messages.is_empty() {
+            println!(" {}", term::bold("Von unterwegs:"));
+            for m in &pickup.messages {
+                println!("{m}");
+            }
+            println!();
+        }
+    }
+
     let result = dispatch(&mut store, first.as_deref(), args);
     // Auch nach einem Fehler speichern: Was beim Laden geradegerückt wurde, soll bleiben.
     store.save()?;
     for m in &store.messages {
         println!("{}", term::dim(m));
+    }
+
+    // Erst wenn die Aufgaben sicher gespeichert sind, verschwinden die abgeholten
+    // Zeilen aus der Unterwegs-Datei. Wurde der Ort eben geändert, bekommen der
+    // alte und der neue Ort den Stand.
+    let away_after = away::path();
+    if let Some(p) = &away_before
+        && !pickup.pending
+        && let Err(e) = away::write(&store, p, &pickup.taken)
+    {
+        println!(" {}", term::yellow(&e));
+    }
+    if let Some(p) = away_after.filter(|a| away_before.as_ref() != Some(a))
+        && let Err(e) = away::write(&store, &p, &[])
+    {
+        println!(" {}", term::yellow(&e));
     }
     result
 }
@@ -220,6 +272,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some(p) if p.starts_with('#') => print!("{}", view::topic(store, &args[0])),
         Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
         Some("aufräumen" | "aufraeumen") => review::run(store)?,
+        Some("unterwegs") => println!("{}", away::command(rest)?),
         Some("datei") => {
             println!(" Deine Aufgaben liegen in {}", store.path.display());
             if term::is_interactive() {
