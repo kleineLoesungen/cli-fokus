@@ -1101,7 +1101,7 @@ pub fn archive(store: &Store) -> String {
 }
 
 /// `fokus hilfe`
-pub fn help(path: &Path) -> String {
+pub fn help(path: &Path, away: Option<&Path>) -> String {
     let rows: &[(&str, &str)] = &[
         ("fokus", "zeigt, was heute dran ist"),
         (
@@ -1152,6 +1152,14 @@ pub fn help(path: &Path) -> String {
             "geht liegengebliebene Aufgaben mit dir durch",
         ),
         ("fokus datei", "öffnet deine Aufgabendatei im Texteditor"),
+        (
+            "fokus datei verschieben ort",
+            "legt deine Aufgabendatei an einen anderen Ort",
+        ),
+        (
+            "fokus unterwegs ordner",
+            "schreibt den Stand fürs Handy dorthin (aus: abschalten)",
+        ),
         ("fokus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
         (
             "fokus deinstallieren",
@@ -1180,6 +1188,12 @@ pub fn help(path: &Path) -> String {
         term::dim("Statt „fokus“ geht auch „f“, wenn du „fokus einrichten“ benutzt hast."),
         term::dim(&format!("Deine Aufgaben liegen in {}", path.display())),
     ));
+    if let Some(a) = away {
+        out.push_str(&format!(
+            " {}\n",
+            term::dim(&format!("Die Unterwegs-Datei liegt in {}", a.display()))
+        ));
+    }
     out
 }
 

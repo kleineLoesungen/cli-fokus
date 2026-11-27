@@ -25,11 +25,15 @@ const COMMANDS: &[(&str, &str)] = &[
     ("archiv", "Erledigtes und Gestrichenes, 14 Tage"),
     ("zurück", "aus dem Archiv zurückholen"),
     ("aufräumen", "Liegengebliebenes durchgehen"),
-    ("datei", "Aufgabendatei öffnen"),
+    ("datei", "Aufgabendatei öffnen oder verschieben"),
+    ("unterwegs", "Stand fürs Handy, mit „Neu“"),
     ("einrichten", "Kurzbefehl und Tab-Taste einrichten"),
     ("deinstallieren", "Fokus entfernen"),
     ("hilfe", "alle Befehle"),
 ];
+
+/// Statt eigener Vorschläge: die Shell soll Ordner und Dateien anbieten.
+const FILES: &str = "__dateien__";
 
 const DATE_WORDS: &[&str] = &[
     "heute",
@@ -115,6 +119,18 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
                 .map(|(v, d)| (v.trim_start_matches('#').to_string(), d))
                 .filter(|(v, _)| !chosen.contains(&tags::key(v)))
                 .collect()
+        }
+        "datei" if prev.len() == 1 => vec![(
+            "verschieben".into(),
+            "verschieben     an einen anderen Ort legen".into(),
+        )],
+        "datei" if prev.len() == 2 => vec![(FILES.into(), String::new())],
+        "unterwegs" if prev.len() == 1 => {
+            let mut v = vec![(FILES.into(), String::new())];
+            if "aus".starts_with(&cur.to_lowercase()) && !cur.is_empty() {
+                v = vec![("aus".into(), "aus             abschalten".into())];
+            }
+            v
         }
         "ändern" | "aendern" | "bearbeiten" if prev.len() == 1 => nrs(&|_| true),
         "ändern" | "aendern" | "bearbeiten" => {
@@ -280,6 +296,7 @@ fn safe(value: &str) -> String {
 /// Das Skript, das `fokus einrichten` per `eval` in die `.zshrc` holt.
 pub fn zsh_script(exe: &Path) -> String {
     let exe = format!("'{}'", exe.display().to_string().replace('\'', r"'\''"));
+    let files = FILES;
     format!(
         r#"# Tab-Vervollständigung für fokus. Erzeugt von „fokus _zsh“.
 _fokus() {{
@@ -289,6 +306,10 @@ _fokus() {{
     vals+=("$v")
     disp+=("$d")
   done < <({exe} _complete "${{(@)words[2,CURRENT]}}" 2>/dev/null)
+  if [[ ${{vals[1]}} == {files} ]]; then
+    _files
+    return
+  fi
   (( ${{#vals}} )) || return 1
   compadd -Q -V fokus -l -d disp -a vals
 }}

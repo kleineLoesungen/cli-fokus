@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 
-use crate::{date, tags};
+use crate::{config, date, tags};
 
 /// Höchstens so viele offene Aufgaben stehen auf heute.
 pub const TODAY_LIMIT: usize = 3;
@@ -167,15 +167,24 @@ pub struct Store {
     original: String,
 }
 
-/// `~/Documents/Fokus.md`, oder was in `FOKUS_DATEI` steht.
+/// Was in `FOKUS_DATEI` steht, sonst der Ort aus den Einstellungen, sonst
+/// `~/Documents/Fokus.md`.
 pub fn file_path() -> PathBuf {
-    if let Some(p) = std::env::var_os("FOKUS_DATEI") {
-        return PathBuf::from(p);
+    if let Some(p) = play_file() {
+        return p;
     }
-    let home = std::env::var_os("HOME")
+    config::get(config::DATA_KEY).unwrap_or_else(default_path)
+}
+
+/// Die Spieldatei aus `FOKUS_DATEI`, wenn eine gesetzt ist.
+pub fn play_file() -> Option<PathBuf> {
+    std::env::var_os("FOKUS_DATEI")
+        .filter(|s| !s.is_empty())
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join("Documents").join("Fokus.md")
+}
+
+pub fn default_path() -> PathBuf {
+    config::home().join("Documents").join("Fokus.md")
 }
 
 impl Store {
