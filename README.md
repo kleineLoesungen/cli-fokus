@@ -306,7 +306,21 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus hilfe` | diese Liste |
 
 Statt `fokus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
-Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen.
+Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen
+– zweimal Tab zeigt die Liste, nach Gruppen geordnet:
+
+```
+fokus fertig ⇥⇥
+Heute
+7   Reisekosten  · heute
+1   Präsentation vorbereiten  · morgen
+Arbeit · wichtig
+2   Website-Texte  · 12.12.
+Ohne Thema
+5   Mama zurückrufen
+Bei anderen
+6   Fotos schicken  · bei Anna
+```
 
 ---
 

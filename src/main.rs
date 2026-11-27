@@ -62,8 +62,8 @@ fn run(args: &[String]) -> Result<(), String> {
         // Für die Tab-Taste: nur lesen, nie schreiben, nie eine Fehlermeldung.
         Some("_complete") => {
             if let Ok(store) = Store::load(store::file_path(), date::today()) {
-                for (value, shown) in complete::candidates(&store, &args[1..]) {
-                    println!("{value}\t{shown}");
+                for i in complete::candidates(&store, &args[1..]) {
+                    println!("{}\t{}\t{}", i.group, i.value, i.shown);
                 }
             }
             return Ok(());
