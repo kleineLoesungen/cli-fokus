@@ -208,22 +208,22 @@ Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
 ### Unterwegs: nachsehen und aufschreiben
 
 ```
-fokus unterwegs ~/Library/Mobile\ Documents/com~apple~CloudDocs/Fokus
+fokus unterwegs ~/Dropbox/Fokus
 ```
 
 Ab jetzt schreibt Fokus bei jedem Aufruf den Stand in eine zweite Datei,
-`Fokus-unterwegs.md`, in diesem Ordner. Liegt er in iCloud Drive und teilst du
-ihn mit dem Apple-Account deines Handys, siehst du sie dort in der Dateien-App:
+`Fokus-unterwegs.md`, in diesem Ordner. Welcher Dienst den Ordner zum Handy
+bringt, ist dir überlassen: iCloud Drive, Google Drive, Dropbox, OneDrive,
+Nextcloud, Syncthing – Fokus schreibt nur eine Textdatei. Ein Android-Handy
+kommt nicht an iCloud Drive; für iPhone und Android zusammen eignet sich ein
+anderer Dienst. Lieber `.txt`? `fokus unterwegs ~/Dropbox/Fokus/Fokus.txt`.
 
 ```
 # Fokus unterwegs
 
 Stand: Freitag 27.11., 06:10
 
-## Neu
-
-- Trikots bestellen #verein freitag
-Idee für den Talentpfad
+Neues schreibst du ganz unten unter „Neu“ …
 
 ## Heute · Freitag 27.11.
 - 2 Präsentation vorbereiten · Arbeit · fällig Samstag 28.11.
@@ -235,13 +235,24 @@ Idee für den Talentpfad
 
 ### Arbeit · wichtig
 - 5 Website-Texte · fällig Samstag 12.12.
+
+## Neu
+- Trikots bestellen #verein freitag
+Idee für den Talentpfad
 ```
 
-Was dir unterwegs einfällt, schreibst du unter **Neu**, eine Zeile je Aufgabe,
-wie bei `fokus +`. Beim nächsten Aufruf am Mac holt Fokus die Zeilen ab, legt sie
-als Aufgaben an und leert den Abschnitt. Alles andere schreibt Fokus jedes Mal
-neu; abhaken und ändern geht am Mac. Termine stehen dort mit Datum statt
-„morgen“, weil man sie vielleicht erst später liest.
+Oben steht der Stand zum Lesen, mit Datum statt „morgen“, weil man ihn
+vielleicht erst später liest. Was dir unterwegs einfällt, schreibst du ganz
+unten unter **Neu**, eine Zeile je Aufgabe, wie bei `fokus +`. Beim nächsten
+Aufruf holt Fokus die Zeilen ab, legt sie als Aufgaben an und leert den
+Abschnitt. Alles darüber schreibt Fokus jedes Mal neu; abhaken und ändern geht
+am Computer.
+
+Weil „Neu“ am Ende steht, reicht es, eine Zeile an die Datei anzuhängen. Das
+können Kurzbefehle auf dem iPhone und Automatisierungs-Apps unter Android, also
+auch per Sprache, ohne die Datei zu öffnen. Zum Lesen und Schreiben von Hand
+brauchst du am Handy einen Texteditor, der Dateien direkt im Sync-Ordner öffnet
+(auf dem iPhone etwa Runestone); die Dateien-Apps zeigen Textdateien nur an.
 
 Deine `Fokus.md` bleibt, wo sie ist: Die Unterwegs-Datei ist nur eine Kopie.
 `fokus unterwegs` zeigt, wo sie liegt, `fokus unterwegs aus` schaltet sie ab.
@@ -300,7 +311,8 @@ Alles steht in einer Textdatei, anfangs `Dokumente/Fokus.md`. Du kannst sie mit
 jedem Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
 reparieren #haus` reicht, den Rest ergänzt Fokus. Erledigtes und Gestrichenes
 löscht Fokus nach 14 Tagen. Kein Konto, keine Cloud – außer dein Mac sichert
-den Ordner Dokumente in iCloud, oder du schaltest die Unterwegs-Datei ein.
+den Ordner Dokumente in iCloud, oder du legst die Datei selbst in einen
+Sync-Ordner oder schaltest die Unterwegs-Datei ein.
 
 Woanders hin geht sie mit `fokus datei verschieben ~/Planung` (ein Ordner
 bekommt `Fokus.md`, eine `.md`-Datei bleibt, wie sie heißt). Fokus zieht die

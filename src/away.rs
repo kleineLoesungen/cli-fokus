@@ -1,10 +1,12 @@
-//! Die Unterwegs-Datei: der Stand zum Lesen am Handy und ein Abschnitt „Neu“
-//! für das, was dir unterwegs einfällt.
+//! Die Unterwegs-Datei: oben der Stand zum Lesen am Handy, ganz unten ein
+//! Abschnitt „Neu“ für das, was dir unterwegs einfällt.
 //!
-//! Sie ist eine Kopie, nie die Aufgabendatei selbst. Bei jedem Aufruf holt Fokus
-//! zuerst die Zeilen unter „Neu“ als Aufgaben ab und schreibt danach den Stand
-//! neu. Was zwischendurch unter „Neu“ dazukommt, bleibt stehen und kommt beim
-//! nächsten Mal dran. Alles außer „Neu“ schreibt Fokus jedes Mal neu.
+//! Sie ist eine Kopie, nie die Aufgabendatei selbst, und eine schlichte
+//! Textdatei: Welcher Sync-Dienst sie zum Handy bringt (iCloud Drive, Google
+//! Drive, Dropbox, Nextcloud, Syncthing …) und welcher Editor sie dort öffnet,
+//! ist egal. Bei jedem Aufruf holt Fokus zuerst die Zeilen unter „Neu“ als
+//! Aufgaben ab und schreibt danach den Stand neu. Was zwischendurch unter „Neu“
+//! dazukommt, bleibt stehen und kommt beim nächsten Mal dran.
 
 use std::fs;
 use std::io::ErrorKind;
@@ -19,6 +21,9 @@ use crate::{config, date, ops, store, tags, term};
 pub const FILE_NAME: &str = "Fokus-unterwegs.md";
 
 const NEW_HEADING: &str = "## Neu";
+
+/// Welcher Dienst den Ordner zum Handy bringt, entscheidest du.
+pub const SYNC_HINT: &str = "Den Ordner muss ein Sync-Dienst zum Handy bringen, etwa iCloud Drive, Google Drive, Dropbox, OneDrive, Nextcloud oder Syncthing.";
 const STAND: &str = "Stand: ";
 
 /// Wo die Unterwegs-Datei liegt, oder `None`, wenn es keine gibt.
@@ -68,7 +73,7 @@ pub fn pick_up(store: &mut Store, path: &Path) -> Result<Pickup, String> {
         return Ok(Pickup {
             pending: true,
             messages: vec![
-                "Die Unterwegs-Datei ist noch nicht vom iCloud-Server geladen. Beim nächsten Aufruf hole ich sie ab."
+                "Die Unterwegs-Datei ist noch nicht aus iCloud geladen. Beim nächsten Aufruf hole ich sie ab."
                     .into(),
             ],
             ..Pickup::default()
@@ -150,7 +155,8 @@ fn still_in_cloud(path: &Path) -> bool {
     true
 }
 
-/// Die nicht leeren Zeilen unter „## Neu“, bis zur nächsten Überschrift.
+/// Die nicht leeren Zeilen unter „## Neu“, bis zur nächsten Überschrift oder zum
+/// Ende der Datei. Steht „Neu“ (wie früher) oben, endet es an „## Heute“ und Co.
 fn new_lines(text: &str) -> Vec<String> {
     let mut inside = false;
     let mut out = Vec::new();
@@ -205,20 +211,11 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
     let mut s = String::from("# Fokus unterwegs\n\n");
     s.push_str(&format!("{STAND}{}, {now}\n\n", date::exact(today)));
     s.push_str(
-        "Was dir einfällt, schreibst du unter „Neu“: eine Zeile je Aufgabe, wie bei\n\
+        "Neues schreibst du ganz unten unter „Neu“: eine Zeile je Aufgabe, wie bei\n\
          „fokus +“, etwa „Trikots bestellen #verein freitag“. Fokus übernimmt sie beim\n\
-         nächsten Aufruf am Mac. Alles andere schreibt Fokus jedes Mal neu; abhaken\n\
-         und ändern geht am Mac.\n\n",
+         nächsten Aufruf am Computer. Alles darüber schreibt Fokus jedes Mal neu;\n\
+         abhaken und ändern geht am Computer.\n\n",
     );
-    s.push_str(NEW_HEADING);
-    s.push_str("\n\n");
-    for k in keep {
-        s.push_str(k);
-        s.push('\n');
-    }
-    if !keep.is_empty() {
-        s.push('\n');
-    }
 
     let done = store.done_today();
     let open_today = store.today_open();
@@ -310,7 +307,18 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
     if !store.tasks.iter().any(Task::is_active) {
         s.push_str("Gerade ist nichts offen.\n\n");
     }
-    s.trim_end().to_string() + "\n"
+
+    // „Neu“ steht am Ende: Was Kurzbefehle oder andere Apps an die Datei
+    // anhängen, landet so von selbst dort.
+    let mut s = s.trim_end().to_string();
+    s.push_str("\n\n");
+    s.push_str(NEW_HEADING);
+    s.push('\n');
+    for k in keep {
+        s.push_str(k);
+        s.push('\n');
+    }
+    s
 }
 
 fn item(store: &Store, t: &Task, with_topic: bool) -> String {
@@ -362,7 +370,7 @@ pub fn command(args: &[String]) -> Result<String, String> {
             None => format!(
                 " Es gibt noch keine Unterwegs-Datei.\n {}",
                 term::dim(
-                    "Einschalten: fokus unterwegs <ordner>, am besten ein geteilter Ordner in iCloud Drive"
+                    "Einschalten: fokus unterwegs <ordner>, ein Ordner, den auch dein Handy sieht"
                 )
             ),
         });
@@ -388,22 +396,19 @@ pub fn command(args: &[String]) -> Result<String, String> {
             None => " Es gab keine Unterwegs-Datei.".into(),
         });
     }
-    let target = file_in(config::typed_path(arg).ok_or("Wohin? Zum Beispiel: fokus unterwegs ~/Library/Mobile\\ Documents/com~apple~CloudDocs/Fokus")?);
+    let target = file_in(
+        config::typed_path(arg).ok_or("Wohin? Zum Beispiel: fokus unterwegs ~/Dropbox/Fokus")?,
+    );
     set(&target)?;
     let mut msg = format!(
         " {} Fokus schreibt den Stand jetzt nach {}\n   {}",
         term::green("✓"),
         target.display(),
-        term::dim("Am Handy unter „Neu“ aufschreiben; beim nächsten Aufruf hier holt Fokus es ab.")
+        term::dim(
+            "Am Handy ganz unten unter „Neu“ aufschreiben; beim nächsten Aufruf hier holt Fokus es ab."
+        )
     );
-    if !in_cloud(&target) {
-        msg.push_str(&format!(
-            "\n   {}",
-            term::yellow(
-                "Der Ordner liegt nicht in iCloud Drive. Damit du die Datei am Handy siehst, muss er in einen Cloud-Ordner."
-            )
-        ));
-    }
+    msg.push_str(&format!("\n   {}", term::dim(SYNC_HINT)));
     Ok(msg)
 }
 
@@ -420,12 +425,6 @@ pub fn set(target: &Path) -> Result<(), String> {
             .map_err(|e| format!("Ich kann den Ordner {} nicht anlegen: {e}", dir.display()))?;
     }
     config::set(config::AWAY_KEY, Some(target))
-}
-
-/// iCloud Drive oder ein anderer Cloud-Ordner (Dropbox, OneDrive, Google Drive …).
-pub fn in_cloud(p: &Path) -> bool {
-    let s = p.to_string_lossy();
-    s.contains("/Library/Mobile Documents/") || s.contains("/Library/CloudStorage/")
 }
 
 /// Gleich, auch wenn einer der Pfade über einen Link oder `..` geht.
@@ -447,6 +446,15 @@ pub fn same_file(a: &Path, b: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn neu_am_ende_reicht_bis_zum_dateiende() {
+        let text = "# Fokus unterwegs\n\n## Heute · Freitag 27.11.\n- 2 Präsentation\n\n## Offen\n\n### Arbeit · wichtig\n- 5 Texte\n\n## Neu\n- Trikots bestellen #verein\nper Kurzbefehl angehängt";
+        assert_eq!(
+            new_lines(text),
+            vec!["- Trikots bestellen #verein", "per Kurzbefehl angehängt"]
+        );
+    }
 
     #[test]
     fn nur_zeilen_unter_neu_zaehlen() {
