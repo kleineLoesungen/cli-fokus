@@ -64,6 +64,11 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     ),
     ("Datei und Einrichtung", "deinstallieren", "Fokus entfernen"),
     ("Datei und Einrichtung", "hilfe", "alle Befehle"),
+    (
+        "Datei und Einrichtung",
+        "anleitung",
+        "die ganze Anleitung, auch zu einem Stichwort",
+    ),
 ];
 
 /// Statt eigener Vorschläge: die Shell soll Ordner und Dateien anbieten.

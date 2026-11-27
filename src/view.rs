@@ -1189,6 +1189,10 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "fokus deinstallieren",
             "entfernt Fokus wieder (deine Aufgaben nur auf Wunsch)",
         ),
+        (
+            "fokus anleitung stichwort",
+            "die ganze Anleitung, oder nur der passende Abschnitt",
+        ),
     ];
     let mut out = format!("\n {}\n\n", term::bold("Fokus – was ist heute dran?"));
     for (cmd, what) in rows {
@@ -1207,9 +1211,10 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
         }
     }
     out.push_str(&format!(
-        "\n {}\n {}\n {}\n",
+        "\n {}\n {}\n {}\n {}\n",
         term::dim("Termine: heute, morgen, freitag, 3.12., in 2 wochen · jeden montag, alle 2 wochen freitag"),
         term::dim("Statt „fokus“ geht auch „f“, wenn du „fokus einrichten“ benutzt hast."),
+        term::dim("Mehr zu allem: fokus anleitung, etwa fokus anleitung unterwegs"),
         term::dim(&format!("Deine Aufgaben liegen in {}", path.display())),
     ));
     if let Some(a) = away {
