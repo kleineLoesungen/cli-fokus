@@ -77,6 +77,37 @@ rückt sie zum nächsten weiter, statt sich zu stapeln. Ändern geht mit
 
 Bei Zeichen wie `'` oder `?` im Text: nur `fokus +` tippen, dann fragt Fokus.
 
+### Mehr dazu merken: Notizen und Links
+
+```
+fokus notiz 5 https://figma.com/file/abc
+fokus notiz 5 Ansprechpartner Max, Budget steht im Angebot
+fokus 5
+```
+```
+ 5  Website-Relaunch
+     Arbeit · fällig 12.12. · seit heute
+
+   5.1  https://figma.com/file/abc
+   5.2  Ansprechpartner Max, Budget steht im Angebot
+```
+
+Eine Notiz ist eine Zeile Text oder ein Link. `fokus notiz 5.2 …` ersetzt
+die zweite, `fokus notiz 5.2 löschen` löscht sie. `fokus notiz 5` allein geht
+die Notizen durch: Ziffer wählt eine, dann [ä] ändern oder [l] löschen, [n]
+legt eine neue an. Die Tab-Taste zeigt nach `fokus notiz 5.` die Notizen mit
+Text, du musst dir die Nummern also nicht merken. `fokus öffnen 5` öffnet den
+Link im Browser (bei mehreren fragt Fokus, welchen).
+
+Themen haben auch Notizen: `fokus notiz #arbeit Wiki: https://…`. Sie stehen
+dann in `fokus #arbeit` unten.
+
+In den Listen siehst du nur ein Zeichen hinter dem Text, ↗ bei einem Link,
+✎ bei anderen Notizen. In der Datei stehen die Notizen eingerückt unter ihrer
+Aufgabe oder ihrem Thema, in der Unterwegs-Datei auch. Sie bleiben, wenn du die
+Aufgabe änderst, auf heute legst oder archivierst, und kommen bei einer
+Wiederholung mit.
+
 ### Etwas hat sich geändert
 
 ```
@@ -290,6 +321,7 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus + Text #thema @person termin` | aufschreiben |
 | `fokus heute 4` · `später 4` · `fertig 4` | Liste für heute |
 | `fokus ändern 4 …` | Text, Thema, Person, Termin ändern |
+| `fokus 4` · `notiz 4 …` · `notiz 4.2 …` · `öffnen 4` | eine Aufgabe mit Notizen · Notiz dazu · ändern · Link öffnen |
 | `fokus streichen 4` | weg damit (14 Tage im Archiv) |
 | `fokus archiv` · `fokus zurück 4` | Erledigtes ansehen · zurückholen |
 | `fokus jetzt` | nur eine Aufgabe, mit Uhr |
@@ -329,7 +361,8 @@ Bei anderen
 
 Alles steht in einer Textdatei, anfangs `Dokumente/Fokus.md`. Du kannst sie mit
 jedem Editor lesen und ändern (`fokus datei`); eine neue Zeile `- Fahrrad
-reparieren #haus` reicht, den Rest ergänzt Fokus. Erledigtes und Gestrichenes
+reparieren #haus` reicht, den Rest ergänzt Fokus. Eingerückte Zeilen darunter
+sind Notizen zu dieser Aufgabe. Erledigtes und Gestrichenes
 löscht Fokus nach 14 Tagen. Kein Konto, keine Cloud – außer dein Mac sichert
 den Ordner Dokumente in iCloud, oder du legst die Datei selbst in einen
 Sync-Ordner oder schaltest die Unterwegs-Datei ein.

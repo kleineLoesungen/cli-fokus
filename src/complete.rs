@@ -47,6 +47,8 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     ("Ändern", "streichen", "Aufgabe streichen"),
     ("Ändern", "zurück", "aus dem Archiv zurückholen"),
     ("Ändern", "aufräumen", "Liegengebliebenes durchgehen"),
+    ("Notizen", "notiz", "Notiz oder Link zu Aufgabe oder Thema"),
+    ("Notizen", "öffnen", "Link aus den Notizen öffnen"),
     (
         "Datei und Einrichtung",
         "datei",
@@ -146,6 +148,11 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
                 .filter(|i| !chosen.contains(&tags::key(&i.value)))
                 .collect()
         }
+        "notiz" | "notizen" if prev.len() == 1 => note_targets(store, cur, false),
+        "notiz" | "notizen" if prev.len() == 2 && prev[1].contains('.') => {
+            vec![described("", "löschen", "diese Notiz löschen")]
+        }
+        "öffnen" | "oeffnen" | "link" if prev.len() == 1 => note_targets(store, cur, true),
         "datei" if prev.len() == 1 => {
             vec![described("", "verschieben", "an einen anderen Ort legen")]
         }
@@ -297,6 +304,44 @@ fn archived(store: &Store, skip: &[u32]) -> Vec<Item> {
             item(g, t.nr.to_string(), term::truncate(&d, 70))
         })
         .collect()
+}
+
+/// Für `notiz` und `öffnen`: erst Aufgaben und Themen, nach dem Punkt die
+/// einzelnen Notizen mit ihrem Text. `links`: nur, wo ein Link steht.
+fn note_targets(store: &Store, cur: &str, links: bool) -> Vec<Item> {
+    use crate::notes::{self, Target};
+    let has_link = |v: &[String]| v.iter().any(|n| !crate::store::links(n).is_empty());
+    if let Some((head, _)) = cur.rsplit_once('.')
+        && let Some(target) = Target::parse(head)
+    {
+        let name = head.to_string();
+        return notes::notes(store, &target)
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| !links || !crate::store::links(n).is_empty())
+            .map(|(k, n)| {
+                let v = format!("{name}.{}", k + 1);
+                item(
+                    "Notizen",
+                    v.clone(),
+                    format!("{v:<10}{}", term::truncate(n, 60)),
+                )
+            })
+            .collect();
+    }
+    let mut v = if cur.starts_with('#') {
+        Vec::new()
+    } else {
+        numbers(store, |t| {
+            !links || has_link(&t.notes) || !crate::store::links(&t.text).is_empty()
+        })
+    };
+    v.extend(
+        topics(store)
+            .into_iter()
+            .filter(|i| !links || has_link(store.notes_of_topic(&i.value))),
+    );
+    v
 }
 
 fn topics(store: &Store) -> Vec<Item> {
@@ -520,7 +565,13 @@ mod tests {
     fn vorschlaege_kommen_in_gruppen() {
         assert_eq!(
             gruppen(&[""]),
-            vec!["Für heute", "Ansehen", "Ändern", "Datei und Einrichtung"]
+            vec![
+                "Für heute",
+                "Ansehen",
+                "Ändern",
+                "Notizen",
+                "Datei und Einrichtung"
+            ]
         );
         assert_eq!(
             gruppen(&["fertig", ""]),
