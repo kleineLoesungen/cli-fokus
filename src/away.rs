@@ -223,6 +223,7 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
         s.push_str(&format!("## Heute · {}\n", date::exact(today)));
         for &i in &done {
             s.push_str(&format!("- ✓ {}\n", store.tasks[i].display()));
+            s.push_str(&note_lines(&store.tasks[i].notes));
         }
         for &i in &open_today {
             s.push_str(&item(store, &store.tasks[i], true));
@@ -263,6 +264,7 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
             }
             s.push_str(&line);
             s.push('\n');
+            s.push_str(&note_lines(&t.notes));
         }
         s.push('\n');
     }
@@ -297,6 +299,11 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
                 None => "Ohne Thema".into(),
             };
             s.push_str(&format!("\n### {title}\n"));
+            if let Some(n) = &name {
+                for note in store.notes_of_topic(n) {
+                    s.push_str(&format!("{note}\n"));
+                }
+            }
             for t in tasks {
                 s.push_str(&item(store, t, false));
             }
@@ -330,7 +337,14 @@ fn item(store: &Store, t: &Task, with_topic: bool) -> String {
         line.push_str(&format!(" · {}", due_text(t, d, store.today)));
     }
     line.push('\n');
+    line.push_str(&note_lines(&t.notes));
     line
+}
+
+/// Notizen eingerückt unter der Aufgabe oder dem Thema: Unterwegs ist das der
+/// Zusammenhang, der sonst fehlt.
+fn note_lines(notes: &[String]) -> String {
+    notes.iter().map(|n| format!("  {n}\n")).collect()
 }
 
 fn due_text(t: &Task, d: NaiveDate, today: NaiveDate) -> String {

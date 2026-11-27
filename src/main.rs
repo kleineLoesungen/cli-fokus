@@ -7,6 +7,7 @@ mod date;
 mod focus;
 mod input;
 mod manual;
+mod notes;
 mod ops;
 mod review;
 mod setup;
@@ -276,6 +277,17 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
         Some("aufräumen" | "aufraeumen") => review::run(store)?,
         Some("unterwegs") => println!("{}", away::command(rest)?),
+        Some("notiz" | "notizen" | "note") => {
+            let msg = notes::command(store, rest)?;
+            if !msg.is_empty() {
+                println!("{msg}");
+            }
+        }
+        Some("öffnen" | "oeffnen" | "open" | "link") => println!("{}", notes::open(store, rest)?),
+        // `fokus 5` oder `fokus 5.2`: eine Aufgabe mit ihren Notizen.
+        Some(n) if notes::task_nr(n).is_some() => {
+            print!("{}", view::detail(store, notes::task_nr(n).unwrap_or(0)));
+        }
         Some("datei") => {
             println!(" Deine Aufgaben liegen in {}", store.path.display());
             if term::is_interactive() {

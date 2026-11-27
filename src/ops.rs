@@ -126,6 +126,7 @@ pub fn done(store: &mut Store, nr: u32) -> Result<String, String> {
         }
         let mut again = Task::new(t.text.clone(), Some(next), today);
         again.every = Some(n);
+        again.notes = t.notes.clone();
         let j = store.add_task(again);
         msg.push_str(&format!(
             "\n   ↻ Nächstes Mal: Aufgabe {}, fällig {}",
@@ -503,6 +504,14 @@ pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, S
         1 => "1 offene Aufgabe".to_string(),
         n => format!("{n} offene Aufgaben"),
     };
+    // Die Notizen ziehen mit, beim Zusammenlegen hinten an.
+    if let Some(moved) = store.topic_notes.remove(&from_key) {
+        store
+            .topic_notes
+            .entry(tags::key(&target))
+            .or_default()
+            .extend(moved);
+    }
     if let Some(target) = merge_into {
         store.important.retain(|n| tags::key(n) != from_key);
         store.other.retain(|n| tags::key(n) != from_key);

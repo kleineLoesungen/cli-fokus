@@ -4,7 +4,7 @@
 //! kann. Der Abschnitt bestimmt den Zustand einer Aufgabe (`## Heute`,
 //! `## Warte auf`, …), die eckige Klammer am Zeilenende trägt Nummer und Daten.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -57,6 +57,8 @@ pub struct Task {
     pub archived_on: Option<NaiveDate>,
     /// Wiederholung: alle so viele Wochen, am Wochentag des Termins.
     pub every: Option<u32>,
+    /// Notizen und Links, je eine Zeile. In der Datei eingerückt unter der Aufgabe.
+    pub notes: Vec<String>,
 }
 
 impl Task {
@@ -73,6 +75,7 @@ impl Task {
             on_today: false,
             archived_on: None,
             every: None,
+            notes: Vec::new(),
         }
     }
 
@@ -100,6 +103,17 @@ impl Task {
             .split_whitespace()
             .find(|w| tags::is_tag(w, '#'))
             .map(|w| tags::clean(w).to_string())
+    }
+
+    /// Hinter dem Text in Listen: ↗ bei einem Link, ✎ bei anderen Notizen.
+    pub fn marker(&self) -> &'static str {
+        if self.notes.iter().any(|n| !links(n).is_empty()) {
+            "↗"
+        } else if self.notes.is_empty() {
+            ""
+        } else {
+            "✎"
+        }
     }
 
     /// Alle `@personen` im Text, ohne Doppelte.
@@ -163,6 +177,8 @@ pub struct Store {
     pub tasks: Vec<Task>,
     /// Zeilen, die Fokus nicht versteht. Sie bleiben unter „Notizen“ erhalten.
     pub notes: Vec<String>,
+    /// Notizen zu Themen, nach `tags::key` des Themas.
+    pub topic_notes: HashMap<String, Vec<String>>,
     /// Hinweise, die beim Laden entstanden sind (etwa: ins Archiv geräumt).
     pub messages: Vec<String>,
     original: String,
@@ -207,6 +223,7 @@ impl Store {
             suggested: false,
             tasks: Vec::new(),
             notes: Vec::new(),
+            topic_notes: HashMap::new(),
             messages: Vec::new(),
             original: text.to_string(),
         };
@@ -214,10 +231,36 @@ impl Store {
         let mut below_line = false;
         let mut list_date: Option<NaiveDate> = None;
         let mut topics: Vec<(String, bool)> = Vec::new();
+        // Wem eine eingerückte Zeile gehört: der Aufgabe oder dem Thema darüber.
+        let mut last_task: Option<usize> = None;
+        let mut last_topic: Option<String> = None;
 
         for line in text.lines() {
             let trimmed = line.trim();
+            let indented = line.starts_with(char::is_whitespace) && !trimmed.is_empty();
+            if indented && !is_checkbox(trimmed) {
+                match section {
+                    Section::Topics if last_topic.is_some() => {
+                        let k = last_topic.clone().unwrap_or_default();
+                        store
+                            .topic_notes
+                            .entry(k)
+                            .or_default()
+                            .push(trimmed.to_string());
+                        continue;
+                    }
+                    Section::Preamble | Section::Topics | Section::Notes => {}
+                    _ => {
+                        if let Some(i) = last_task {
+                            store.tasks[i].notes.push(trimmed.to_string());
+                            continue;
+                        }
+                    }
+                }
+            }
             if let Some(heading) = trimmed.strip_prefix("## ") {
+                last_task = None;
+                last_topic = None;
                 section = section_of(heading);
                 if section == Section::Today {
                     list_date = heading.split('·').find_map(date::from_file);
@@ -235,10 +278,12 @@ impl Store {
                         && trimmed.chars().all(|c| matches!(c, '-' | '─' | '*' | '_'))
                     {
                         below_line = true;
+                        last_topic = None;
                         continue;
                     }
                     let name = strip_marker(trimmed);
                     if !tags::key(name).is_empty() {
+                        last_topic = Some(tags::key(name));
                         topics.push((name.to_string(), below_line));
                     }
                 }
@@ -248,8 +293,14 @@ impl Store {
                         continue;
                     }
                     match parse_task(trimmed, section, list_date.unwrap_or(today), today) {
-                        Some(t) => store.tasks.push(t),
-                        None => store.notes.push(line.to_string()),
+                        Some(t) => {
+                            store.tasks.push(t);
+                            last_task = Some(store.tasks.len() - 1);
+                        }
+                        None => {
+                            last_task = None;
+                            store.notes.push(line.to_string());
+                        }
                     }
                 }
             }
@@ -362,7 +413,11 @@ impl Store {
         }
         // Unter der Linie bleibt nur, was noch Aufgaben hat.
         let keys: HashSet<String> = tags_in_use.iter().map(|t| tags::key(t)).collect();
-        self.other.retain(|n| keys.contains(&tags::key(n)));
+        let notes = &self.topic_notes;
+        self.other.retain(|n| {
+            let k = tags::key(n);
+            keys.contains(&k) || notes.get(&k).is_some_and(|v| !v.is_empty())
+        });
 
         self.assign_numbers();
         if new_day {
@@ -577,10 +632,12 @@ impl Store {
         s.push_str("## Themen\n");
         for (i, n) in self.important.iter().enumerate() {
             s.push_str(&format!("{}. {n}\n", i + 1));
+            s.push_str(&self.topic_note_lines(n, "   "));
         }
         s.push_str("---\n");
         for n in &self.other {
             s.push_str(&format!("- {n}\n"));
+            s.push_str(&self.topic_note_lines(n, "  "));
         }
 
         s.push_str(&format!(
@@ -651,6 +708,21 @@ impl Store {
             }
         }
         s
+    }
+
+    fn topic_note_lines(&self, name: &str, indent: &str) -> String {
+        self.topic_notes
+            .get(&tags::key(name))
+            .map(|v| v.iter().map(|n| format!("{indent}{n}\n")).collect())
+            .unwrap_or_default()
+    }
+
+    /// Die Notizen eines Themas (leer, wenn es keine gibt).
+    pub fn notes_of_topic(&self, name: &str) -> &[String] {
+        self.topic_notes
+            .get(&tags::key(name))
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     /// Schreibt die Datei, aber nur, wenn sich etwas geändert hat.
@@ -875,7 +947,29 @@ fn line(t: &Task) -> String {
         None => {}
     }
     let check = if t.status == Status::Done { "x" } else { " " };
-    format!("- [{check}] {}  [{}]\n", t.text, meta.join(" · "))
+    let mut out = format!("- [{check}] {}  [{}]\n", t.text, meta.join(" · "));
+    for n in &t.notes {
+        out.push_str(&format!("  {n}\n"));
+    }
+    out
+}
+
+/// Eine eingerückte Zeile mit Kästchen bleibt eine Aufgabe, keine Notiz.
+fn is_checkbox(line: &str) -> bool {
+    ["- [ ]", "- [x]", "- [X]", "* [ ]"]
+        .iter()
+        .any(|p| line.starts_with(p))
+}
+
+/// Die Links in einer Zeile (`https://…`, `http://…`).
+pub fn links(line: &str) -> Vec<String> {
+    line.split_whitespace()
+        .filter_map(|w| {
+            let start = w.find("https://").or_else(|| w.find("http://"))?;
+            let url = w[start..].trim_end_matches([',', '.', ')', ';', '>']);
+            (url.len() > "https://".len()).then(|| url.to_string())
+        })
+        .collect()
 }
 
 #[cfg(test)]

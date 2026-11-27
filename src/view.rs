@@ -5,8 +5,8 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 
-use crate::store::{IMPORTANT_LIMIT, KEEP_DAYS, Status, Store, TODAY_LIMIT, Task};
-use crate::{date, tags, term};
+use crate::store::{self, IMPORTANT_LIMIT, KEEP_DAYS, Status, Store, TODAY_LIMIT, Task};
+use crate::{date, notes, tags, term};
 
 #[derive(Clone, Copy)]
 enum Tone {
@@ -29,6 +29,8 @@ struct Row {
     nr: u32,
     mark: &'static str,
     text: String,
+    /// ↗ oder ✎ hinter dem Text, wenn es Notizen gibt. Bleibt beim Kürzen stehen.
+    marker: &'static str,
     mid: (String, Tone),
     right: (String, Tone),
     faded: bool,
@@ -73,10 +75,21 @@ fn row(store: &Store, t: &Task, mark: &'static str) -> Row {
         nr: t.nr,
         mark,
         text: t.display(),
+        marker: t.marker(),
         mid: due_cell(store, t),
         right: topic_cell(store, t),
         faded: false,
     }
+}
+
+/// Genau `w` Spalten; ein Zeichen für Notizen bleibt hinten stehen, auch wenn
+/// der Text gekürzt werden muss.
+fn fit_marked(text: &str, marker: &str, w: usize) -> String {
+    if marker.is_empty() || w < 4 {
+        return term::fit(text, w);
+    }
+    let body = term::truncate(text, w - 2);
+    term::pad_right(&format!("{body} {marker}"), w)
 }
 
 /// Alle Blöcke einer Ansicht mit gemeinsamen Spalten.
@@ -116,7 +129,7 @@ fn layout(blocks: &[Block], width: usize) -> String {
             };
             let mut plain_line = String::new();
             let mut line = String::new();
-            let text = term::fit(&r.text, text_w);
+            let text = fit_marked(&r.text, r.marker, text_w);
             plain_line.push_str(&format!(" {nr} {} {text}", r.mark));
             line.push_str(&format!(
                 " {} {} {text}",
@@ -402,6 +415,7 @@ pub fn matrix(store: &Store) -> String {
                             " "
                         },
                         text: t.display(),
+                        marker: t.marker(),
                         mid: (right(t, i), Tone::Dim),
                         right: topic_cell(store, t),
                         faded: false,
@@ -496,7 +510,7 @@ fn matrix_wide(
             };
             // " NN ▶ " vorn (6), ein Leerzeichen hinten, dazwischen Text und Termin.
             let left_w = cw.saturating_sub(7 + if rw > 0 { rw + 1 } else { 0 });
-            let text = term::fit(&t.display(), left_w);
+            let text = fit_marked(&t.display(), t.marker(), left_w);
             let r = term::pad_left(r, rw);
             let tone_r = match t.due {
                 Some(d) if (d - store.today).num_days() < 0 => Tone::Alarm,
@@ -943,11 +957,19 @@ pub fn topic(store: &Store, raw: &str) -> String {
             term::dim("Deine Themen: fokus themen")
         );
     }
+    let target = notes::Target::Topic(name.clone(), None);
+    let topic_notes = if none {
+        String::new()
+    } else {
+        notes::lines(store, &target)
+    };
     if open.is_empty() && waiting.is_empty() && done.is_empty() {
-        return format!(
-            "\n Im Thema „{name}“ ist gerade nichts offen.\n {}\n",
-            term::dim("Deine Themen: fokus themen")
-        );
+        let mut out = format!("\n Im Thema „{name}“ ist gerade nichts offen.\n");
+        if !topic_notes.is_empty() {
+            out.push_str(&format!("\n{topic_notes}"));
+        }
+        out.push_str(&format!(" {}\n", term::dim("Deine Themen: fokus themen")));
+        return out;
     }
     let width = term::width().min(90);
     let blocks = vec![
@@ -988,6 +1010,9 @@ pub fn topic(store: &Store, raw: &str) -> String {
     ];
     let mut out = String::from("\n");
     out.push_str(&layout(&blocks, width));
+    if !topic_notes.is_empty() {
+        out.push_str(&format!(" {}\n{topic_notes}\n", term::bold("NOTIZEN")));
+    }
     if !done.is_empty() {
         let line = format!("In den letzten 7 Tagen erledigt: {}", done.join(", "));
         out.push_str(&format!(
@@ -1022,6 +1047,7 @@ fn waiting_row(store: &Store, t: &Task) -> Row {
         nr: t.nr,
         mark: "·",
         text: t.display(),
+        marker: t.marker(),
         mid: (format!("bei {who}"), Tone::Plain),
         right: (date::age_label(t.since, store.today), tone_age),
         faded: false,
@@ -1092,6 +1118,7 @@ pub fn archive(store: &Store) -> String {
                 nr: t.nr,
                 mark: if status == Status::Done { "✓" } else { "×" },
                 text: t.display(),
+                marker: t.marker(),
                 mid: (when(t.done_on.or(t.archived_on)), Tone::Dim),
                 right: topic_cell(store, t),
                 faded: false,
@@ -1142,6 +1169,13 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "fokus ändern 4 morgen",
             "ändert Text, #thema, @person oder Termin",
         ),
+        ("fokus 4", "zeigt Aufgabe 4 mit ihren Notizen"),
+        (
+            "fokus notiz 4 text",
+            "Notiz oder Link dazu, auch zu #thema (4.2 ändert eine)",
+        ),
+        ("fokus notiz 4.2 löschen", "löscht die zweite Notiz"),
+        ("fokus öffnen 4", "öffnet den Link aus den Notizen"),
         ("fokus jetzt", "zeigt nur eine Aufgabe, mit Uhr"),
         ("fokus alles", "zeigt alle Aufgaben in vier Feldern"),
         (
@@ -1243,6 +1277,67 @@ pub fn summary(store: &Store, t: &Task) -> String {
         });
     }
     parts.join(" · ")
+}
+
+/// `fokus 5`: eine Aufgabe mit allen Notizen.
+pub fn detail(store: &Store, nr: u32) -> String {
+    let Some(i) = store.find(nr) else {
+        return format!(" Eine offene Aufgabe {nr} gibt es nicht.\n");
+    };
+    let t = &store.tasks[i];
+    let mut facts = Vec::new();
+    match t.status {
+        Status::Today => facts.push("steht auf heute".to_string()),
+        Status::Waiting => {
+            if let Some(p) = &t.waiting_for {
+                facts.push(format!("liegt bei {}", tags::display(p)));
+            }
+        }
+        _ => {}
+    }
+    if let Some(n) = store.topic_name(t) {
+        facts.push(n);
+    } else {
+        facts.push("ohne Thema".into());
+    }
+    if let Some(d) = t.due {
+        facts.push(date::due_label(d, store.today));
+    }
+    if let Some(n) = t.every {
+        facts.push(format!(
+            "↻ {}",
+            date::recurrence_label(n, t.due.unwrap_or(store.today))
+        ));
+    }
+    facts.push(date::age_label(t.since, store.today));
+
+    let target = notes::Target::Task(nr, None);
+    let mut out = format!(
+        "\n {}  {}\n     {}\n",
+        term::dim(&nr.to_string()),
+        term::bold(&t.display()),
+        term::dim(&facts.join(" · "))
+    );
+    let lines = notes::lines(store, &target);
+    if lines.is_empty() {
+        out.push_str(&format!(
+            "\n {}\n",
+            term::dim(&format!(
+                "Noch keine Notizen. Dazu: fokus notiz {nr} Text oder Link"
+            ))
+        ));
+    } else {
+        out.push_str(&format!("\n{lines}\n"));
+        let mut hints = vec![
+            format!("neu: fokus notiz {nr} …"),
+            format!("ändern: fokus notiz {nr}.1 …"),
+        ];
+        if !store::links(&t.notes.join(" ")).is_empty() || !store::links(&t.text).is_empty() {
+            hints.push(format!("Link: fokus öffnen {nr}"));
+        }
+        out.push_str(&format!(" {}\n", term::dim(&hints.join(" · "))));
+    }
+    out
 }
 
 /// Die Aufgaben auf heute, kurz, für Rückfragen.

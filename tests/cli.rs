@@ -631,3 +631,168 @@ fn die_anleitung_zeigt_den_passenden_abschnitt() {
     assert!(alles.contains("ALLE BEFEHLE"));
     assert!(alles.contains("LIZENZ"));
 }
+
+#[test]
+fn notizen_aufschreiben_aendern_loeschen_und_zeigen() {
+    let s = Sandbox::new("notizen");
+    s.ok(&["+", "Website-Relaunch", "#arbeit", "12.12."]);
+    s.ok(&["+", "Mama", "anrufen"]);
+
+    let out = s.ok(&["notiz", "1", "Figma:", "https://figma.com/file/abc"]);
+    assert!(out.contains("Notiz 1.1: Figma: https://figma.com/file/abc"));
+    s.ok(&["notiz", "1", "Ansprechpartner", "Max"]);
+    s.ok(&["notiz", "2", "Nummer", "steht", "im", "Handy"]);
+
+    let out = s.ok(&["notiz", "1.2", "Ansprechpartnerin", "Lisa"]);
+    assert!(out.contains("Notiz 1.2 geändert: Ansprechpartnerin Lisa"));
+    assert!(out.contains("vorher: Ansprechpartner Max"));
+
+    let detail = s.ok(&["1"]);
+    assert!(detail.contains("Website-Relaunch"));
+    assert!(detail.contains("1.1  Figma: https://figma.com/file/abc"));
+    assert!(detail.contains("1.2  Ansprechpartnerin Lisa"));
+
+    // In den Listen nur ein Zeichen, nicht die Notiz selbst.
+    let alles = s.ok(&["#arbeit"]);
+    assert!(alles.contains("Website-Relaunch ↗"));
+    assert!(!alles.contains("figma"));
+    assert!(s.ok(&["#ohne"]).contains("Mama anrufen ✎"));
+
+    // In der Datei eingerückt unter der Aufgabe.
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(datei.contains(
+        "#arbeit  [Nr. 1 · fällig 12.12.2026 · seit 26.11.2026]\n  Figma: https://figma.com/file/abc\n  Ansprechpartnerin Lisa\n"
+    ));
+
+    let out = s.ok(&["notiz", "1.1", "löschen"]);
+    assert!(out.contains("Notiz 1.1 gelöscht: Figma: https://figma.com/file/abc"));
+    assert!(out.contains("Zurückholen: fokus notiz 1 Figma: https://figma.com/file/abc"));
+    assert!(s.ok(&["1"]).contains("1.1  Ansprechpartnerin Lisa"));
+
+    assert!(s.fails(&["notiz", "1.5", "x"]).contains("nur eine Notiz"));
+    assert!(
+        s.fails(&["notiz", "9", "x"])
+            .contains("Eine offene Aufgabe 9 gibt es nicht")
+    );
+    assert!(
+        s.fails(&["notiz", "#gibtsnicht", "x"])
+            .contains("kenne ich nicht")
+    );
+}
+
+#[test]
+fn notizen_bleiben_beim_aendern_archivieren_und_wiederholen() {
+    let s = Sandbox::new("notizen-bleiben");
+    s.ok(&["+", "Wochenplan", "#arbeit", "jeden", "freitag"]);
+    s.ok(&["notiz", "1", "Vorlage", "https://docs.example.org/plan"]);
+    s.ok(&["ändern", "1", "Wochenplan", "schreiben"]);
+    s.ok(&["heute", "1"]);
+    assert!(
+        s.ok(&["1"])
+            .contains("1.1  Vorlage https://docs.example.org/plan")
+    );
+
+    // Beim Abhaken kommt die nächste Wiederholung mit derselben Notiz.
+    let out = s.ok(&["fertig", "1"]);
+    assert!(out.contains("Nächstes Mal: Aufgabe"));
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert_eq!(
+        datei
+            .matches("  Vorlage https://docs.example.org/plan")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn eingerueckte_zeilen_von_hand_werden_notizen() {
+    let s = Sandbox::new("notizen-von-hand");
+    fs::write(
+        s.file(),
+        "## Themen\n1. Arbeit\n   Wiki: https://wiki.example.org\n---\n\n## Offen\n- [ ] Bericht #arbeit\n  Gliederung steht im Wiki\n  - Kapitel 3 fehlt\n  - [ ] Unteraufgabe bleibt eine Aufgabe\n",
+    )
+    .unwrap();
+    let detail = s.ok(&["1"]);
+    assert!(detail.contains("1.1  Gliederung steht im Wiki"));
+    assert!(detail.contains("1.2  - Kapitel 3 fehlt"));
+    assert!(s.ok(&["2"]).contains("Unteraufgabe bleibt eine Aufgabe"));
+    let thema = s.ok(&["#arbeit"]);
+    assert!(thema.contains("NOTIZEN"));
+    assert!(thema.contains("#arbeit.1  Wiki: https://wiki.example.org"));
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(
+        !datei.contains("## Notizen"),
+        "nichts darf nach „Notizen“ wandern:\n{datei}"
+    );
+    assert!(datei.contains("1. Arbeit\n   Wiki: https://wiki.example.org\n"));
+}
+
+#[test]
+fn themen_mit_notizen_bleiben_und_ziehen_beim_umbenennen_mit() {
+    let s = Sandbox::new("notizen-themen");
+    s.ok(&["+", "A", "#eins"]);
+    s.ok(&["+", "B", "#zwei"]);
+    s.ok(&["+", "C", "#drei"]);
+    s.ok(&["+", "D", "#vier"]);
+    // „Vier“ steht unter der Linie; mit Notiz bleibt es, auch ohne Aufgaben.
+    s.ok(&["notiz", "#vier", "Idee", "für", "später"]);
+    s.ok(&["streichen", "4"]);
+    assert!(s.ok(&["themen"]).contains("Vier"));
+
+    s.ok(&["themen", "umbenennen", "vier", "garten"]);
+    assert!(
+        s.ok(&["notiz", "#garten"])
+            .contains("#garten.1  Idee für später")
+    );
+    s.ok(&["notiz", "#garten.1", "löschen"]);
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(!datei.contains("Idee für später"));
+}
+
+#[test]
+fn links_werden_geoeffnet() {
+    let s = Sandbox::new("oeffnen");
+    s.ok(&["+", "Artikel", "lesen", "https://example.org/artikel"]);
+    s.ok(&[
+        "notiz",
+        "1",
+        "Kommentare:",
+        "https://example.org/kommentare",
+    ]);
+    s.ok(&["notiz", "1", "ohne", "Link"]);
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_fokus"))
+            .args(args)
+            .env("FOKUS_DATEI", s.file())
+            .env("FOKUS_HEUTE", "2026-11-26")
+            .env("FOKUS_EINSTELLUNGEN", s.dir.join("einstellungen"))
+            .env("FOKUS_BROWSER", "echo")
+            .env("NO_COLOR", "1")
+            .output()
+            .unwrap()
+    };
+    let out = run(&["öffnen", "1.1"]);
+    assert!(String::from_utf8_lossy(&out.stdout).contains("https://example.org/kommentare"));
+    let out = run(&["öffnen", "1.2"]);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("In Notiz 1.2 steht kein Link"));
+    // Zwei Links, kein Terminal zum Fragen: Fokus nennt beide.
+    let out = run(&["öffnen", "1"]);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("2 Links"));
+    assert!(err.contains("https://example.org/artikel"));
+}
+
+#[test]
+fn notizen_stehen_in_der_unterwegs_datei() {
+    let s = Sandbox::new("notizen-unterwegs");
+    fs::create_dir_all(s.dir.join("icloud")).unwrap();
+    s.ok_away(&["+", "Bericht", "#arbeit"]);
+    s.ok_away(&["notiz", "1", "Gliederung", "im", "Wiki"]);
+    s.ok_away(&["notiz", "#arbeit", "Wiki:", "https://wiki.example.org"]);
+    let stand = fs::read_to_string(s.away()).unwrap();
+    assert!(
+        stand.contains("- 1 Bericht\n  Gliederung im Wiki\n"),
+        "{stand}"
+    );
+    assert!(stand.contains("### Arbeit · wichtig\nWiki: https://wiki.example.org\n"));
+}
