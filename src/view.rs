@@ -713,9 +713,10 @@ pub fn topics(store: &Store) -> String {
     }
     if inbox > 0 {
         out.push_str(&format!(
-            "    {}  {:>5}\n",
+            "    {}  {:>5}    {}\n",
             term::dim(&term::fit("ohne Thema", name_w)),
-            inbox
+            inbox,
+            term::dim("fokus #ohne")
         ));
     }
     out.push_str(&format!(
@@ -897,12 +898,20 @@ pub fn topic(store: &Store, raw: &str) -> String {
     if k.is_empty() {
         return topics(store);
     }
-    let in_topic = |t: &Task| t.topic_tag().is_some_and(|g| tags::key(&g) == k);
-    let name = store
-        .all_topics()
-        .find(|n| tags::key(n) == k)
-        .cloned()
-        .unwrap_or_else(|| tags::display(raw));
+    let none = k == tags::NO_TOPIC;
+    let in_topic = |t: &Task| match t.topic_tag() {
+        Some(g) => !none && tags::key(&g) == k,
+        None => none,
+    };
+    let name = if none {
+        "ohne Thema".to_string()
+    } else {
+        store
+            .all_topics()
+            .find(|n| tags::key(n) == k)
+            .cloned()
+            .unwrap_or_else(|| tags::display(raw))
+    };
     let important = store.important.iter().any(|n| tags::key(n) == k);
 
     let mut open: Vec<&Task> = store
@@ -928,6 +937,12 @@ pub fn topic(store: &Store, raw: &str) -> String {
         .map(Task::display)
         .collect();
 
+    if none && open.is_empty() && waiting.is_empty() {
+        return format!(
+            "\n Alle offenen Aufgaben haben ein Thema.\n {}\n",
+            term::dim("Deine Themen: fokus themen")
+        );
+    }
     if open.is_empty() && waiting.is_empty() && done.is_empty() {
         return format!(
             "\n Im Thema „{name}“ ist gerade nichts offen.\n {}\n",
@@ -938,7 +953,9 @@ pub fn topic(store: &Store, raw: &str) -> String {
     let blocks = vec![
         Block {
             title: name.to_uppercase(),
-            hint: if important {
+            hint: if none {
+                "zählt als nicht wichtig"
+            } else if important {
                 "wichtig"
             } else {
                 "unter der Linie, nicht wichtig"
@@ -980,6 +997,12 @@ pub fn topic(store: &Store, raw: &str) -> String {
     }
     if open.iter().any(|t| t.status == Status::Today) {
         out.push_str(&format!(" {}\n", term::dim("▶ steht auf heute")));
+    }
+    if none && let Some(t) = open.first().or(waiting.first()) {
+        out.push_str(&format!(
+            " {}\n",
+            term::dim(&format!("Thema geben: fokus ändern {} #thema", t.nr))
+        ));
     }
     out
 }
@@ -1133,6 +1156,7 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
         ("fokus @anna", "zeigt alles, was du mit Anna hast"),
         ("fokus personen", "zeigt alle Personen mit offenen Aufgaben"),
         ("fokus #arbeit", "zeigt alles im Thema Arbeit"),
+        ("fokus #ohne", "zeigt die Aufgaben ohne Thema"),
         ("fokus warten", "zeigt alles, was bei anderen liegt"),
         (
             "fokus abgeben 4 @tom",

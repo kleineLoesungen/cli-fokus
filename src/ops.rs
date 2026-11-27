@@ -16,7 +16,7 @@ fn index(store: &Store, nr: u32) -> Result<usize, String> {
 /// `fokus + …`
 pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     let parsed = input::parse_new(raw, store.today);
-    if parsed.text.trim().is_empty() {
+    if tags::without_no_topic(&parsed.text).is_empty() {
         return Err("Da fehlt noch, was zu tun ist.".into());
     }
     let mut task = Task::new(parsed.text, parsed.due, store.today);
@@ -284,7 +284,7 @@ fn new_topic_note(tag: &str, above: bool) -> String {
 }
 
 /// `fokus ändern 4 …` – ändert nur, was angegeben ist, in derselben Schreibweise
-/// wie beim Aufschreiben. Dazu `ohne termin`, `ohne thema`, `ohne @anna`.
+/// wie beim Aufschreiben. Dazu `ohne termin`, `ohne thema` (oder `#ohne`), `ohne @anna`.
 pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
     let i = index(store, nr)?;
     let today = store.today;
@@ -297,6 +297,11 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
     let mut rest: Vec<&str> = Vec::new();
     let mut k = 0;
     while k < tokens.len() {
+        if tags::is_no_topic(tokens[k]) {
+            clear_topic = true;
+            k += 1;
+            continue;
+        }
         if tokens[k].eq_ignore_ascii_case("ohne") && k + 1 < tokens.len() {
             let next = tokens[k + 1];
             let handled = match next.to_lowercase().as_str() {
@@ -457,6 +462,12 @@ pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, S
             "Wie soll das Thema heißen? Zum Beispiel: fokus themen umbenennen haus garten".into(),
         );
     }
+    if tags::key(&new_name) == tags::NO_TOPIC {
+        return Err(
+            "„Ohne“ ist vergeben: #ohne heißt bei Fokus „kein Thema“. Such dir einen anderen Namen aus."
+                .into(),
+        );
+    }
     let from_key = tags::key(&from);
     let merge_into = all
         .iter()
@@ -523,6 +534,18 @@ pub fn set_topic(store: &mut Store, nr: u32, choice: &str) -> Result<String, Str
     };
     if tags::key(&name).is_empty() {
         return Err("Da fehlt der Name des Themas.".into());
+    }
+    if tags::key(&name) == tags::NO_TOPIC {
+        let today = store.today;
+        let t = &mut store.tasks[i];
+        t.text = t
+            .text
+            .split_whitespace()
+            .filter(|w| !tags::is_tag(w, '#'))
+            .collect::<Vec<_>>()
+            .join(" ");
+        t.since = today;
+        return Ok(" ohne Thema".into());
     }
     let tag = tags::to_tag(&name);
     let existing = all

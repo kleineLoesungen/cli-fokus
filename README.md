@@ -82,7 +82,7 @@ Bei Zeichen wie `'` oder `?` im Text: nur `fokus +` tippen, dann fragt Fokus.
 ```
 fokus ändern 4 #haus @tom freitag     Thema, Person, Termin
 fokus ändern 4 Keller und Dachboden   neuer Text, der Rest bleibt
-fokus ändern 4 ohne termin            auch: ohne thema, ohne @anna, ohne wiederholung
+fokus ändern 4 ohne termin            auch: ohne thema (#ohne), ohne @anna, ohne wiederholung
 ```
 
 ### Jetzt loslegen
@@ -151,6 +151,10 @@ fokus #arbeit
 
  In den letzten 7 Tagen erledigt: Angebot an Kunden schicken
 ```
+
+Was noch kein Thema hat, zeigt `fokus #ohne`. Ein Thema gibst du mit
+`fokus ändern 3 #haus`; `fokus ändern 3 #ohne` nimmt es wieder weg. `#ohne`
+heißt überall „kein Thema“, deshalb legt Fokus nie ein Thema „Ohne“ an.
 
 ### Komme ich bei dem voran, was mir wichtig ist?
 
@@ -291,6 +295,7 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus jetzt` | nur eine Aufgabe, mit Uhr |
 | `fokus alles` | die vier Felder |
 | `fokus #arbeit` · `fokus themen` | ein Thema · alle Themen |
+| `fokus #ohne` | Aufgaben ohne Thema |
 | `fokus themen ordnen` · `umbenennen a b` | Themen pflegen |
 | `fokus @anna` · `fokus personen` | eine Person · alle Personen |
 | `fokus abgeben 4 @tom` · `fokus warten` | abgeben · was bei anderen liegt |

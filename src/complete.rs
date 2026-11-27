@@ -62,7 +62,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
             return persons(store);
         }
         if cur.starts_with('#') {
-            return topics(store);
+            return topics_or_none(store);
         }
         return COMMANDS
             .iter()
@@ -135,7 +135,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<(String, String)> {
         "ändern" | "aendern" | "bearbeiten" if prev.len() == 1 => nrs(&|_| true),
         "ändern" | "aendern" | "bearbeiten" => {
             if cur.starts_with('#') {
-                topics(store)
+                topics_or_none(store)
             } else if cur.starts_with('@') {
                 persons(store)
             } else if prev.last().is_some_and(|w| w.eq_ignore_ascii_case("ohne")) {
@@ -267,6 +267,14 @@ fn topics(store: &Store) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Die Themen und dazu `#ohne`: zum Anzeigen und beim Ändern.
+fn topics_or_none(store: &Store) -> Vec<(String, String)> {
+    let mut v = topics(store);
+    let none = format!("#{}", tags::NO_TOPIC);
+    v.push((none.clone(), format!("{none:<16}kein Thema")));
+    v
+}
+
 fn persons(store: &Store) -> Vec<(String, String)> {
     let mut seen: Vec<String> = Vec::new();
     let mut out = Vec::new();
@@ -366,7 +374,10 @@ mod tests {
         assert!(v.contains(&"heute".to_string()));
         assert!(v.contains(&"deinstallieren".to_string()));
         assert_eq!(werte(&["@"]), vec!["@anna", "@tom"]);
-        assert_eq!(werte(&["#"]), vec!["#arbeit", "#eigenes-projekt", "#haus"]);
+        assert_eq!(
+            werte(&["#"]),
+            vec!["#arbeit", "#eigenes-projekt", "#haus", "#ohne"]
+        );
         assert!(werte(&[""]).contains(&"warten".to_string()));
     }
 
@@ -403,7 +414,7 @@ mod tests {
         assert_eq!(werte(&["ändern", ""]), vec!["1", "2", "3", "4"]);
         assert_eq!(
             werte(&["ändern", "2", "#"]),
-            vec!["#arbeit", "#eigenes-projekt", "#haus"]
+            vec!["#arbeit", "#eigenes-projekt", "#haus", "#ohne"]
         );
         assert_eq!(werte(&["ändern", "2", "oh"]), vec!["ohne"]);
         assert_eq!(
