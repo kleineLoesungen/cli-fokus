@@ -379,11 +379,14 @@ fn ask_places() -> Result<(), String> {
     }
     println!();
 
-    let tip = "Am besten ein geteilter Ordner in iCloud Drive. Tipp: Ordner aus dem Finder hierher ziehen.";
+    let tip = format!(
+        "{} Tipp: Ordner aus dem Finder hierher ziehen.",
+        away::SYNC_HINT
+    );
     let answer = match away::path() {
         Some(p) => {
             println!(" Die Unterwegs-Datei liegt in {}.", p.display());
-            println!(" {}", term::dim(tip));
+            println!(" {}", term::dim(&tip));
             term::read_line(" Anderer Ordner, „aus“ schaltet sie ab, Enter behält sie: ")
                 .map_err(term::io_err)?
                 .unwrap_or_default()
@@ -394,7 +397,7 @@ fn ask_places() -> Result<(), String> {
             )
             .map_err(term::io_err)?;
             if want {
-                println!(" {}", term::dim(tip));
+                println!(" {}", term::dim(&tip));
                 term::read_line(" Ordner: ")
                     .map_err(term::io_err)?
                     .unwrap_or_default()

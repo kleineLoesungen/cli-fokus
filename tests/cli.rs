@@ -333,11 +333,17 @@ fn unterwegs_aufgeschriebenes_wird_abgeholt_und_der_stand_geschrieben() {
     assert!(stand.contains("- 1 Präsentation vorbereiten · Arbeit · fällig Freitag 27.11."));
     assert!(stand.contains("- 2 Vertrag prüfen @tom · bei Tom seit 26.11."));
 
-    // Am Handy: zwei Zeilen unter „Neu“, eine davon ohne Strich, und ein leerer Strich.
-    let vom_handy = stand.replace(
-        "## Neu\n\n",
-        "## Neu\n\n- Trikots bestellen #verein Samstag\nIdee für den Talentpfad\n-\n\n",
+    // „Neu“ steht ganz unten, damit Angehängtes von selbst dort landet.
+    assert!(
+        stand.ends_with("## Neu\n"),
+        "„Neu“ gehört ans Ende:\n{stand}"
     );
+    assert!(stand.find("## Warte auf").unwrap() < stand.find("## Neu").unwrap());
+
+    // Am Handy: zwei Zeilen unter „Neu“, eine davon ohne Strich, und ein leerer
+    // Strich – angehängt, wie es ein Kurzbefehl täte.
+    let mut vom_handy = stand.clone();
+    vom_handy.push_str("- Trikots bestellen #verein Samstag\nIdee für den Talentpfad\n-\n");
     fs::write(s.away(), vom_handy).unwrap();
 
     let out = s.ok_away(&[]);
@@ -352,14 +358,10 @@ fn unterwegs_aufgeschriebenes_wird_abgeholt_und_der_stand_geschrieben() {
     assert!(datei.contains("Idee für den Talentpfad"));
 
     let stand = fs::read_to_string(s.away()).unwrap();
-    let neu = stand
-        .split("## Neu")
-        .nth(1)
-        .unwrap()
-        .split("## ")
-        .next()
-        .unwrap();
-    assert!(neu.trim().is_empty(), "„Neu“ sollte leer sein: {neu:?}");
+    assert!(
+        stand.ends_with("## Neu\n"),
+        "„Neu“ sollte leer sein:\n{stand}"
+    );
     assert!(stand.contains("- 3 Trikots bestellen · Verein · fällig Samstag 28.11."));
 
     // Ein zweiter Aufruf legt nichts doppelt an.
@@ -420,7 +422,7 @@ fn eine_nicht_geladene_icloud_datei_wird_nicht_ueberschrieben() {
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join(".Fokus-unterwegs.md.icloud"), "Platzhalter").unwrap();
     let out = s.ok_away(&["+", "Brot"]);
-    assert!(out.contains("noch nicht vom iCloud-Server geladen"));
+    assert!(out.contains("noch nicht aus iCloud geladen"));
     assert!(!s.away().exists());
 }
 
@@ -526,4 +528,26 @@ fn mit_spieldatei_wird_nichts_verschoben() {
     let s = Sandbox::new("verschieben-spiel");
     let err = s.fails(&["datei", "verschieben", "/tmp/irgendwo"]);
     assert!(err.contains("Spieldatei"));
+}
+
+#[test]
+fn eine_unterwegs_datei_mit_neu_oben_wird_sauber_uebernommen() {
+    // So sah die Datei vor „Neu am Ende“ aus: Nur „Neu“ zählt, nicht „Heute“.
+    let s = Sandbox::new("unterwegs-alt");
+    fs::create_dir_all(s.dir.join("icloud")).unwrap();
+    s.ok_away(&["+", "Brot", "kaufen", "heute"]);
+    fs::write(
+        s.away(),
+        "# Fokus unterwegs\n\nStand: Donnerstag 26.11., 06:10\n\n## Neu\n\n- Milch\n\n## Heute · Donnerstag 26.11.\n- 1 Brot kaufen\n",
+    )
+    .unwrap();
+    let out = s.ok_away(&[]);
+    assert!(out.contains("Aufgabe 2: Milch"));
+    assert!(
+        !out.contains("Aufgabe 3"),
+        "aus „Heute“ darf nichts übernommen werden:\n{out}"
+    );
+    let stand = fs::read_to_string(s.away()).unwrap();
+    assert!(stand.ends_with("## Neu\n"));
+    assert_eq!(stand.matches("## Neu").count(), 1);
 }
