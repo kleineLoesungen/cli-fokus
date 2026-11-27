@@ -303,7 +303,8 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus datei` | die Aufgabendatei im Texteditor öffnen |
 | `fokus datei verschieben ort` | die Aufgabendatei an einen anderen Ort legen |
 | `fokus unterwegs ordner` · `unterwegs aus` | Stand fürs Handy, mit „Neu“ zum Aufschreiben |
-| `fokus hilfe` | diese Liste |
+| `fokus hilfe` | die kurze Übersicht |
+| `fokus anleitung` · `anleitung unterwegs` | diese Anleitung, oder nur der passende Abschnitt |
 
 Statt `fokus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
 Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen

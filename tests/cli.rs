@@ -611,3 +611,23 @@ fn ohne_ohne_aufgaben_ohne_thema() {
             .contains("Alle offenen Aufgaben haben ein Thema.")
     );
 }
+
+#[test]
+fn die_anleitung_zeigt_den_passenden_abschnitt() {
+    let s = Sandbox::new("anleitung");
+    let out = s.ok(&["anleitung", "aufraeumen"]);
+    assert!(out.contains("Einmal pro Woche: aufräumen"));
+    assert!(out.contains("fokus aufräumen"));
+    assert!(!out.contains("```"));
+    assert!(!out.contains("ALLE BEFEHLE"));
+    // Lesen legt keine Aufgabendatei an.
+    assert!(!s.file().exists());
+
+    let out = s.ok(&["anleitung", "gibtsnicht"]);
+    assert!(out.contains("Zu „gibtsnicht“ steht nichts in der Anleitung"));
+    assert!(out.contains("Typische Situationen"));
+
+    let alles = s.ok(&["anleitung"]);
+    assert!(alles.contains("ALLE BEFEHLE"));
+    assert!(alles.contains("LIZENZ"));
+}

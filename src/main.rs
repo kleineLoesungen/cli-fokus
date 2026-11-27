@@ -6,6 +6,7 @@ mod config;
 mod date;
 mod focus;
 mod input;
+mod manual;
 mod ops;
 mod review;
 mod setup;
@@ -59,6 +60,8 @@ fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         Some("einrichten") => return setup::run(),
+        // Vor dem Laden: Lesen soll keine Aufgabendatei anlegen.
+        Some("anleitung" | "handbuch" | "readme") => return manual::run(&args[1..]),
         // Für die Tab-Taste: nur lesen, nie schreiben, nie eine Fehlermeldung.
         Some("_complete") => {
             if let Ok(store) = Store::load(store::file_path(), date::today()) {
