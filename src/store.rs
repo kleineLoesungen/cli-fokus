@@ -63,7 +63,8 @@ impl Task {
     pub fn new(text: impl Into<String>, due: Option<NaiveDate>, today: NaiveDate) -> Self {
         Task {
             nr: 0,
-            text: text.into(),
+            // `#ohne` heißt „kein Thema“ und gehört nicht in den Text.
+            text: tags::without_no_topic(&text.into()),
             status: Status::Open,
             due,
             since: today,
@@ -256,7 +257,7 @@ impl Store {
 
         for (name, below) in topics {
             let k = tags::key(&name);
-            if store.all_topics().any(|n| tags::key(n) == k) {
+            if k == tags::NO_TOPIC || store.all_topics().any(|n| tags::key(n) == k) {
                 continue;
             }
             if !below && store.important.len() < IMPORTANT_LIMIT {
@@ -459,7 +460,7 @@ impl Store {
     /// Legt ein Thema an, wenn es neu ist. `Some(true)`: über der Linie gelandet.
     pub fn ensure_topic(&mut self, tag: &str) -> Option<bool> {
         let k = tags::key(tag);
-        if k.is_empty() || self.all_topics().any(|n| tags::key(n) == k) {
+        if k.is_empty() || k == tags::NO_TOPIC || self.all_topics().any(|n| tags::key(n) == k) {
             return None;
         }
         let name = tags::display(tag);
@@ -792,7 +793,7 @@ fn parse_task(
         return None;
     };
     let (text, meta) = split_meta(rest.trim());
-    if text.is_empty() {
+    if tags::without_no_topic(text).is_empty() {
         return None;
     }
     let mut t = Task::new(text, None, today);

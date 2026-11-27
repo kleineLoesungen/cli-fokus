@@ -551,3 +551,63 @@ fn eine_unterwegs_datei_mit_neu_oben_wird_sauber_uebernommen() {
     assert!(stand.ends_with("## Neu\n"));
     assert_eq!(stand.matches("## Neu").count(), 1);
 }
+
+#[test]
+fn ohne_heisst_ueberall_kein_thema() {
+    let s = Sandbox::new("ohne");
+    s.ok(&["+", "Bericht", "#arbeit"]);
+    s.ok(&["+", "Mama", "anrufen"]);
+    s.ok(&["+", "Idee", "#ohne"]);
+
+    let out = s.ok(&["#ohne"]);
+    assert!(out.contains("OHNE THEMA"));
+    assert!(out.contains("Mama anrufen"));
+    assert!(out.contains("Idee"));
+    assert!(!out.contains("Bericht"));
+
+    // Ein Thema geben: Die Aufgabe steht nicht mehr unter #ohne.
+    s.ok(&["ändern", "2", "#arbeit"]);
+    assert!(!s.ok(&["#ohne"]).contains("Mama anrufen"));
+    // #ohne nimmt das Thema wieder weg.
+    s.ok(&["ändern", "1", "#ohne"]);
+    assert!(s.ok(&["#ohne"]).contains("Bericht"));
+
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(
+        !datei.to_lowercase().contains("ohne"),
+        "„ohne“ darf nicht in der Datei landen:\n{datei}"
+    );
+    assert!(s.ok(&["themen"]).contains("fokus #ohne"));
+    assert!(
+        s.fails(&["themen", "umbenennen", "arbeit", "ohne"])
+            .contains("„Ohne“ ist vergeben")
+    );
+    assert!(s.fails(&["+", "#ohne"]).contains("Da fehlt noch"));
+}
+
+#[test]
+fn ohne_in_einer_von_hand_geaenderten_datei_wird_kein_thema() {
+    let s = Sandbox::new("ohne-von-hand");
+    fs::write(
+        s.file(),
+        "## Themen\n1. Ohne\n2. Arbeit\n---\n\n## Offen\n- [ ] Brot #ohne\n- [ ] Bericht #arbeit\n",
+    )
+    .unwrap();
+    let out = s.ok(&["#ohne"]);
+    assert!(out.contains("Brot"));
+    assert!(!out.contains("Bericht"));
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(!datei.contains("#ohne"));
+    assert!(!datei.contains("1. Ohne"));
+    assert!(datei.contains("1. Arbeit"));
+}
+
+#[test]
+fn ohne_ohne_aufgaben_ohne_thema() {
+    let s = Sandbox::new("ohne-leer");
+    s.ok(&["+", "Bericht", "#arbeit"]);
+    assert!(
+        s.ok(&["#ohne"])
+            .contains("Alle offenen Aufgaben haben ein Thema.")
+    );
+}

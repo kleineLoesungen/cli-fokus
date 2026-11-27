@@ -15,9 +15,30 @@ pub fn key(s: &str) -> String {
         .collect()
 }
 
-/// Ist das Wort ein Thema (`#`) bzw. eine Person (`@`)?
+/// `#ohne` ist kein Thema, sondern heißt überall „kein Thema“: `fokus #ohne`
+/// zeigt die Aufgaben ohne Thema, `fokus ändern 3 #ohne` nimmt es weg. Ein
+/// Thema „Ohne“ legt Fokus deshalb nie an.
+pub const NO_TOPIC: &str = "ohne";
+
+/// Ist das Wort `#ohne`?
+pub fn is_no_topic(word: &str) -> bool {
+    word.starts_with('#') && key(clean(word)) == NO_TOPIC
+}
+
+/// Der Text ohne `#ohne`.
+pub fn without_no_topic(text: &str) -> String {
+    if !text.split_whitespace().any(is_no_topic) {
+        return text.to_string();
+    }
+    text.split_whitespace()
+        .filter(|w| !is_no_topic(w))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Ist das Wort ein Thema (`#`) bzw. eine Person (`@`)? `#ohne` ist keins.
 pub fn is_tag(word: &str, sigil: char) -> bool {
-    word.starts_with(sigil) && !key(clean(word)).is_empty()
+    word.starts_with(sigil) && !key(clean(word)).is_empty() && !(sigil == '#' && is_no_topic(word))
 }
 
 /// Anzeigename: `#eigenes-projekt` → „Eigenes projekt“, `@anna` → „Anna“.
@@ -52,6 +73,17 @@ mod tests {
     fn bindestrich_und_leerzeichen_sind_dasselbe_thema() {
         assert_eq!(key("eigenes-projekt"), key("Eigenes Projekt"));
         assert_eq!(key("Gesundheit"), "gesundheit");
+    }
+
+    #[test]
+    fn ohne_ist_kein_thema() {
+        assert!(is_no_topic("#ohne"));
+        assert!(is_no_topic("#Ohne,"));
+        assert!(!is_tag("#ohne", '#'));
+        assert!(is_tag("@ohne", '@'));
+        assert!(!is_no_topic("ohne"));
+        assert!(!is_no_topic("#ohnegleichen"));
+        assert_eq!(without_no_topic("Brot #ohne kaufen"), "Brot kaufen");
     }
 
     #[test]
