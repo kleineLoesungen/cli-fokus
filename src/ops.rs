@@ -226,7 +226,10 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
     t.waiting_for = Some(name.to_string());
     t.since = today;
     let shown = tags::display(name);
-    Ok(format!(" Aufgabe {nr} liegt jetzt bei {shown}: {}", t.display()))
+    Ok(format!(
+        " Aufgabe {nr} liegt jetzt bei {shown}: {}",
+        t.display()
+    ))
 }
 
 /// Was heute fällig ist, gehört auf die Liste für heute – solange dort Platz ist.

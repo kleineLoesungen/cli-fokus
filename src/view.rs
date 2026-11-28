@@ -1088,6 +1088,93 @@ pub fn waiting(store: &Store) -> String {
     out
 }
 
+/// Für die Suche: klein, Umlaute ausgeschrieben, damit „pruefen“ auch „prüfen“ findet.
+fn fold(s: &str) -> String {
+    s.to_lowercase()
+        .replace('ä', "ae")
+        .replace('ö', "oe")
+        .replace('ü', "ue")
+        .replace('ß', "ss")
+}
+
+/// `fokus suche wort …` – Aufgaben, in denen alle Wörter vorkommen: im Text,
+/// im Thema, bei der Person, in den Notizen. Dazu, was im Archiv passt.
+pub fn search(store: &Store, words: &[String]) -> String {
+    let wanted: Vec<String> = words
+        .iter()
+        .map(|w| fold(w))
+        .filter(|w| !w.is_empty())
+        .collect();
+    let query = words.join(" ");
+    let hits = |t: &Task| {
+        let mut hay = vec![t.text.clone(), store.topic_name(t).unwrap_or_default()];
+        hay.extend(t.waiting_for.clone());
+        hay.extend(t.notes.iter().cloned());
+        let hay = fold(&hay.join("\n"));
+        wanted.iter().all(|w| hay.contains(w.as_str()))
+    };
+    let today = store.today;
+    let mut open: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.is_active() && hits(t))
+        .collect();
+    open.sort_by_key(|t| (t.status as u8, t.due.is_none(), t.due, t.nr));
+    let gone: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|t| t.is_restorable(today) && hits(t))
+        .collect();
+    if open.is_empty() && gone.is_empty() {
+        return format!(
+            "\n Zu „{query}“ finde ich nichts.\n {}\n",
+            term::dim("Gesucht wird in Text, Thema, Personen und Notizen, auch im Archiv.")
+        );
+    }
+    let blocks = vec![
+        Block {
+            title: format!("GEFUNDEN: {}", query.to_uppercase()),
+            hint: String::new(),
+            rows: open
+                .iter()
+                .map(|t| match t.status {
+                    Status::Today => row(store, t, "▶"),
+                    Status::Waiting => {
+                        let mut r = waiting_row(store, t);
+                        r.right = topic_cell(store, t);
+                        r
+                    }
+                    _ => row(store, t, "·"),
+                })
+                .collect(),
+            note: open
+                .is_empty()
+                .then(|| "Offen ist nichts davon.".to_string()),
+        },
+        Block {
+            title: "IM ARCHIV".into(),
+            hint: "zurückholen: fokus zurück <Nr>".into(),
+            rows: gone
+                .iter()
+                .map(|t| {
+                    let done = t.status == Status::Done;
+                    let mut r = row(store, t, if done { "✓" } else { "×" });
+                    r.mid = (
+                        if done { "erledigt" } else { "gestrichen" }.into(),
+                        Tone::Dim,
+                    );
+                    r.faded = true;
+                    r
+                })
+                .collect(),
+            note: None,
+        },
+    ];
+    let mut out = String::from("\n");
+    out.push_str(&layout(&blocks, term::width().min(90)));
+    out
+}
+
 /// `fokus archiv` – Erledigtes und Gestrichenes der letzten 14 Tage.
 pub fn archive(store: &Store) -> String {
     let today = store.today;
@@ -1193,6 +1280,10 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
         ("fokus #ohne", "zeigt die Aufgaben ohne Thema"),
         ("fokus warten", "zeigt alles, was bei anderen liegt"),
         (
+            "fokus suche wort",
+            "findet Aufgaben, auch in Notizen und im Archiv",
+        ),
+        (
             "fokus abgeben 4 @tom",
             "gibt Aufgabe 4 an Tom und merkt sie als „warte auf“",
         ),
@@ -1219,6 +1310,10 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "schreibt den Stand fürs Handy dorthin (aus: abschalten)",
         ),
         ("fokus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
+        (
+            "fokus web",
+            "öffnet Fokus im Browser-Tab, im Look des Terminals",
+        ),
         (
             "fokus deinstallieren",
             "entfernt Fokus wieder (deine Aufgaben nur auf Wunsch)",

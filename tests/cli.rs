@@ -795,3 +795,27 @@ fn notizen_stehen_in_der_unterwegs_datei() {
     );
     assert!(stand.contains("### Arbeit · wichtig\nWiki: https://wiki.example.org\n"));
 }
+
+#[test]
+fn suche_findet_auch_in_notizen_und_im_archiv() {
+    let s = Sandbox::new("suche");
+    s.ok(&["+", "Angebot", "prüfen", "#arbeit"]);
+    s.ok(&["+", "Keller", "ausmisten"]);
+    s.ok(&["notiz", "2", "Schlüssel", "liegt", "bei", "Oma"]);
+    s.ok(&["+", "Pflanzen", "gießen"]);
+    s.ok(&["fertig", "3"]);
+    let out = s.ok(&["suche", "pruefen"]);
+    assert!(out.contains("1 · Angebot prüfen"), "{out}");
+    assert!(!out.contains("Keller"), "{out}");
+    assert!(
+        s.ok(&["suche", "schlüssel", "oma"])
+            .contains("2 · Keller ausmisten")
+    );
+    assert!(s.ok(&["suche", "arbeit"]).contains("Angebot"));
+    let out = s.ok(&["suche", "pflanzen"]);
+    assert!(
+        out.contains("IM ARCHIV") && out.contains("✓ Pflanzen gießen"),
+        "{out}"
+    );
+    assert!(s.ok(&["suche", "xyz"]).contains("finde ich nichts"));
+}

@@ -15,6 +15,7 @@ mod store;
 mod tags;
 mod term;
 mod view;
+mod web;
 
 use std::process::ExitCode;
 
@@ -48,8 +49,7 @@ fn main() -> ExitCode {
 
 fn run(args: &[String]) -> Result<(), String> {
     let first = args.first().map(|s| s.to_lowercase());
-    if !matches!(first.as_deref(), Some("_complete" | "_zsh")) && config::flag(config::CLEAR_KEY)
-    {
+    if !matches!(first.as_deref(), Some("_complete" | "_zsh")) && config::flag(config::CLEAR_KEY) {
         fresh_screen(args);
     }
     match first.as_deref() {
@@ -65,6 +65,7 @@ fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         Some("einrichten") => return setup::run(),
+        Some("web" | "browser") => return web::run(&args[1..]),
         // Vor dem Laden: Lesen soll keine Aufgabendatei anlegen.
         Some("anleitung" | "handbuch" | "readme") => return manual::run(&args[1..]),
         // Für die Tab-Taste: nur lesen, nie schreiben, nie eine Fehlermeldung.
@@ -153,8 +154,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             for nr in nrs {
                 println!("{}", ops::put_today(store, nr, instead)?);
             }
-            println!();
-            print!("{}", view::today(store));
+            list_after_change(store);
         }
         Some(f) if f.starts_with('+') || f == "neu" => {
             let mut words: Vec<String> = Vec::new();
@@ -188,15 +188,13 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             for nr in nrs {
                 println!("{}", ops::done(store, nr)?);
             }
-            println!();
-            print!("{}", view::today(store));
+            list_after_change(store);
         }
         Some("später" | "spaeter") => {
             for nr in numbers(rest, "später")? {
                 println!("{}", ops::later(store, nr)?);
             }
-            println!();
-            print!("{}", view::today(store));
+            list_after_change(store);
         }
         Some("zurück" | "zurueck" | "rückgängig") => {
             for nr in numbers(rest, "zurück")? {
@@ -279,6 +277,12 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some(p) if p.starts_with('@') => print!("{}", view::person(store, &args[0])),
         Some(p) if p.starts_with('#') => print!("{}", view::topic(store, &args[0])),
         Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
+        Some("suche" | "suchen" | "finde" | "finden") => {
+            if rest.is_empty() {
+                return Err("Wonach suchen? Zum Beispiel: fokus suche angebot".into());
+            }
+            print!("{}", view::search(store, rest));
+        }
         Some("aufräumen" | "aufraeumen") => review::run(store)?,
         Some("unterwegs") => println!("{}", away::command(rest)?),
         Some("notiz" | "notizen" | "note") => {
@@ -329,6 +333,14 @@ fn header(args: &[String]) -> String {
         s.push_str(a);
     }
     s
+}
+
+/// Nach einer Änderung die Liste für heute. Im Browser steht sie schon oben.
+fn list_after_change(store: &Store) {
+    if std::env::var_os("FOKUS_WEB").is_none() {
+        println!();
+        print!("{}", view::today(store));
+    }
 }
 
 fn numbers(args: &[String], verb: &str) -> Result<Vec<u32>, String> {

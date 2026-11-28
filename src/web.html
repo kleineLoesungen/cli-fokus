@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fokus</title>
+<script>
+  // Gewähltes Hell/Dunkel sofort setzen, damit nichts aufblitzt.
+  try { const t = localStorage.getItem('fokus-thema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root {
+    --bg: #15171a; --fg: #d8dade; --dim: #7c828c; --line: #2a2e34;
+    --green: #7fc77f; --red: #ef7b72; --yellow: #e2c46c; --cyan: #6cc5d6; --link: #8fb8f0;
+    --rain: 127, 199, 127; --rain-alpha: 0.30; --veil: rgba(21, 23, 26, 0.80);
+  }
+  /* Hell: wenn das System hell ist und nichts anderes gewählt, oder wenn „hell“ gewählt ist. */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #fbfbf8; --fg: #24272b; --dim: #868b93; --line: #e3e3de;
+      --green: #2f8a3a; --red: #c0392b; --yellow: #9a7400; --cyan: #127a8c; --link: #2457a6;
+      --rain: 47, 138, 58; --rain-alpha: 0.20; --veil: rgba(251, 251, 248, 0.82);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfbf8; --fg: #24272b; --dim: #868b93; --line: #e3e3de;
+    --green: #2f8a3a; --red: #c0392b; --yellow: #9a7400; --cyan: #127a8c; --link: #2457a6;
+    --rain: 47, 138, 58; --rain-alpha: 0.20; --veil: rgba(251, 251, 248, 0.82);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 14px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  /* Der Zeichenregen liegt hinter allem; hinter dem Text dämpft ein Schleier ihn noch einmal. */
+  #regen { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  main { background: var(--veil); position: relative; width: 100%; max-width: 104ch; height: 100%; display: flex; flex-direction: column; padding: 12px 16px; }
+  pre { margin: 0; white-space: pre; overflow-x: auto; font: inherit; }
+  #leiste { display: flex; justify-content: space-between; color: var(--dim); padding-bottom: 6px; }
+  #leiste button {
+    background: none; border: 0; padding: 0; font: inherit; color: var(--dim); cursor: pointer;
+  }
+  #leiste button:hover { color: var(--fg); }
+  #liste { flex: 0 0 auto; height: var(--liste-hoehe, auto); max-height: 80%; overflow-y: auto; padding-bottom: 10px; }
+  main.zu #liste { display: none; }
+  /* Zum Ziehen: die Linie zwischen Übersicht und Antwort. */
+  #griff { flex: 0 0 9px; cursor: row-resize; display: flex; align-items: center; touch-action: none; }
+  #griff::before { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  #griff:hover::before, #griff.zieht::before { border-top-color: var(--dim); }
+  main.zu #griff { cursor: default; }
+  #antwort { flex: 1 1 auto; overflow-y: auto; padding-top: 6px; }
+  form { display: flex; gap: 1ch; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); }
+  form span { color: var(--dim); }
+  input {
+    flex: 1; background: transparent; border: 0; outline: 0; color: var(--fg);
+    font: inherit; caret-color: var(--green); padding: 4px 0;
+  }
+  .b { font-weight: 700; } .d { color: var(--dim); }
+  .red { color: var(--red); } .green { color: var(--green); }
+  .yellow { color: var(--yellow); } .cyan { color: var(--cyan); }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a[data-cmd] { color: inherit; border-bottom: 1px dotted var(--dim); }
+  #mass { position: absolute; visibility: hidden; white-space: pre; }
+</style>
+</head>
+<body>
+<main>
+  <div id="leiste">
+    <button id="klappe" title="Übersicht ein- oder ausklappen">▾ Übersicht</button>
+    <button id="thema" title="Hell, dunkel oder wie das System">◐ auto</button>
+  </div>
+  <pre id="liste"></pre>
+  <div id="griff" title="Ziehen ändert die Höhe, Doppelklick klappt ein"></div>
+  <pre id="antwort"></pre>
+  <form id="zeile" autocomplete="off">
+    <span>› fokus</span>
+    <input id="eingabe" autofocus spellcheck="false" placeholder="+ Text #thema @person termin · hilfe">
+  </form>
+</main>
+<canvas id="regen" aria-hidden="true"></canvas>
+<span id="mass">0000000000</span>
+<script>
+const liste = document.getElementById('liste');
+const antwort = document.getElementById('antwort');
+const eingabe = document.getElementById('eingabe');
+
+// Wie viele Zeichen passen in eine Zeile? Fokus richtet seine Spalten danach aus.
+function cols() {
+  const w = document.getElementById('mass').getBoundingClientRect().width / 10;
+  return Math.max(40, Math.min(100, Math.floor(antwort.clientWidth / w) - 1));
+}
+
+async function post(path, line) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'X-Fokus': '1', 'Content-Type': 'text/plain' },
+    body: cols() + '\n' + line,
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.text();
+}
+
+function escape(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function refresh() {
+  try { liste.innerHTML = await post('/befehl', ''); }
+  catch (e) { liste.textContent = ' Fokus antwortet nicht. Läuft „fokus web“ noch?'; }
+}
+
+async function run(cmd) {
+  cmd = cmd.trim().replace(/^(fokus|f)(\s+|$)/, '');
+  const head = '<span class="d"> › ' + escape(('fokus ' + cmd).trim()) + '</span>\n\n';
+  // „fokus“ und „fokus heute“ zeigen dasselbe wie die Übersicht. Ist sie offen,
+  // genügt es, sie aufzufrischen; ist sie eingeklappt, kommt die Liste als Antwort.
+  if ((cmd === '' || cmd === 'heute') && !document.querySelector('main').classList.contains('zu')) {
+    antwort.innerHTML = '';
+    return refresh();
+  }
+  try { antwort.innerHTML = head + await post('/befehl', cmd); }
+  catch (e) { antwort.innerHTML = head + '<span class="red"> Fokus antwortet nicht. Läuft „fokus web“ noch?</span>'; }
+  antwort.scrollTop = 0;
+  refresh();
+}
+
+// Frühere Befehle mit ↑ und ↓, wie in der Shell.
+let verlauf = [];
+try { verlauf = JSON.parse(localStorage.getItem('fokus-verlauf') || '[]'); } catch (e) {}
+let pos = verlauf.length;
+function merken(cmd) {
+  if (!cmd || verlauf[verlauf.length - 1] === cmd) return;
+  verlauf.push(cmd);
+  verlauf = verlauf.slice(-200);
+  try { localStorage.setItem('fokus-verlauf', JSON.stringify(verlauf)); } catch (e) {}
+}
+
+document.getElementById('zeile').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const cmd = eingabe.value;
+  if (cmd.trim() === 'regen') { eingabe.value = ''; return regen.umschalten(); }
+  merken(cmd.trim());
+  pos = verlauf.length;
+  eingabe.value = '';
+  run(cmd);
+});
+
+eingabe.addEventListener('keydown', async (e) => {
+  if (e.key === 'ArrowUp' && pos > 0) {
+    e.preventDefault(); eingabe.value = verlauf[--pos];
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    pos = Math.min(verlauf.length, pos + 1);
+    eingabe.value = verlauf[pos] || '';
+  } else if (e.key === 'Escape') {
+    eingabe.value = '';
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    ergaenzen();
+  }
+});
+
+// Die Tab-Taste fragt Fokus nach Vorschlägen für das letzte Wort.
+async function ergaenzen() {
+  const line = eingabe.value.replace(/^(fokus|f)\s+/, '');
+  let text;
+  try { text = await post('/ergaenzen', line); } catch (e) { return; }
+  // Fokus liefert alles, was an der Stelle passt; das Filtern nach dem
+  // Angefangenen macht sonst die Shell.
+  const start = line.lastIndexOf(' ') + 1;
+  const word = line.slice(start).toLowerCase();
+  const items = text.split('\n').filter(Boolean).map((l) => l.split('\t'))
+    .filter(([, v]) => v && v !== '__dateien__' && v.toLowerCase().startsWith(word));
+  if (!items.length) return;
+  const vals = [...new Set(items.map(([, v]) => v))];
+  let fill = vals[0];
+  for (const v of vals) { while (!v.startsWith(fill)) fill = fill.slice(0, -1); }
+  if (vals.length === 1) fill += ' ';
+  if (fill.length >= line.length - start) eingabe.value = line.slice(0, start) + fill;
+  if (vals.length > 1) {
+    let out = '', grp = null;
+    for (const [g, v, d] of items) {
+      if (g !== grp) { out += (grp === null ? '' : '\n') + (g ? ' <span class="b">' + escape(g) + '</span>\n' : ''); grp = g; }
+      out += '   ' + escape(d || v) + '\n';
+    }
+    antwort.innerHTML = out;
+  }
+}
+
+// Klick auf eine Aufgabennummer zeigt die Aufgabe.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-cmd]');
+  if (a) { e.preventDefault(); run(a.dataset.cmd); eingabe.focus(); return; }
+  if (!e.target.closest('a') && !String(window.getSelection())) eingabe.focus();
+});
+
+// Wer zurück in den Tab kommt, sieht den aktuellen Stand, auch nach Änderungen im Terminal.
+window.addEventListener('focus', refresh);
+let warte;
+window.addEventListener('resize', () => { clearTimeout(warte); warte = setTimeout(refresh, 200); });
+refresh();
+
+// Kleine Einstellungen der Seite, nur in diesem Browser gemerkt.
+function lies(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } }
+function merk(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+// Übersicht: einklappen mit dem Knopf oder Doppelklick auf die Linie, Höhe durch Ziehen.
+const main = document.querySelector('main');
+const klappe = document.getElementById('klappe');
+const griff = document.getElementById('griff');
+function klappen(zu) {
+  main.classList.toggle('zu', zu);
+  klappe.textContent = (zu ? '▸' : '▾') + ' Übersicht';
+  merk('fokus-uebersicht', zu ? 'zu' : 'auf');
+}
+function hoehe(px) {
+  if (px) main.style.setProperty('--liste-hoehe', px + 'px');
+  else main.style.removeProperty('--liste-hoehe');
+}
+klappen(lies('fokus-uebersicht', 'auf') === 'zu');
+hoehe(parseInt(lies('fokus-hoehe', ''), 10) || 0);
+klappe.addEventListener('click', () => { klappen(!main.classList.contains('zu')); eingabe.focus(); });
+griff.addEventListener('dblclick', () => klappen(!main.classList.contains('zu')));
+griff.addEventListener('pointerdown', (e) => {
+  if (main.classList.contains('zu')) return;
+  e.preventDefault();
+  griff.setPointerCapture(e.pointerId);
+  griff.classList.add('zieht');
+  const start = e.clientY, von = liste.getBoundingClientRect().height;
+  const zieh = (m) => hoehe(Math.max(40, Math.round(von + m.clientY - start)));
+  const los = () => {
+    griff.classList.remove('zieht');
+    griff.removeEventListener('pointermove', zieh);
+    merk('fokus-hoehe', Math.round(liste.getBoundingClientRect().height));
+    eingabe.focus();
+  };
+  griff.addEventListener('pointermove', zieh);
+  griff.addEventListener('pointerup', los, { once: true });
+});
+
+// Hell, dunkel oder wie das System: der Knopf oben rechts schaltet weiter.
+const themaKnopf = document.getElementById('thema');
+const themen = { auto: '◐ auto', light: '○ hell', dark: '● dunkel' };
+function thema(t) {
+  if (t === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  themaKnopf.textContent = themen[t];
+  merk('fokus-thema', t);
+}
+thema(lies('fokus-thema', 'auto') in themen ? lies('fokus-thema', 'auto') : 'auto');
+themaKnopf.addEventListener('click', () => {
+  const reihe = Object.keys(themen);
+  thema(reihe[(reihe.indexOf(lies('fokus-thema', 'auto')) + 1) % reihe.length] || 'auto');
+  eingabe.focus();
+});
+
+// Ein leiser Zeichenregen im Hintergrund: wenige Spalten, langsam, blass.
+// „regen“ in der Eingabe schaltet ihn aus und an; wer im System weniger
+// Bewegung eingestellt hat, bekommt ihn gar nicht erst.
+const regen = (() => {
+  const canvas = document.getElementById('regen');
+  const ctx = canvas.getContext('2d');
+  const zeichen = '0123456789·✓▶↗#@+×'.split('');
+  const groesse = 15, schritt = 1000 / 12;
+  let spalten = [], an = true, letzte = 0;
+  try { an = localStorage.getItem('fokus-regen') !== 'aus'; } catch (e) {}
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) an = false;
+
+  function neu() {
+    canvas.width = innerWidth * devicePixelRatio;
+    canvas.height = innerHeight * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    const n = Math.ceil(innerWidth / groesse);
+    // Nur jede dritte Spalte regnet, jede mit eigenem Tempo.
+    spalten = Array.from({ length: n }, (_, i) => i % 3 === 0 ? {
+      y: (Math.random() * 2 - 1) * innerHeight, v: 0.25 + Math.random() * 0.5, spur: [],
+    } : null);
+  }
+
+  function bild(t) {
+    if (!an) return;
+    requestAnimationFrame(bild);
+    if (t - letzte < schritt) return;
+    // Nach der Zeit bewegen, nicht nach Bildern: gedrosselte Tabs regnen gleich schnell.
+    const tempo = Math.min((t - letzte) / schritt, 10);
+    letzte = t;
+    const css = getComputedStyle(document.documentElement);
+    const farbe = css.getPropertyValue('--rain').trim();
+    const alpha = parseFloat(css.getPropertyValue('--rain-alpha'));
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ctx.font = groesse + 'px ui-monospace, Menlo, monospace';
+    spalten.forEach((s, i) => {
+      if (!s) return;
+      s.y += s.v * groesse / 2 * tempo;
+      const zeile = Math.floor(s.y / groesse);
+      if (s.spur[0]?.zeile !== zeile) {
+        s.spur.unshift({ zeile, z: zeichen[Math.floor(Math.random() * zeichen.length)] });
+        s.spur.length = Math.min(s.spur.length, 14);
+      }
+      s.spur.forEach((p, k) => {
+        ctx.fillStyle = `rgba(${farbe}, ${alpha * (1 - k / 14)})`;
+        ctx.fillText(p.z, i * groesse, p.zeile * groesse);
+      });
+      if ((zeile - 14) * groesse > innerHeight) { s.y = Math.random() * -200; s.spur = []; }
+    });
+  }
+
+  function start() { neu(); if (an) requestAnimationFrame(bild); else ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  addEventListener('resize', neu);
+  start();
+  return {
+    umschalten() {
+      an = !an;
+      try { localStorage.setItem('fokus-regen', an ? 'an' : 'aus'); } catch (e) {}
+      start();
+    },
+  };
+})();
+</script>
+</body>
+</html>
