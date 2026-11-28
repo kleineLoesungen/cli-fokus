@@ -225,7 +225,7 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
     t.status = Status::Waiting;
     t.waiting_for = Some(name.to_string());
     t.since = today;
-    let shown = tags::display(name);
+    let shown = tags::person_label(name);
     Ok(format!(
         " Aufgabe {nr} liegt jetzt bei {shown}: {}",
         t.display()
@@ -257,11 +257,11 @@ fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
 }
 
 fn new_topic_note(tag: &str, above: bool) -> String {
-    let name = tags::display(tag);
+    let name = tags::topic_label(tag);
     if above {
-        format!("Neues Thema „{name}“, über der Linie.")
+        format!("Neues Thema {name}, über der Linie.")
     } else {
-        format!("Neues Thema „{name}“, unter der Linie. Ändern: fokus themen ordnen")
+        format!("Neues Thema {name}, unter der Linie. Ändern: fokus themen ordnen")
     }
 }
 
@@ -871,7 +871,7 @@ mod tests {
         let mut s = leer();
         add(&mut s, "Keller ausmisten").unwrap();
         let msg = change(&mut s, 1, "#haus").unwrap();
-        assert!(msg.contains("Neues Thema „Haus“"));
+        assert!(msg.contains("Neues Thema #haus"));
         assert_eq!(s.important, vec!["Haus"]);
     }
 

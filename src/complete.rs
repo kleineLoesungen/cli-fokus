@@ -244,10 +244,11 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<Item> {
             return (1, "Dringend".into());
         }
         match store.topic_name(t) {
-            Some(name) if store.is_important(t) => {
-                (2 + store.topic_rank(t), format!("{name} · wichtig"))
-            }
-            Some(name) => (2 + store.topic_rank(t), name),
+            Some(name) if store.is_important(t) => (
+                2 + store.topic_rank(t),
+                format!("{} · wichtig", tags::topic_label(&name)),
+            ),
+            Some(name) => (2 + store.topic_rank(t), tags::topic_label(&name)),
             None => (usize::MAX - 1, "Ohne Thema".into()),
         }
     };
@@ -266,7 +267,7 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<Item> {
                 d.push_str(&format!("  · {}", date::due_short(due, today)));
             }
             if let Some(p) = &t.waiting_for {
-                d.push_str(&format!("  · bei {}", tags::display(p)));
+                d.push_str(&format!("  · bei {}", tags::person_label(p)));
             }
             item(&g, t.nr.to_string(), term::truncate(&d, 70))
         })
@@ -382,8 +383,8 @@ fn persons(store: &Store) -> Vec<Item> {
     list.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
     list.into_iter()
         .map(|(_, p, n)| {
-            let v = safe(&format!("@{}", tags::clean(&p).to_lowercase()));
-            let what = format!("{} · {n} offen", tags::display(&p));
+            let v = safe(&tags::person_label(&p));
+            let what = format!("{v} · {n} offen");
             described("Personen", &v, &what)
         })
         .collect()
@@ -394,7 +395,7 @@ fn persons(store: &Store) -> Vec<Item> {
 fn safe(value: &str) -> String {
     value
         .chars()
-        .filter(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '#' | '@'))
+        .filter(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | '#' | '@'))
         .collect()
 }
 
@@ -520,6 +521,7 @@ mod tests {
         assert_eq!(safe("#haus-&-garten"), "#haus--garten");
         assert_eq!(safe("@o'brien"), "@obrien");
         assert_eq!(safe("#übermorgen"), "#übermorgen");
+        assert_eq!(safe("@michael.l"), "@michael.l");
     }
 
     #[test]
@@ -577,7 +579,12 @@ mod tests {
         );
         assert_eq!(
             gruppen(&["fertig", ""]),
-            vec!["Heute", "Eigenes Projekt · wichtig", "Haus", "Bei anderen"]
+            vec![
+                "Heute",
+                "#eigenes-projekt · wichtig",
+                "#haus",
+                "Bei anderen"
+            ]
         );
         assert_eq!(gruppen(&["+", "x", "#"]), vec!["Wichtig", "Weitere"]);
         assert_eq!(gruppen(&["+", "x", "mo"]), vec!["Termine"]);

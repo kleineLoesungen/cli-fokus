@@ -27,12 +27,12 @@ fokus
  ──────────────────────────────────────────────────────────────────────────
 
  HEUTE
-     ✓ Angebot an Kunden schicken                                 Arbeit
-   2 ▶ Präsentation vorbereiten                    fällig morgen  Arbeit
-   4 · Laufschuhe kaufen                                          Gesundheit
+     ✓ Angebot an Kunden schicken                                 #arbeit
+   2 ▶ Präsentation vorbereiten                    fällig morgen  #arbeit
+   4 · Laufschuhe kaufen                                          #gesundheit
 
  DRINGEND, ABER NICHT WICHTIG   → schnell erledigen oder abgeben
-   6 · Reisekosten abrechnen                       fällig morgen  Haus
+   6 · Reisekosten abrechnen                       fällig morgen  #haus
 
  4 weitere offen · 2 warten auf andere
  2 liegen schon lange → fokus aufräumen
@@ -55,7 +55,7 @@ fokus fertig 2           abhaken – dann ist wieder ein Platz frei
 fokus + Präsentation vorbereiten #arbeit morgen
 ```
 ```
- ✓ Aufgabe 1: Präsentation vorbereiten · Arbeit · fällig morgen (Freitag 27.11.)
+ ✓ Aufgabe 1: Präsentation vorbereiten · #arbeit · fällig morgen (Freitag 27.11.)
 ```
 
 `#thema` und `@person` sind freiwillig, der Termin auch. Er steht **am Ende**
@@ -86,7 +86,7 @@ fokus 5
 ```
 ```
  5  Website-Relaunch
-     Arbeit · fällig 12.12. · seit heute
+     #arbeit · fällig 12.12. · seit heute
 
    5.1  https://figma.com/file/abc
    5.2  Ansprechpartner Max, Budget steht im Angebot
@@ -155,7 +155,7 @@ fokus archiv
 ```
 ```
  ERLEDIGT
-   2 ✓ Pflanzen gießen                                             heute  Haus
+   2 ✓ Pflanzen gießen                                             heute  #haus
 
  GESTRICHEN
    3 × Reisekosten abrechnen                                       gestern
@@ -173,12 +173,12 @@ und ist nach **14 Tagen endgültig weg**.
 fokus #arbeit
 ```
 ```
- ARBEIT   wichtig
+ #arbeit   wichtig
    2 ▶ Präsentation vorbereiten                 fällig morgen
    5 · Website-Texte                            fällig 12.12.
 
  LIEGT BEI ANDEREN
-   8 · Vertrag prüfen                                 bei Tom  seit 12 Tagen
+   8 · Vertrag prüfen                                 bei @tom  seit 12 Tagen
 
  In den letzten 7 Tagen erledigt: Angebot an Kunden schicken
 ```
@@ -193,13 +193,13 @@ heißt überall „kein Thema“, deshalb legt Fokus nie ein Thema „Ohne“ an
 fokus themen
 ```
 ```
- DEINE THEMEN   offen    letzte 7 Tage
- 1  Arbeit          3    ○ ○ ○ ○ ○ ○ ●
- 2  Familie         2    ○ ○ ○ ○ ○ ○ ○
- 3  Gesundheit      1    ○ ○ ○ ○ ○ ○ ○
- ─── wichtig ───────────────────────────────
-    Haus            2    ○ ○ ○ ○ ○ ○ ○
-    ohne Thema      1
+ DEINE THEMEN    offen    letzte 7 Tage
+ 1  #arbeit          3    ○ ○ ○ ○ ○ ○ ●
+ 2  #familie         2    ○ ○ ○ ○ ○ ○ ○
+ 3  #gesundheit      1    ○ ○ ○ ○ ○ ○ ○
+ ─── wichtig ────────────────────────────────
+    #haus            2    ○ ○ ○ ○ ○ ○ ○
+    #ohne            1    ohne Thema
 ```
 
 Ein Punkt je Tag, rechts ist heute. Über der Linie stehen höchstens drei
@@ -216,10 +216,10 @@ fokus themen umbenennen arbiet arbeit  überall; gibt es „arbeit“ schon, wir
 fokus @anna
 ```
 ```
- ANNA
-   3 · Urlaub abstimmen @anna                                   Familie
+ @anna
+   3 · Urlaub abstimmen @anna                                   #familie
 
- WARTE AUF ANNA
+ WARTE AUF @anna
    9 · Fotos vom Wochenende schicken                            seit 5 Tagen
 ```
 
@@ -228,13 +228,13 @@ fokus @anna
 ### Worauf warte ich noch?
 
 ```
-fokus abgeben 8 @tom     Aufgabe 8 liegt jetzt bei Tom
+fokus abgeben 8 @tom     Aufgabe 8 liegt jetzt bei @tom
 fokus warten
 ```
 ```
  WARTE AUF   → nachhaken: fokus aufräumen
-   8 · Vertrag prüfen                                 bei Tom  seit 12 Tagen
-   9 · Fotos vom Wochenende schicken                 bei Anna  seit 5 Tagen
+   8 · Vertrag prüfen                                 bei @tom  seit 12 Tagen
+   9 · Fotos vom Wochenende schicken                 bei @anna  seit 5 Tagen
 ```
 
 Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
@@ -247,7 +247,7 @@ fokus suche angebot
 ```
 ```
  GEFUNDEN: ANGEBOT
-   4 · Angebot prüfen ✎                               fällig Freitag  Arbeit
+   4 · Angebot prüfen ✎                               fällig Freitag  #arbeit
 ```
 
 Fokus sucht in Text, Thema, Personen und Notizen. Mehrere Wörter müssen alle
@@ -363,12 +363,12 @@ fokus fertig ⇥⇥
 Heute
 7   Reisekosten  · heute
 1   Präsentation vorbereiten  · morgen
-Arbeit · wichtig
+#arbeit · wichtig
 2   Website-Texte  · 12.12.
 Ohne Thema
 5   Mama zurückrufen
 Bei anderen
-6   Fotos schicken  · bei Anna
+6   Fotos schicken  · bei @anna
 ```
 
 ---
@@ -396,8 +396,9 @@ selben Look wie im Terminal. Oben steht immer die Liste für heute, darunter
 die Antwort auf deinen letzten Befehl, ganz unten tippst du wie gewohnt
 (`+ Bericht #arbeit freitag`, ein `fokus` vorne darf mit). Dazu:
 
-- **Nummern und Links anklicken:** Eine Aufgabennummer zeigt die Aufgabe mit
-  ihren Notizen, ein Link öffnet sich in einem neuen Tab.
+- **Anklicken:** Eine Aufgabennummer zeigt die Aufgabe mit ihren Notizen,
+  `#thema` alles im Thema, `@person` alles mit der Person. Ein Link öffnet
+  sich in einem neuen Tab.
 - **Tab-Taste** ergänzt wie in der Shell, **↑** holt frühere Befehle.
 - Kommst du zurück in den Tab, ist die Liste aktuell, auch nach Änderungen im
   Terminal.
