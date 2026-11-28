@@ -11,30 +11,87 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::term;
+use crate::{i18n, term, tr, trs};
 
 const PAGE: &str = include_str!("web.html");
+
+/// Die Seite in der gewählten Sprache. Sie steht auf Deutsch in `web.html`;
+/// für Englisch werden die wenigen Texte ersetzt.
+fn page() -> String {
+    if !i18n::en() {
+        return PAGE.to_string();
+    }
+    let mut p = PAGE.to_string();
+    for (de, en) in [
+        ("<html lang=\"de\">", "<html lang=\"en\">"),
+        (
+            "Übersicht ein- oder ausklappen",
+            "Expand or collapse the overview",
+        ),
+        ("▾ Übersicht", "▾ Overview"),
+        ("' Übersicht'", "' Overview'"),
+        (
+            "Hell, dunkel oder wie das System",
+            "Light, dark or like the system",
+        ),
+        (
+            "Ziehen ändert die Höhe, Doppelklick klappt ein",
+            "Drag to resize, double-click to collapse",
+        ),
+        (
+            "+ Text #thema @person termin · hilfe",
+            "+ text #topic @person date · help",
+        ),
+        (
+            "Focus antwortet nicht. Läuft „focus web“ noch?",
+            "Focus isn't answering. Is “focus web” still running?",
+        ),
+        ("'○ hell'", "'○ light'"),
+        ("'● dunkel'", "'● dark'"),
+    ] {
+        p = p.replace(de, en);
+    }
+    p
+}
 const DEFAULT_PORT: u16 = 4711;
 
 pub fn run(args: &[String]) -> Result<(), String> {
     let port = match args.first() {
-        Some(p) => p
-            .parse::<u16>()
-            .map_err(|_| format!("„{p}“ ist keine Portnummer. Zum Beispiel: focus web 4712"))?,
+        Some(p) => p.parse::<u16>().map_err(|_| {
+            tr!(
+                "„{p}“ ist keine Portnummer. Zum Beispiel: focus web 4712",
+                "“{p}” isn't a port number. For example: focus web 4712"
+            )
+        })?,
         None => DEFAULT_PORT,
     };
     let listener = TcpListener::bind(("127.0.0.1", port)).map_err(|e| {
-        format!("Port {port} ist nicht frei ({e}). Läuft Focus schon? Sonst: focus web 4712")
+        tr!(
+            "Port {port} ist nicht frei ({e}). Läuft Focus schon? Sonst: focus web 4712",
+            "Port {port} isn't free ({e}). Is Focus already running? Otherwise: focus web 4712"
+        )
     })?;
     let url = format!("http://127.0.0.1:{port}");
     println!(
-        " {} Focus im Browser: {url}\n {}",
-        term::green("✓"),
-        term::dim("Nur auf diesem Mac erreichbar. Strg+C beendet.")
+        "{}",
+        tr!(
+            " {} Focus im Browser: {url}\n {}",
+            " {} Focus in the browser: {url}\n {}",
+            term::green("✓"),
+            term::dim(trs!(
+                "Nur auf diesem Computer erreichbar. Strg+C beendet.",
+                "Only reachable from this computer. Ctrl+C stops it."
+            ))
+        )
     );
     let _ = Command::new(term::opener()).arg(&url).status();
 
-    let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
+    let exe = std::env::current_exe().map_err(|e| {
+        tr!(
+            "Ich finde mich selbst nicht: {e}",
+            "I can't find my own program: {e}"
+        )
+    })?;
     // Immer nur ein Befehl auf einmal: zwei gleichzeitige könnten sich die Datei überschreiben.
     let lock = Arc::new(Mutex::new(exe));
     for stream in listener.incoming().flatten() {
@@ -101,10 +158,15 @@ fn handle(
     stream.set_read_timeout(Some(Duration::from_secs(10)))?;
     let req = read_request(&stream)?;
     if !allowed(&req, port) {
-        return respond(&mut stream, "403 Forbidden", "text/plain", "Nicht erlaubt.");
+        return respond(
+            &mut stream,
+            "403 Forbidden",
+            "text/plain",
+            trs!("Nicht erlaubt.", "Not allowed."),
+        );
     }
     match (req.method.as_str(), req.path.as_str()) {
-        ("GET", "/") => respond(&mut stream, "200 OK", "text/html; charset=utf-8", PAGE),
+        ("GET", "/") => respond(&mut stream, "200 OK", "text/html; charset=utf-8", &page()),
         ("POST", "/befehl") => {
             let (cols, line) = split_body(&req.body);
             let mut words = words(line);
@@ -133,7 +195,12 @@ fn handle(
             let out = focus(&exe, &args, 80);
             respond(&mut stream, "200 OK", "text/plain; charset=utf-8", &out)
         }
-        _ => respond(&mut stream, "404 Not Found", "text/plain", "Gibt es nicht."),
+        _ => respond(
+            &mut stream,
+            "404 Not Found",
+            "text/plain",
+            trs!("Gibt es nicht.", "Doesn't exist."),
+        ),
     }
 }
 
@@ -190,7 +257,10 @@ fn focus(exe: &std::path::Path, args: &[String], cols: usize) -> String {
             s.push_str(&String::from_utf8_lossy(&o.stderr));
             s
         }
-        Err(e) => format!(" Focus ließ sich nicht starten: {e}"),
+        Err(e) => tr!(
+            " Focus ließ sich nicht starten: {e}",
+            " Focus couldn't be started: {e}"
+        ),
     }
 }
 
@@ -351,7 +421,7 @@ fn tag_at(s: &str) -> Option<&str> {
     if s[tag.len()..].starts_with('…') {
         return None;
     }
-    (tag.len() > 1 && !matches!(tag, "@name" | "#thema")).then_some(tag)
+    (tag.len() > 1 && !matches!(tag, "@name" | "#thema" | "#topic")).then_some(tag)
 }
 
 fn escape(s: &str) -> String {

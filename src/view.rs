@@ -6,7 +6,7 @@ use std::path::Path;
 use chrono::NaiveDate;
 
 use crate::store::{self, IMPORTANT_LIMIT, KEEP_DAYS, Status, Store, TODAY_LIMIT, Task};
-use crate::{date, notes, tags, term};
+use crate::{date, i18n, notes, tags, term, tr, trs};
 
 #[derive(Clone, Copy)]
 enum Tone {
@@ -194,7 +194,7 @@ pub fn today(store: &Store) -> String {
     let open = store.today_open();
     let total = done.len() + open.len();
     let right = if total > 0 {
-        format!("{} von {} erledigt", done.len(), total)
+        tr!("{} von {} erledigt", "{} of {} done", done.len(), total)
     } else {
         String::new()
     };
@@ -224,23 +224,28 @@ pub fn today(store: &Store) -> String {
         .map(|&i| store.tasks[i].nr.to_string())
         .collect();
     let note = if open.is_empty() && !done.is_empty() {
-        Some("Alles für heute geschafft.".to_string())
+        Some(tr!("Alles für heute geschafft.", "All done for today."))
     } else if open.is_empty() && !suggestion.is_empty() {
-        Some(format!(
+        Some(tr!(
             "Noch nichts für heute. Mein Vorschlag: focus heute {}",
+            "Nothing for today yet. My suggestion: focus today {}",
             suggestion.join(" ")
         ))
     } else if open.is_empty() && any_open {
-        Some(format!(
-            "Noch nichts für heute. Wähle bis zu {TODAY_LIMIT}: focus heute <Nr>  (Nummern: focus alles)"
+        Some(tr!(
+            "Noch nichts für heute. Wähle bis zu {TODAY_LIMIT}: focus heute <Nr>  (Nummern: focus alles)",
+            "Nothing for today yet. Pick up to {TODAY_LIMIT}: focus today <no>  (numbers: focus all)"
         ))
     } else if open.is_empty() {
-        Some("Noch nichts für heute.".to_string())
+        Some(tr!("Noch nichts für heute.", "Nothing for today yet."))
     } else {
         None
     };
     let hint = if store.suggested && !open.is_empty() {
-        "Vorschlag von Focus · tauschen: focus heute <Nr>".to_string()
+        tr!(
+            "Vorschlag von Focus · tauschen: focus heute <Nr>",
+            "Suggested by Focus · swap: focus today <no>"
+        )
     } else {
         String::new()
     };
@@ -261,20 +266,23 @@ pub fn today(store: &Store) -> String {
 
     let blocks = vec![
         Block {
-            title: "HEUTE".into(),
+            title: tr!("HEUTE", "TODAY"),
             hint,
             rows,
             note,
         },
         Block {
-            title: "DRINGEND UND WICHTIG".into(),
-            hint: "→ gehört eigentlich auf heute".into(),
+            title: tr!("DRINGEND UND WICHTIG", "URGENT AND IMPORTANT"),
+            hint: tr!("→ gehört eigentlich auf heute", "→ really belongs on today"),
             rows: must.iter().map(|t| row(store, t, "·")).collect(),
             note: None,
         },
         Block {
-            title: "DRINGEND, ABER NICHT WICHTIG".into(),
-            hint: "→ schnell erledigen oder abgeben".into(),
+            title: tr!("DRINGEND, ABER NICHT WICHTIG", "URGENT, BUT NOT IMPORTANT"),
+            hint: tr!(
+                "→ schnell erledigen oder abgeben",
+                "→ do it quickly or delegate"
+            ),
             rows: quick.iter().map(|t| row(store, t, "·")).collect(),
             note: None,
         },
@@ -301,28 +309,41 @@ pub fn today(store: &Store) -> String {
         .count();
     let mut parts = Vec::new();
     if rest > 0 {
-        parts.push(format!("{rest} weitere offen"));
+        parts.push(tr!("{rest} weitere offen", "{rest} more open"));
     }
     if waiting > 0 {
-        parts.push(format!(
+        parts.push(tr!(
             "{waiting} {} auf andere",
-            if waiting == 1 { "wartet" } else { "warten" }
+            "{waiting} waiting on others{}",
+            if i18n::en() {
+                ""
+            } else if waiting == 1 {
+                "wartet"
+            } else {
+                "warten"
+            }
         ));
     }
     if overdue > 0 {
-        parts.push(format!("{overdue} überfällig"));
+        parts.push(tr!("{overdue} überfällig", "{overdue} overdue"));
     }
     if stale > 0 {
-        parts.push(format!(
+        parts.push(tr!(
             "{stale} {} schon lange",
-            if stale == 1 { "liegt" } else { "liegen" }
+            "{stale} {} been sitting for a while",
+            match (i18n::en(), stale == 1) {
+                (false, true) => "liegt",
+                (false, false) => "liegen",
+                (true, true) => "has",
+                (true, false) => "have",
+            }
         ));
     }
     if !parts.is_empty() {
         let next = if stale + overdue > 0 {
-            "focus aufräumen"
+            tr!("focus aufräumen", "focus review")
         } else {
-            "focus alles"
+            tr!("focus alles", "focus all")
         };
         if let Some(last) = parts.last_mut() {
             last.push_str(&format!(" → {next}"));
@@ -333,12 +354,33 @@ pub fn today(store: &Store) -> String {
 }
 
 fn welcome() -> String {
-    format!(
+    tr!(
         "\n Noch keine Aufgaben. Schreib die erste auf:\n\n   {}\n\n {}\n {}\n",
-        term::bold("focus + Präsentation vorbereiten #arbeit morgen"),
-        term::dim("#arbeit ist das Thema, morgen der Termin. Beides darfst du weglassen."),
-        term::dim("Alle Befehle: focus hilfe"),
+        "\n No tasks yet. Write down the first one:\n\n   {}\n\n {}\n {}\n",
+        term::bold(trs!(
+            "focus + Präsentation vorbereiten #arbeit morgen",
+            "focus + prepare presentation #work tomorrow"
+        )),
+        term::dim(trs!(
+            "#arbeit ist das Thema, morgen der Termin. Beides darfst du weglassen.",
+            "#work is the topic, tomorrow the due date. You can leave out both."
+        )),
+        term::dim(trs!(
+            "Alle Befehle: focus hilfe",
+            "All commands: focus help"
+        )),
     )
+}
+
+/// „2 liegen bei anderen: focus personen“
+fn waiting_note(waiting: usize) -> String {
+    if i18n::en() {
+        format!("{waiting} with others: focus people")
+    } else if waiting == 1 {
+        format!("{waiting} liegt bei anderen: focus personen")
+    } else {
+        format!("{waiting} liegen bei anderen: focus personen")
+    }
 }
 
 /// `focus alles` – die vier Felder.
@@ -369,15 +411,9 @@ pub fn matrix(store: &Store) -> String {
         .filter(|t| t.status == Status::Waiting)
         .count();
     if q.iter().all(Vec::is_empty) {
-        let mut s = String::from("\n Keine offenen Aufgaben.\n");
+        let mut s = tr!("\n Keine offenen Aufgaben.\n", "\n No open tasks.\n");
         if waiting > 0 {
-            s.push_str(&format!(
-                " {}\n",
-                term::dim(&format!(
-                    "{waiting} {} bei anderen: focus personen",
-                    if waiting == 1 { "liegt" } else { "liegen" }
-                ))
-            ));
+            s.push_str(&format!(" {}\n", term::dim(&waiting_note(waiting))));
         }
         return s;
     }
@@ -385,7 +421,7 @@ pub fn matrix(store: &Store) -> String {
     let right = |t: &Task, quadrant: usize| -> String {
         let age = (store.today - t.since).num_days();
         match (quadrant, t.due) {
-            (3, _) if age >= 14 => format!("{age} Tage"),
+            (3, _) if age >= 14 => tr!("{age} Tage", "{age} days"),
             (_, Some(d)) => date::due_short(d, store.today),
             _ => String::new(),
         }
@@ -395,12 +431,21 @@ pub fn matrix(store: &Store) -> String {
     if width >= 72 {
         out.push_str(&matrix_wide(store, &q, width, &right));
     } else {
-        let titles = [
-            ("WICHTIG UND DRINGEND", "tun"),
-            ("WICHTIG, NICHT DRINGEND", "planen"),
-            ("DRINGEND, NICHT WICHTIG", "schnell oder abgeben"),
-            ("WEDER NOCH", "streichen?"),
-        ];
+        let titles = if i18n::en() {
+            [
+                ("IMPORTANT AND URGENT", "do"),
+                ("IMPORTANT, NOT URGENT", "plan"),
+                ("URGENT, NOT IMPORTANT", "quick or delegate"),
+                ("NEITHER", "drop?"),
+            ]
+        } else {
+            [
+                ("WICHTIG UND DRINGEND", "tun"),
+                ("WICHTIG, NICHT DRINGEND", "planen"),
+                ("DRINGEND, NICHT WICHTIG", "schnell oder abgeben"),
+                ("WEDER NOCH", "streichen?"),
+            ]
+        };
         let blocks: Vec<Block> = (0..4)
             .map(|i| Block {
                 title: titles[i].0.into(),
@@ -427,19 +472,19 @@ pub fn matrix(store: &Store) -> String {
         out.push_str(&layout(&blocks, width));
     }
 
-    let mut legend = vec!["▶ steht auf heute".to_string()];
+    let mut legend = vec![tr!("▶ steht auf heute", "▶ is on today")];
     if store
         .tasks
         .iter()
         .any(|t| t.is_active() && t.topic_tag().is_none())
     {
-        legend.push("ohne Thema zählt als nicht wichtig".into());
+        legend.push(tr!(
+            "ohne Thema zählt als nicht wichtig",
+            "no topic counts as not important"
+        ));
     }
     if waiting > 0 {
-        legend.push(format!(
-            "{waiting} {} bei anderen: focus personen",
-            if waiting == 1 { "liegt" } else { "liegen" }
-        ));
+        legend.push(waiting_note(waiting));
     }
     out.push_str(&hint_lines(&legend, width));
     out
@@ -526,7 +571,7 @@ fn matrix_wide(
             lines.push(s);
         }
         if tasks.len() > shown {
-            let more = format!("… und {} weitere", tasks.len() - shown);
+            let more = tr!("… und {} weitere", "… and {} more", tasks.len() - shown);
             lines.push(format!(" {} ", term::dim(&term::fit(&more, cw - 2))));
         }
         if lines.is_empty() {
@@ -535,16 +580,24 @@ fn matrix_wide(
         lines
     };
 
-    let labels = ["TUN", "PLANEN", "SCHNELL ODER ABGEBEN", "STREICHEN?"];
+    let labels = if i18n::en() {
+        ["DO", "PLAN", "QUICK OR DELEGATE", "DROP?"]
+    } else {
+        ["TUN", "PLANEN", "SCHNELL ODER ABGEBEN", "STREICHEN?"]
+    };
     let mut out = String::new();
     out.push_str(&format!(
         "{} {} {}\n",
         " ".repeat(label_w),
-        term::bold(&term::center("DRINGEND", cw)),
-        term::bold(&term::center("NICHT DRINGEND", cw)),
+        term::bold(&term::center(trs!("DRINGEND", "URGENT"), cw)),
+        term::bold(&term::center(trs!("NICHT DRINGEND", "NOT URGENT"), cw)),
     ));
     out.push_str(&line("┌", "┬", "┐"));
-    for (pair, label) in [((0, 1), "WICHTIG"), ((2, 3), "UNWICHTIG")] {
+    let rows_of = [
+        ((0, 1), trs!("WICHTIG", "IMPORTANT")),
+        ((2, 3), trs!("UNWICHTIG", "MINOR")),
+    ];
+    for (pair, label) in rows_of {
         let a = cell(pair.0);
         let b = cell(pair.1);
         let n = a.len().max(b.len());
@@ -597,15 +650,22 @@ pub fn topics(store: &Store) -> String {
         .filter(|t| t.is_active() && t.topic_tag().is_none())
         .count();
     if store.all_topics().next().is_none() {
-        let mut s = String::from(
+        let mut s = tr!(
             "\n Noch keine Themen. Ein Thema entsteht, sobald du es in eine Aufgabe schreibst:\n\n   ",
+            "\n No topics yet. A topic appears as soon as you write it into a task:\n\n   ",
         );
-        s.push_str(&term::bold("focus + Laufschuhe kaufen #gesundheit"));
+        s.push_str(&term::bold(trs!(
+            "focus + Laufschuhe kaufen #gesundheit",
+            "focus + buy running shoes #health"
+        )));
         s.push('\n');
         if inbox > 0 {
             s.push_str(&format!(
                 "\n {}\n",
-                term::dim(&format!("{inbox} Aufgaben sind noch ohne Thema."))
+                term::dim(&tr!(
+                    "{inbox} Aufgaben sind noch ohne Thema.",
+                    "{inbox} tasks have no topic yet."
+                ))
             ));
         }
         return s;
@@ -615,7 +675,7 @@ pub fn topics(store: &Store) -> String {
     let name_w = store
         .all_topics()
         .map(|n| term::text_width(&tags::topic_label(n)))
-        .chain([term::text_width("#ohne")])
+        .chain([term::text_width(&tags::no_topic_tag())])
         .max()
         .unwrap_or(10)
         .clamp(10, 24);
@@ -670,18 +730,25 @@ pub fn topics(store: &Store) -> String {
     let mut out = String::from("\n");
     out.push_str(&format!(
         " {}  {}    {}\n",
-        term::bold(&term::pad_right("DEINE THEMEN", name_w + 3)),
-        term::dim("offen"),
-        term::dim("letzte 7 Tage"),
+        term::bold(&term::pad_right(
+            trs!("DEINE THEMEN", "YOUR TOPICS"),
+            name_w + 3
+        )),
+        term::dim(trs!("offen", " open")),
+        term::dim(trs!("letzte 7 Tage", "last 7 days")),
     ));
     for (i, name) in store.important.iter().enumerate() {
         let s = stats(name);
         let warn = match s.last_done {
             Some(d) if (today - d).num_days() >= 7 => {
-                format!("seit {} Tagen nichts erledigt", (today - d).num_days())
+                tr!(
+                    "seit {} Tagen nichts erledigt",
+                    "nothing done for {} days",
+                    (today - d).num_days()
+                )
             }
             None if s.open > 0 && s.oldest.is_some_and(|o| (today - o).num_days() >= 7) => {
-                "noch nichts erledigt".into()
+                tr!("noch nichts erledigt", "nothing done yet")
             }
             _ => String::new(),
         };
@@ -698,22 +765,21 @@ pub fn topics(store: &Store) -> String {
     if free > 0 {
         out.push_str(&format!(
             "    {}\n",
-            term::dim(&format!(
-                "Über der Linie ist noch Platz für {}.",
-                if free == 1 {
-                    "ein Thema".to_string()
-                } else {
-                    format!("{free} Themen")
-                }
-            ))
+            term::dim(&match (i18n::en(), free) {
+                (false, 1) => "Über der Linie ist noch Platz für ein Thema.".to_string(),
+                (false, n) => format!("Über der Linie ist noch Platz für {n} Themen."),
+                (true, 1) => "There's room for one more topic above the line.".to_string(),
+                (true, n) => format!("There's room for {n} more topics above the line."),
+            })
         ));
     }
     let rule_w = (name_w + 33).min(term::width().saturating_sub(2));
     out.push_str(&format!(
         " {}\n",
         term::dim(&format!(
-            "─── wichtig {}",
-            "─".repeat(rule_w.saturating_sub(12))
+            "─── {} {}",
+            trs!("wichtig", "important"),
+            "─".repeat(rule_w.saturating_sub(if i18n::en() { 14 } else { 12 }))
         ))
     ));
     for name in &store.other {
@@ -728,14 +794,17 @@ pub fn topics(store: &Store) -> String {
     if inbox > 0 {
         out.push_str(&format!(
             "    {}  {:>5}    {}\n",
-            term::dim(&term::fit("#ohne", name_w)),
+            term::dim(&term::fit(&tags::no_topic_tag(), name_w)),
             inbox,
-            term::dim("ohne Thema")
+            term::dim(trs!("ohne Thema", "no topic"))
         ));
     }
     out.push_str(&format!(
         "\n {}\n",
-        term::dim("Welche drei wichtig sind, wählst du mit: focus themen ordnen")
+        term::dim(trs!(
+            "Welche drei wichtig sind, wählst du mit: focus themen ordnen",
+            "Pick which three are important with: focus topics order"
+        ))
     ));
     if term::color() {
         out
@@ -797,9 +866,13 @@ fn person_counts(store: &Store) -> Vec<PersonCount> {
 pub fn persons(store: &Store) -> String {
     let list = person_counts(store);
     if list.is_empty() {
-        return format!(
+        return tr!(
             "\n Bei niemandem ist gerade etwas offen.\n {}\n",
-            term::dim("Schreib @name in eine Aufgabe, etwa: focus + Urlaub abstimmen @anna")
+            "\n Nothing is open with anyone right now.\n {}\n",
+            term::dim(trs!(
+                "Schreib @name in eine Aufgabe, etwa: focus + Urlaub abstimmen @anna",
+                "Write @name into a task, like: focus + plan vacation @anna"
+            ))
         );
     }
     let name_w = list
@@ -818,9 +891,9 @@ pub fn persons(store: &Store) -> String {
     let mut out = String::from("\n");
     out.push_str(&format!(
         " {}  {}    {}\n",
-        term::bold(&term::pad_right("PERSONEN", name_w)),
-        term::dim("mit dir"),
-        term::dim("warte auf"),
+        term::bold(&term::pad_right(trs!("PERSONEN", "PEOPLE"), name_w)),
+        term::dim(trs!("mit dir", "with you")),
+        term::dim(trs!("warte auf", "waiting  ")),
     ));
     for p in &list {
         out.push_str(&format!(
@@ -832,7 +905,10 @@ pub fn persons(store: &Store) -> String {
     }
     out.push_str(&format!(
         "\n {}\n",
-        term::dim("Alles zu einer Person: focus @name")
+        term::dim(trs!(
+            "Alles zu einer Person: focus @name",
+            "Everything with one person: focus @name"
+        ))
     ));
     out
 }
@@ -862,9 +938,13 @@ pub fn person(store: &Store, raw: &str) -> String {
         })
         .collect();
     if with.is_empty() && waiting.is_empty() {
-        return format!(
+        return tr!(
             "\n Bei {name} ist gerade nichts offen.\n {}\n",
-            term::dim("Alle Personen: focus personen")
+            "\n Nothing is open with {name} right now.\n {}\n",
+            term::dim(trs!(
+                "Alle Personen: focus personen",
+                "All people: focus people"
+            ))
         );
     }
     let blocks = vec![
@@ -888,7 +968,7 @@ pub fn person(store: &Store, raw: &str) -> String {
             note: None,
         },
         Block {
-            title: format!("WARTE AUF {name}"),
+            title: tr!("WARTE AUF {name}", "WAITING FOR {name}"),
             hint: String::new(),
             rows: waiting
                 .iter()
@@ -912,13 +992,13 @@ pub fn topic(store: &Store, raw: &str) -> String {
     if k.is_empty() {
         return topics(store);
     }
-    let none = k == tags::NO_TOPIC;
+    let none = tags::is_no_topic_key(&k);
     let in_topic = |t: &Task| match t.topic_tag() {
         Some(g) => !none && tags::key(&g) == k,
         None => none,
     };
     let name = if none {
-        "ohne Thema".to_string()
+        tr!("ohne Thema", "no topic")
     } else {
         store
             .all_topics()
@@ -952,9 +1032,13 @@ pub fn topic(store: &Store, raw: &str) -> String {
         .collect();
 
     if none && open.is_empty() && waiting.is_empty() {
-        return format!(
+        return tr!(
             "\n Alle offenen Aufgaben haben ein Thema.\n {}\n",
-            term::dim("Deine Themen: focus themen")
+            "\n Every open task has a topic.\n {}\n",
+            term::dim(trs!(
+                "Deine Themen: focus themen",
+                "Your topics: focus topics"
+            ))
         );
     }
     let target = notes::Target::Topic(name.clone(), None);
@@ -964,29 +1048,40 @@ pub fn topic(store: &Store, raw: &str) -> String {
         notes::lines(store, &target)
     };
     if open.is_empty() && waiting.is_empty() && done.is_empty() {
-        let mut out = format!("\n Im Thema „{name}“ ist gerade nichts offen.\n");
+        let mut out = tr!(
+            "\n Im Thema „{name}“ ist gerade nichts offen.\n",
+            "\n Nothing is open in the topic “{name}” right now.\n"
+        );
         if !topic_notes.is_empty() {
             out.push_str(&format!("\n{topic_notes}"));
         }
-        out.push_str(&format!(" {}\n", term::dim("Deine Themen: focus themen")));
+        out.push_str(&format!(
+            " {}\n",
+            term::dim(trs!(
+                "Deine Themen: focus themen",
+                "Your topics: focus topics"
+            ))
+        ));
         return out;
     }
     let width = term::list_width();
     let blocks = vec![
         Block {
             title: if none {
-                "#ohne".to_string()
+                tags::no_topic_tag()
             } else {
                 tags::topic_label(&name)
             },
             hint: if none {
-                "zählt als nicht wichtig"
+                tr!("zählt als nicht wichtig", "counts as not important")
             } else if important {
-                "wichtig"
+                tr!("wichtig", "important")
             } else {
-                "unter der Linie, nicht wichtig"
-            }
-            .into(),
+                tr!(
+                    "unter der Linie, nicht wichtig",
+                    "below the line, not important"
+                )
+            },
             rows: open
                 .iter()
                 .map(|t| {
@@ -1003,10 +1098,12 @@ pub fn topic(store: &Store, raw: &str) -> String {
                     r
                 })
                 .collect(),
-            note: open.is_empty().then(|| "Nichts offen bei dir.".to_string()),
+            note: open
+                .is_empty()
+                .then(|| tr!("Nichts offen bei dir.", "Nothing open on your side.")),
         },
         Block {
-            title: "LIEGT BEI ANDEREN".into(),
+            title: tr!("LIEGT BEI ANDEREN", "WITH OTHERS"),
             hint: String::new(),
             rows: waiting.iter().map(|t| waiting_row(store, t)).collect(),
             note: None,
@@ -1015,22 +1112,36 @@ pub fn topic(store: &Store, raw: &str) -> String {
     let mut out = String::from("\n");
     out.push_str(&layout(&blocks, width));
     if !topic_notes.is_empty() {
-        out.push_str(&format!(" {}\n{topic_notes}\n", term::bold("NOTIZEN")));
+        out.push_str(&format!(
+            " {}\n{topic_notes}\n",
+            term::bold(trs!("NOTIZEN", "NOTES"))
+        ));
     }
     if !done.is_empty() {
-        let line = format!("In den letzten 7 Tagen erledigt: {}", done.join(", "));
+        let line = tr!(
+            "In den letzten 7 Tagen erledigt: {}",
+            "Done in the last 7 days: {}",
+            done.join(", ")
+        );
         out.push_str(&format!(
             " {}\n",
             term::dim(&term::truncate(&line, width - 2))
         ));
     }
     if open.iter().any(|t| t.status == Status::Today) {
-        out.push_str(&format!(" {}\n", term::dim("▶ steht auf heute")));
+        out.push_str(&format!(
+            " {}\n",
+            term::dim(trs!("▶ steht auf heute", "▶ is on today"))
+        ));
     }
     if none && let Some(t) = open.first().or(waiting.first()) {
         out.push_str(&format!(
             " {}\n",
-            term::dim(&format!("Thema geben: focus ändern {} #thema", t.nr))
+            term::dim(&tr!(
+                "Thema geben: focus ändern {} #thema",
+                "Give it a topic: focus edit {} #topic",
+                t.nr
+            ))
         ));
     }
     out
@@ -1052,7 +1163,7 @@ fn waiting_row(store: &Store, t: &Task) -> Row {
         mark: "·",
         text: t.display(),
         marker: t.marker(),
-        mid: (format!("bei {who}"), Tone::Plain),
+        mid: (tr!("bei {who}", "with {who}"), Tone::Plain),
         right: (date::age_label(t.since, store.today), tone_age),
         faded: false,
     }
@@ -1066,17 +1177,21 @@ pub fn waiting(store: &Store) -> String {
         .filter(|t| t.status == Status::Waiting)
         .collect();
     if list.is_empty() {
-        return format!(
+        return tr!(
             "\n Du wartest gerade auf niemanden.\n {}\n",
-            term::dim("Abgeben geht so: focus abgeben 4 @tom")
+            "\n You're not waiting on anyone right now.\n {}\n",
+            term::dim(trs!(
+                "Abgeben geht so: focus abgeben 4 @tom",
+                "To delegate: focus delegate 4 @tom"
+            ))
         );
     }
     list.sort_by_key(|t| t.since);
     let stale = list.iter().any(|t| store.is_stale(t));
     let blocks = vec![Block {
-        title: "WARTE AUF".into(),
+        title: tr!("WARTE AUF", "WAITING FOR"),
         hint: if stale {
-            "→ nachhaken: focus aufräumen".into()
+            tr!("→ nachhaken: focus aufräumen", "→ follow up: focus review")
         } else {
             String::new()
         },
@@ -1087,7 +1202,10 @@ pub fn waiting(store: &Store) -> String {
     out.push_str(&layout(&blocks, term::list_width()));
     out.push_str(&format!(
         " {}\n",
-        term::dim("Zurück zu dir: focus heute <Nr> · kam erledigt zurück: focus fertig <Nr>")
+        term::dim(trs!(
+            "Zurück zu dir: focus heute <Nr> · kam erledigt zurück: focus fertig <Nr>",
+            "Back to you: focus today <no> · came back done: focus done <no>"
+        ))
     ));
     out
 }
@@ -1130,14 +1248,18 @@ pub fn search(store: &Store, words: &[String]) -> String {
         .filter(|t| t.is_restorable(today) && hits(t))
         .collect();
     if open.is_empty() && gone.is_empty() {
-        return format!(
+        return tr!(
             "\n Zu „{query}“ finde ich nichts.\n {}\n",
-            term::dim("Gesucht wird in Text, Thema, Personen und Notizen, auch im Archiv.")
+            "\n I can't find anything for “{query}”.\n {}\n",
+            term::dim(trs!(
+                "Gesucht wird in Text, Thema, Personen und Notizen, auch im Archiv.",
+                "Searching text, topic, people and notes, including the archive."
+            ))
         );
     }
     let blocks = vec![
         Block {
-            title: format!("GEFUNDEN: {}", query.to_uppercase()),
+            title: tr!("GEFUNDEN: {}", "FOUND: {}", query.to_uppercase()),
             hint: String::new(),
             rows: open
                 .iter()
@@ -1153,18 +1275,25 @@ pub fn search(store: &Store, words: &[String]) -> String {
                 .collect(),
             note: open
                 .is_empty()
-                .then(|| "Offen ist nichts davon.".to_string()),
+                .then(|| tr!("Offen ist nichts davon.", "None of it is open.")),
         },
         Block {
-            title: "IM ARCHIV".into(),
-            hint: "zurückholen: focus zurück <Nr>".into(),
+            title: tr!("IM ARCHIV", "IN THE ARCHIVE"),
+            hint: tr!(
+                "zurückholen: focus zurück <Nr>",
+                "bring back: focus restore <no>"
+            ),
             rows: gone
                 .iter()
                 .map(|t| {
                     let done = t.status == Status::Done;
                     let mut r = row(store, t, if done { "✓" } else { "×" });
                     r.mid = (
-                        if done { "erledigt" } else { "gestrichen" }.into(),
+                        if done {
+                            tr!("erledigt", "done")
+                        } else {
+                            tr!("gestrichen", "dropped")
+                        },
                         Tone::Dim,
                     );
                     r.faded = true;
@@ -1188,18 +1317,20 @@ pub fn archive(store: &Store) -> String {
         .filter(|t| t.is_restorable(today))
         .collect();
     if list.is_empty() {
-        return format!(
+        return tr!(
             "\n Im Archiv ist nichts. {}\n",
-            term::dim(&format!(
-                "Erledigtes und Gestrichenes bleibt hier {KEEP_DAYS} Tage."
+            "\n The archive is empty. {}\n",
+            term::dim(&tr!(
+                "Erledigtes und Gestrichenes bleibt hier {KEEP_DAYS} Tage.",
+                "Done and dropped tasks stay here for {KEEP_DAYS} days."
             ))
         );
     }
     list.sort_by_key(|t| std::cmp::Reverse(t.done_on.or(t.archived_on)));
     let when = |d: Option<NaiveDate>| match d.map(|d| (today - d).num_days()) {
-        Some(0) => "heute".to_string(),
-        Some(1) => "gestern".to_string(),
-        Some(n) => format!("vor {n} Tagen"),
+        Some(0) => tr!("heute", "today"),
+        Some(1) => tr!("gestern", "yesterday"),
+        Some(n) => tr!("vor {n} Tagen", "{n} days ago"),
         None => String::new(),
     };
     let rows = |status: Status| -> Vec<Row> {
@@ -1218,13 +1349,13 @@ pub fn archive(store: &Store) -> String {
     };
     let blocks = vec![
         Block {
-            title: "ERLEDIGT".into(),
+            title: tr!("ERLEDIGT", "DONE"),
             hint: String::new(),
             rows: rows(Status::Done),
             note: None,
         },
         Block {
-            title: "GESTRICHEN".into(),
+            title: tr!("GESTRICHEN", "DROPPED"),
             hint: String::new(),
             rows: rows(Status::Archived),
             note: None,
@@ -1234,8 +1365,9 @@ pub fn archive(store: &Store) -> String {
     out.push_str(&layout(&blocks, term::list_width()));
     out.push_str(&format!(
         " {}\n",
-        term::dim(&format!(
-            "Zurückholen: focus zurück <Nr> · nach {KEEP_DAYS} Tagen löscht Focus endgültig"
+        term::dim(&tr!(
+            "Zurückholen: focus zurück <Nr> · nach {KEEP_DAYS} Tagen löscht Focus endgültig",
+            "Bring back: focus restore <no> · after {KEEP_DAYS} days Focus deletes for good"
         ))
     ));
     out
@@ -1243,7 +1375,7 @@ pub fn archive(store: &Store) -> String {
 
 /// `focus hilfe`
 pub fn help(path: &Path, away: Option<&Path>) -> String {
-    let rows: &[(&str, &str)] = &[
+    let de: &[(&str, &str)] = &[
         ("focus", "zeigt, was heute dran ist"),
         (
             "focus + Text #thema @person termin",
@@ -1313,7 +1445,10 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "focus unterwegs ordner",
             "schreibt den Stand fürs Handy dorthin (aus: abschalten)",
         ),
-        ("focus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
+        (
+            "focus einrichten",
+            "Sprache, Orte, Kurzbefehl f und Tab-Taste",
+        ),
         (
             "focus web",
             "öffnet Focus im Browser-Tab, im Look des Terminals",
@@ -1327,7 +1462,89 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "die ganze Anleitung, oder nur der passende Abschnitt",
         ),
     ];
-    let mut out = format!("\n {}\n\n", term::bold("Focus – was ist heute dran?"));
+    let en: &[(&str, &str)] = &[
+        ("focus", "shows what's on for today"),
+        ("focus + text #topic @person date", "writes down a task"),
+        (
+            "focus +",
+            "asks for the text (good for characters like ' or ?)",
+        ),
+        ("focus today 4", "puts task 4 on today"),
+        ("focus later 4", "takes task 4 off today again"),
+        ("focus done 4", "checks off task 4"),
+        (
+            "focus edit 4 tomorrow",
+            "changes text, #topic, @person or date",
+        ),
+        ("focus 4", "shows task 4 with its notes"),
+        (
+            "focus note 4 text",
+            "a note or link for it, also for #topic (4.2 changes one)",
+        ),
+        ("focus note 4.2 delete", "deletes the second note"),
+        ("focus open 4", "opens the link from the notes"),
+        ("focus now", "shows just one task, with a clock"),
+        ("focus all", "shows all tasks in four quadrants"),
+        ("focus topics", "shows your topics and how they're going"),
+        ("focus topics order", "picks the three important topics"),
+        (
+            "focus topics rename a b",
+            "renames topic a to b (everywhere)",
+        ),
+        ("focus @anna", "shows everything you have with Anna"),
+        ("focus people", "shows everyone with open tasks"),
+        ("focus #work", "shows everything in the topic Work"),
+        ("focus #none", "shows the tasks without a topic"),
+        ("focus waiting", "shows everything that's with others"),
+        (
+            "focus search word",
+            "finds tasks, also in notes and the archive",
+        ),
+        (
+            "focus delegate 4 @tom",
+            "hands task 4 to Tom and marks it “waiting for”",
+        ),
+        ("focus drop 4", "drops task 4 (14 days in the archive)"),
+        ("focus archive", "shows done and dropped tasks, for 14 days"),
+        ("focus restore 4", "brings task 4 back from the archive"),
+        (
+            "focus review",
+            "goes through tasks that got stuck, with you",
+        ),
+        ("focus file", "opens your task file in a text editor"),
+        (
+            "focus file move place",
+            "moves your task file somewhere else",
+        ),
+        (
+            "focus mobile folder",
+            "writes the state for your phone there (off: turn off)",
+        ),
+        (
+            "focus setup",
+            "language, places, shortcut f and the Tab key",
+        ),
+        (
+            "focus web",
+            "opens Focus in a browser tab, looking like the terminal",
+        ),
+        (
+            "focus uninstall",
+            "removes Focus again (your tasks only if you want)",
+        ),
+        (
+            "focus manual keyword",
+            "the whole manual, or just the matching section",
+        ),
+    ];
+    let rows = if i18n::en() { en } else { de };
+    let mut out = format!(
+        "\n {}\n\n",
+        term::bold(trs!(
+            "Focus – was ist heute dran?",
+            "Focus – what's on for today?"
+        ))
+    );
     for (cmd, what) in rows {
         if term::text_width(cmd) > 28 {
             out.push_str(&format!(
@@ -1345,15 +1562,32 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
     }
     out.push_str(&format!(
         "\n {}\n {}\n {}\n {}\n",
-        term::dim("Termine: heute, morgen, freitag, 3.12., in 2 wochen · jeden montag, alle 2 wochen freitag"),
-        term::dim("Statt „focus“ geht auch „f“, wenn du „focus einrichten“ benutzt hast."),
-        term::dim("Mehr zu allem: focus anleitung, etwa focus anleitung unterwegs"),
-        term::dim(&format!("Deine Aufgaben liegen in {}", path.display())),
+        term::dim(trs!(
+            "Termine: heute, morgen, freitag, 3.12., in 2 wochen · jeden montag, alle 2 wochen freitag",
+            "Dates: today, tomorrow, friday, 2026-12-03, in 2 weeks · every monday, every 2 weeks on friday"
+        )),
+        term::dim(trs!(
+            "Statt „focus“ geht auch „f“, wenn du „focus einrichten“ benutzt hast.",
+            "Instead of “focus” you can type “f” once you've run “focus setup”."
+        )),
+        term::dim(trs!(
+            "Mehr zu allem: focus anleitung, etwa focus anleitung unterwegs",
+            "More on everything: focus manual, for example focus manual mobile"
+        )),
+        term::dim(&tr!(
+            "Deine Aufgaben liegen in {}",
+            "Your tasks are in {}",
+            path.display()
+        )),
     ));
     if let Some(a) = away {
         out.push_str(&format!(
             " {}\n",
-            term::dim(&format!("Die Unterwegs-Datei liegt in {}", a.display()))
+            term::dim(&tr!(
+                "Die Unterwegs-Datei liegt in {}",
+                "The mobile file is in {}",
+                a.display()
+            ))
         ));
     }
     out
@@ -1364,7 +1598,7 @@ pub fn summary(store: &Store, t: &Task) -> String {
     let mut parts = vec![t.display()];
     match store.topic_label(t) {
         Some(n) => parts.push(n),
-        None => parts.push("ohne Thema".into()),
+        None => parts.push(tr!("ohne Thema", "no topic")),
     }
     if let (Some(n), Some(d)) = (t.every, t.due) {
         parts.push(format!("↻ {}", date::recurrence_label(n, d)));
@@ -1372,7 +1606,7 @@ pub fn summary(store: &Store, t: &Task) -> String {
     if let Some(d) = t.due {
         parts.push(match (d - store.today).num_days() {
             -6..=2 => format!("{} ({})", date::due_label(d, store.today), date::exact(d)),
-            _ => format!("fällig {}", date::exact(d)),
+            _ => tr!("fällig {}", "due {}", date::exact(d)),
         });
     }
     parts.join(" · ")
@@ -1381,15 +1615,18 @@ pub fn summary(store: &Store, t: &Task) -> String {
 /// `focus 5`: eine Aufgabe mit allen Notizen.
 pub fn detail(store: &Store, nr: u32) -> String {
     let Some(i) = store.find(nr) else {
-        return format!(" Eine offene Aufgabe {nr} gibt es nicht.\n");
+        return tr!(
+            " Eine offene Aufgabe {nr} gibt es nicht.\n",
+            " There's no open task {nr}.\n"
+        );
     };
     let t = &store.tasks[i];
     let mut facts = Vec::new();
     match t.status {
-        Status::Today => facts.push("steht auf heute".to_string()),
+        Status::Today => facts.push(tr!("steht auf heute", "on today")),
         Status::Waiting => {
             if let Some(p) = &t.waiting_for {
-                facts.push(format!("liegt bei {}", tags::person_label(p)));
+                facts.push(tr!("liegt bei {}", "with {}", tags::person_label(p)));
             }
         }
         _ => {}
@@ -1397,7 +1634,7 @@ pub fn detail(store: &Store, nr: u32) -> String {
     if let Some(n) = store.topic_label(t) {
         facts.push(n);
     } else {
-        facts.push("ohne Thema".into());
+        facts.push(tr!("ohne Thema", "no topic"));
     }
     if let Some(d) = t.due {
         facts.push(date::due_label(d, store.today));
@@ -1421,18 +1658,22 @@ pub fn detail(store: &Store, nr: u32) -> String {
     if lines.is_empty() {
         out.push_str(&format!(
             "\n {}\n",
-            term::dim(&format!(
-                "Noch keine Notizen. Dazu: focus notiz {nr} Text oder Link"
+            term::dim(&tr!(
+                "Noch keine Notizen. Dazu: focus notiz {nr} Text oder Link",
+                "No notes yet. Add one: focus note {nr} text or link"
             ))
         ));
     } else {
         out.push_str(&format!("\n{lines}\n"));
         let mut hints = vec![
-            format!("neu: focus notiz {nr} …"),
-            format!("ändern: focus notiz {nr}.1 …"),
+            tr!("neu: focus notiz {nr} …", "new: focus note {nr} …"),
+            tr!(
+                "ändern: focus notiz {nr}.1 …",
+                "change: focus note {nr}.1 …"
+            ),
         ];
         if !store::links(&t.notes.join(" ")).is_empty() || !store::links(&t.text).is_empty() {
-            hints.push(format!("Link: focus öffnen {nr}"));
+            hints.push(tr!("Link: focus öffnen {nr}", "link: focus open {nr}"));
         }
         out.push_str(&format!(" {}\n", term::dim(&hints.join(" · "))));
     }

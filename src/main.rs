@@ -5,6 +5,7 @@ mod complete;
 mod config;
 mod date;
 mod focus;
+mod i18n;
 mod input;
 mod manual;
 mod notes;
@@ -48,7 +49,8 @@ fn main() -> ExitCode {
 }
 
 fn run(args: &[String]) -> Result<(), String> {
-    let first = args.first().map(|s| s.to_lowercase());
+    // Englische Befehle heißen intern wie die deutschen.
+    let first = args.first().map(|s| i18n::canonical(s));
     if !matches!(first.as_deref(), Some("_complete" | "_zsh")) && config::flag(config::CLEAR_KEY) {
         fresh_screen(args);
     }
@@ -88,7 +90,7 @@ fn run(args: &[String]) -> Result<(), String> {
         Some("datei")
             if args
                 .get(1)
-                .is_some_and(|a| matches!(a.to_lowercase().as_str(), "verschieben" | "nach")) =>
+                .is_some_and(|a| matches!(i18n::word(a).as_str(), "verschieben" | "nach")) =>
         {
             println!("{}", setup::move_data(&args[2..].join(" "))?);
             return Ok(());
@@ -111,7 +113,10 @@ fn run(args: &[String]) -> Result<(), String> {
                 println!(" {}", term::dim(m));
             }
         } else if !pickup.messages.is_empty() {
-            println!(" {}", term::bold("Von unterwegs:"));
+            println!(
+                " {}",
+                term::bold(&tr!("Von unterwegs:", "From your phone:"))
+            );
             for m in &pickup.messages {
                 println!("{m}");
             }
@@ -166,15 +171,19 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             let mut text = words.join(" ");
             if text.trim().is_empty() {
                 if !term::is_interactive() {
-                    return Err(
-                        "Was soll ich aufschreiben? Zum Beispiel: focus + Laufschuhe kaufen".into(),
-                    );
+                    return Err(tr!(
+                        "Was soll ich aufschreiben? Zum Beispiel: focus + Laufschuhe kaufen",
+                        "What should I write down? For example: focus + buy running shoes"
+                    ));
                 }
                 println!(
                     " {}",
-                    term::dim("Thema mit #, Person mit @, Termin am Ende (morgen, freitag, 3.12.)")
+                    term::dim(&tr!(
+                        "Thema mit #, Person mit @, Termin am Ende (morgen, freitag, 3.12.)",
+                        "Topic with #, person with @, date at the end (tomorrow, friday, 2026-12-03)"
+                    ))
                 );
-                text = term::read_line(" Was steht an? ")
+                text = term::read_line(&tr!(" Was steht an? ", " What needs doing? "))
                     .map_err(term::io_err)?
                     .unwrap_or_default();
                 if text.is_empty() {
@@ -209,29 +218,41 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         }
         Some("ändern" | "aendern" | "bearbeiten") => {
             let Some(first) = rest.first() else {
-                return Err("Welche Aufgabe? Zum Beispiel: focus ändern 4 morgen".into());
+                return Err(tr!(
+                    "Welche Aufgabe? Zum Beispiel: focus ändern 4 morgen",
+                    "Which task? For example: focus edit 4 tomorrow"
+                ));
             };
             let nr = ops::parse_nr(first)?;
             let mut change = rest[1..].join(" ");
             if change.trim().is_empty() {
                 if !term::is_interactive() {
-                    return Err(format!(
-                        "Was soll sich ändern? Zum Beispiel: focus ändern {nr} morgen"
+                    return Err(tr!(
+                        "Was soll sich ändern? Zum Beispiel: focus ändern {nr} morgen",
+                        "What should change? For example: focus edit {nr} tomorrow"
                     ));
                 }
                 let i = store.find(nr).ok_or_else(|| ops::not_found(nr))?;
-                println!(" Aufgabe {nr}: {}", view::summary(store, &store.tasks[i]));
                 println!(
-                    " {}",
-                    term::dim(
-                        "Schreib nur, was sich ändert: neuer Text, #thema, @person, Termin, ohne termin, ohne thema, ohne @name"
+                    "{}",
+                    tr!(
+                        " Aufgabe {nr}: {}",
+                        " Task {nr}: {}",
+                        view::summary(store, &store.tasks[i])
                     )
                 );
-                change = term::read_line(" Neu: ")
+                println!(
+                    " {}",
+                    term::dim(&tr!(
+                        "Schreib nur, was sich ändert: neuer Text, #thema, @person, Termin, ohne termin, ohne thema, ohne @name",
+                        "Type only what changes: new text, #topic, @person, date, no date, no topic, no @name"
+                    ))
+                );
+                change = term::read_line(&tr!(" Neu: ", " New: "))
                     .map_err(term::io_err)?
                     .unwrap_or_default();
                 if change.is_empty() {
-                    println!(" Nichts geändert.");
+                    println!("{}", tr!(" Nichts geändert.", " Nothing changed."));
                     return Ok(());
                 }
             }
@@ -241,7 +262,12 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             let (nr, person) = match rest {
                 [nr, person] => (ops::parse_nr(nr)?, person.as_str()),
                 [nr] => (ops::parse_nr(nr)?, ""),
-                _ => return Err("So geht es: focus abgeben 4 @tom".into()),
+                _ => {
+                    return Err(tr!(
+                        "So geht es: focus abgeben 4 @tom",
+                        "Like this: focus delegate 4 @tom"
+                    ));
+                }
             };
             println!("{}", ops::delegate(store, nr, person)?);
         }
@@ -250,7 +276,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             focus::run(store, nr)?;
         }
         Some("alles") => print!("{}", view::matrix(store)),
-        Some("themen" | "thema") => match rest.first().map(|s| s.to_lowercase()).as_deref() {
+        Some("themen" | "thema") => match rest.first().map(|s| i18n::word(s)).as_deref() {
             Some("ordnen") if rest.len() > 1 => {
                 println!("{}", ops::reorder(store, &rest[1..])?);
                 print!("{}", view::topics(store));
@@ -264,11 +290,17 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
                     println!("{}", ops::rename_topic(store, old, &new.join(" "))?);
                     print!("{}", view::topics(store));
                 }
-                _ => return Err("So geht es: focus themen umbenennen haus garten".into()),
+                _ => {
+                    return Err(tr!(
+                        "So geht es: focus themen umbenennen haus garten",
+                        "Like this: focus topics rename house garden"
+                    ));
+                }
             },
             Some(other) => {
-                return Err(format!(
-                    "„{other}“ kenne ich bei Themen nicht. Es gibt: focus themen ordnen, focus themen umbenennen"
+                return Err(tr!(
+                    "„{other}“ kenne ich bei Themen nicht. Es gibt: focus themen ordnen, focus themen umbenennen",
+                    "I don't know “{other}” for topics. There is: focus topics order, focus topics rename"
                 ));
             }
             None => print!("{}", view::topics(store)),
@@ -279,7 +311,10 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
         Some("suche" | "suchen" | "finde" | "finden") => {
             if rest.is_empty() {
-                return Err("Wonach suchen? Zum Beispiel: focus suche angebot".into());
+                return Err(tr!(
+                    "Wonach suchen? Zum Beispiel: focus suche angebot",
+                    "Search for what? For example: focus search offer"
+                ));
             }
             print!("{}", view::search(store, rest));
         }
@@ -297,7 +332,14 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             print!("{}", view::detail(store, notes::task_nr(n).unwrap_or(0)));
         }
         Some("datei") => {
-            println!(" Deine Aufgaben liegen in {}", store.path.display());
+            println!(
+                "{}",
+                tr!(
+                    " Deine Aufgaben liegen in {}",
+                    " Your tasks are in {}",
+                    store.path.display()
+                )
+            );
             if term::is_interactive() {
                 store.save()?;
                 // Am Mac im Texteditor, sonst mit dem Standardprogramm für .md.
@@ -309,8 +351,9 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             }
         }
         Some(other) => {
-            return Err(format!(
+            return Err(tr!(
                 "„{other}“ kenne ich nicht. Alle Befehle: focus hilfe\n Eine Aufgabe aufschreiben: focus + {}",
+                "I don't know “{other}”. All commands: focus help\n To write down a task: focus + {}",
                 args.join(" ")
             ));
         }
@@ -347,22 +390,34 @@ fn list_after_change(store: &Store) {
 
 fn numbers(args: &[String], verb: &str) -> Result<Vec<u32>, String> {
     if args.is_empty() {
-        return Err(format!("Welche Aufgabe? Zum Beispiel: focus {verb} 2"));
+        return Err(tr!(
+            "Welche Aufgabe? Zum Beispiel: focus {} 2",
+            "Which task? For example: focus {} 2",
+            i18n::cmd(verb)
+        ));
     }
     args.iter().map(|a| ops::parse_nr(a)).collect()
 }
 
 /// `4`, `4 7`, `4 statt 2`
 fn numbers_with_instead(args: &[String]) -> Result<(Vec<u32>, Option<u32>), String> {
-    match args.iter().position(|a| a.eq_ignore_ascii_case("statt")) {
+    match args.iter().position(|a| i18n::word(a) == "statt") {
         Some(p) => {
             let nrs = numbers(&args[..p], "heute")?;
             let instead = match &args[p + 1..] {
                 [m] => ops::parse_nr(m)?,
-                _ => return Err("So geht es: focus heute 4 statt 2".into()),
+                _ => {
+                    return Err(tr!(
+                        "So geht es: focus heute 4 statt 2",
+                        "Like this: focus today 4 instead 2"
+                    ));
+                }
             };
             if nrs.len() != 1 {
-                return Err("Mit „statt“ geht nur eine Aufgabe auf einmal.".into());
+                return Err(tr!(
+                    "Mit „statt“ geht nur eine Aufgabe auf einmal.",
+                    "“instead” works with one task at a time."
+                ));
             }
             Ok((nrs, Some(instead)))
         }

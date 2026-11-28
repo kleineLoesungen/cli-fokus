@@ -7,7 +7,7 @@
 use std::process::Command;
 
 use crate::store::{self, Store};
-use crate::{tags, term, view};
+use crate::{i18n, tags, term, tr, trs, view};
 
 /// Wozu eine Notiz gehört, und welche gemeint ist (ab 1).
 #[derive(Clone, Debug, PartialEq)]
@@ -77,17 +77,24 @@ fn topic_name(store: &Store, name: &str) -> String {
 fn check(store: &Store, t: &Target) -> Result<(), String> {
     match t {
         Target::Task(n, _) => store.find(*n).map(|_| ()).ok_or_else(|| {
-            format!("Eine offene Aufgabe {n} gibt es nicht. Die Nummern stehen in: focus alles")
+            tr!(
+                "Eine offene Aufgabe {n} gibt es nicht. Die Nummern stehen in: focus alles",
+                "There's no open task {n}. The numbers are in: focus all"
+            )
         }),
         Target::Topic(name, _) => {
-            if tags::key(name) == tags::NO_TOPIC {
-                return Err("„#ohne“ ist kein Thema, dazu gibt es keine Notizen.".into());
+            if tags::is_no_topic_key(&tags::key(name)) {
+                return Err(tr!(
+                    "„#ohne“ ist kein Thema, dazu gibt es keine Notizen.",
+                    "“#none” isn't a topic, so it can't have notes."
+                ));
             }
             if store.all_topics().any(|n| tags::key(n) == tags::key(name)) {
                 Ok(())
             } else {
-                Err(format!(
+                Err(tr!(
                     "Ein Thema „{}“ kenne ich nicht. Deine Themen: focus themen",
+                    "I don't know a topic “{}”. Your topics: focus topics",
                     tags::display(name)
                 ))
             }
@@ -119,17 +126,28 @@ fn notes_mut<'a>(store: &'a mut Store, t: &Target) -> &'a mut Vec<String> {
     }
 }
 
-const DELETE: &[&str] = &["löschen", "loeschen", "weg", "streichen", "entfernen"];
+const DELETE: &[&str] = &[
+    "löschen",
+    "loeschen",
+    "weg",
+    "streichen",
+    "entfernen",
+    "drop",
+];
 
 /// `focus notiz 5 Text` · `notiz 5.2 Text` · `notiz 5.2 löschen` · `notiz 5`
 pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
     let Some(first) = args.first() else {
-        return Err(
-            "Wozu? Zum Beispiel: focus notiz 5 https://… oder focus notiz #arbeit Wiki: …".into(),
-        );
+        return Err(tr!(
+            "Wozu? Zum Beispiel: focus notiz 5 https://… oder focus notiz #arbeit Wiki: …",
+            "For what? For example: focus note 5 https://… or focus note #work Wiki: …"
+        ));
     };
     let target = Target::parse(first).ok_or_else(|| {
-        format!("„{first}“ ist keine Aufgabe und kein Thema. Zum Beispiel: focus notiz 5 Text")
+        tr!(
+            "„{first}“ ist keine Aufgabe und kein Thema. Zum Beispiel: focus notiz 5 Text",
+            "“{first}” isn't a task or a topic. For example: focus note 5 text"
+        )
     })?;
     check(store, &target)?;
     let text = args[1..].join(" ");
@@ -147,8 +165,9 @@ pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
         (None, text) => {
             let list = notes_mut(store, &target);
             list.push(text.to_string());
-            Ok(format!(
+            Ok(tr!(
                 " {} Notiz {name}.{}: {text}",
+                " {} Note {name}.{}: {text}",
                 term::green("✓"),
                 list.len()
             ))
@@ -157,11 +176,15 @@ pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
             let count = notes(store, &target).len();
             if i > count {
                 return Err(match count {
-                    0 => {
-                        format!("Zu {name} gibt es noch keine Notiz. Neu: focus notiz {name} Text")
-                    }
-                    1 => format!("Zu {name} gibt es nur eine Notiz: {name}.1"),
-                    n => format!("Zu {name} gibt es nur {n} Notizen, bis {name}.{n}."),
+                    0 => no_note_yet(&name),
+                    1 => tr!(
+                        "Zu {name} gibt es nur eine Notiz: {name}.1",
+                        "{name} has only one note: {name}.1"
+                    ),
+                    n => tr!(
+                        "Zu {name} gibt es nur {n} Notizen, bis {name}.{n}.",
+                        "{name} has only {n} notes, up to {name}.{n}."
+                    ),
                 });
             }
             if text.is_empty() {
@@ -171,15 +194,16 @@ pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
                     Ok(format!("   {name}.{i}  {}", notes(store, &target)[i - 1]))
                 };
             }
-            if DELETE.contains(&text.to_lowercase().as_str()) {
+            if DELETE.contains(&i18n::word(text).as_str()) {
                 return Ok(delete(store, &target.whole(), i));
             }
             let list = notes_mut(store, &target);
             let old = std::mem::replace(&mut list[i - 1], text.to_string());
-            Ok(format!(
+            Ok(tr!(
                 " {} Notiz {name}.{i} geändert: {text}\n   {}",
+                " {} Note {name}.{i} changed: {text}\n   {}",
                 term::green("✓"),
-                term::dim(&format!("vorher: {old}"))
+                term::dim(&tr!("vorher: {old}", "before: {old}"))
             ))
         }
     }
@@ -193,10 +217,21 @@ fn delete(store: &mut Store, target: &Target, i: usize) -> String {
     {
         store.topic_notes.remove(&tags::key(n));
     }
-    format!(
+    tr!(
         " {} Notiz {name}.{i} gelöscht: {old}\n   {}",
+        " {} Note {name}.{i} deleted: {old}\n   {}",
         term::green("✓"),
-        term::dim(&format!("Zurückholen: focus notiz {name} {old}"))
+        term::dim(&tr!(
+            "Zurückholen: focus notiz {name} {old}",
+            "Bring it back: focus note {name} {old}"
+        ))
+    )
+}
+
+fn no_note_yet(name: &str) -> String {
+    tr!(
+        "Zu {name} gibt es noch keine Notiz. Neu: focus notiz {name} Text",
+        "{name} has no notes yet. New: focus note {name} text"
     )
 }
 
@@ -220,7 +255,7 @@ fn listing(store: &Store, target: &Target) -> String {
             let body = lines(store, target);
             let name = label(store, target);
             if body.is_empty() {
-                format!(" Zu {name} gibt es noch keine Notiz. Neu: focus notiz {name} Text")
+                format!(" {}", no_note_yet(&name))
             } else {
                 format!("\n {}\n{body}", term::bold(&topic_heading(store, target)))
             }
@@ -242,10 +277,14 @@ fn interactive(store: &mut Store, target: &Target) -> Result<String, String> {
         print!("{}", listing(store, target));
         let count = notes(store, target).len();
         let prompt = if count == 0 {
-            " [n] neue Notiz · Enter fertig ".to_string()
+            tr!(
+                " [n] neue Notiz · Enter fertig ",
+                " [n] new note · Enter done "
+            )
         } else {
-            format!(
+            tr!(
                 " Ziffer wählt eine Notiz{} · [n] neue · Enter fertig ",
+                " A digit picks a note{} · [n] new · Enter done ",
                 if count > 9 { " (1–9)" } else { "" }
             )
         };
@@ -255,13 +294,21 @@ fn interactive(store: &mut Store, target: &Target) -> Result<String, String> {
         match key {
             '\n' | '\x1b' | 'q' => return Ok(String::new()),
             'n' | '+' => {
-                let text = term::read_line(" Neue Notiz: ")
+                let text = term::read_line(trs!(" Neue Notiz: ", " New note: "))
                     .map_err(term::io_err)?
                     .unwrap_or_default();
                 if !text.is_empty() {
                     let list = notes_mut(store, target);
                     list.push(text.clone());
-                    println!(" {} Notiz {name}.{}: {text}", term::green("✓"), list.len());
+                    println!(
+                        "{}",
+                        tr!(
+                            " {} Notiz {name}.{}: {text}",
+                            " {} Note {name}.{}: {text}",
+                            term::green("✓"),
+                            list.len()
+                        )
+                    );
                 }
             }
             c if c.is_ascii_digit() => {
@@ -282,24 +329,34 @@ fn edit_one(store: &mut Store, target: &Target, i: usize) -> Result<Option<Strin
     let name = label(store, target);
     let old = notes(store, target)[i - 1].clone();
     println!("\n   {}  {old}", term::bold(&format!("{name}.{i}")));
-    print!("{}", term::dim(" [ä] ändern · [l] löschen · Enter zurück "));
+    print!(
+        "{}",
+        term::dim(trs!(
+            " [ä] ändern · [l] löschen · Enter zurück ",
+            " [e] edit · [d] delete · Enter back "
+        ))
+    );
     loop {
         match term::read_key().map_err(term::io_err)? {
             'ä' | 'a' | 'e' => {
                 println!();
-                let text = term::read_line(" Neuer Text, Enter behält ihn: ")
-                    .map_err(term::io_err)?
-                    .unwrap_or_default();
+                let text = term::read_line(trs!(
+                    " Neuer Text, Enter behält ihn: ",
+                    " New text, Enter keeps it: "
+                ))
+                .map_err(term::io_err)?
+                .unwrap_or_default();
                 if text.is_empty() || text == old {
-                    return Ok(Some(" Nichts geändert.".into()));
+                    return Ok(Some(tr!(" Nichts geändert.", " Nothing changed.")));
                 }
                 notes_mut(store, target)[i - 1] = text.clone();
-                return Ok(Some(format!(
+                return Ok(Some(tr!(
                     " {} Notiz {name}.{i} geändert: {text}",
+                    " {} Note {name}.{i} changed: {text}",
                     term::green("✓")
                 )));
             }
-            'l' | 'x' => {
+            'l' | 'x' | 'd' => {
                 println!();
                 return Ok(Some(delete(store, target, i)));
             }
@@ -314,19 +371,29 @@ fn edit_one(store: &mut Store, target: &Target, i: usize) -> Result<Option<Strin
 
 /// `focus öffnen 5` · `öffnen 5.2` · `öffnen #arbeit`
 pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
-    let first = args
-        .first()
-        .ok_or("Welchen Link? Zum Beispiel: focus öffnen 5")?;
-    let target = Target::parse(first)
-        .ok_or_else(|| format!("„{first}“ ist keine Aufgabe und kein Thema."))?;
+    let first = args.first().ok_or_else(|| {
+        tr!(
+            "Welchen Link? Zum Beispiel: focus öffnen 5",
+            "Which link? For example: focus open 5"
+        )
+    })?;
+    let target = Target::parse(first).ok_or_else(|| {
+        tr!(
+            "„{first}“ ist keine Aufgabe und kein Thema.",
+            "“{first}” isn't a task or a topic."
+        )
+    })?;
     check(store, &target)?;
     let name = label(store, &target);
     let all = notes(store, &target);
     let links: Vec<String> = match target.index() {
         Some(i) => {
-            let note = all
-                .get(i - 1)
-                .ok_or_else(|| format!("Eine Notiz {name}.{i} gibt es nicht."))?;
+            let note = all.get(i - 1).ok_or_else(|| {
+                tr!(
+                    "Eine Notiz {name}.{i} gibt es nicht.",
+                    "There's no note {name}.{i}."
+                )
+            })?;
             store::links(note)
         }
         None => {
@@ -351,8 +418,14 @@ pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
     let url = match links.len() {
         0 => {
             return Err(match target.index() {
-                Some(i) => format!("In Notiz {name}.{i} steht kein Link."),
-                None => format!("Zu {name} gibt es keinen Link. Neu: focus notiz {name} https://…"),
+                Some(i) => tr!(
+                    "In Notiz {name}.{i} steht kein Link.",
+                    "Note {name}.{i} has no link."
+                ),
+                None => tr!(
+                    "Zu {name} gibt es keinen Link. Neu: focus notiz {name} https://…",
+                    "{name} has no link. New: focus note {name} https://…"
+                ),
             });
         }
         1 => links[0].clone(),
@@ -360,21 +433,28 @@ pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
             for (k, l) in links.iter().enumerate().take(9) {
                 println!("   {}  {l}", term::bold(&(k + 1).to_string()));
             }
-            print!("{}", term::dim(" Welcher? Ziffer, Enter bricht ab "));
+            print!(
+                "{}",
+                term::dim(trs!(
+                    " Welcher? Ziffer, Enter bricht ab ",
+                    " Which one? Digit, Enter cancels "
+                ))
+            );
             let key = term::read_key().map_err(term::io_err)?;
             println!();
             match key.to_digit(10).map(|d| d as usize) {
                 Some(d) if (1..=links.len().min(9)).contains(&d) => links[d - 1].clone(),
-                _ => return Ok(" Nichts geöffnet.".into()),
+                _ => return Ok(tr!(" Nichts geöffnet.", " Nothing opened.")),
             }
         }
         n => {
-            let mut msg = format!("Zu {name} gibt es {n} Links:");
+            let mut msg = tr!("Zu {name} gibt es {n} Links:", "{name} has {n} links:");
             for l in &links {
                 msg.push_str(&format!("\n   {l}"));
             }
-            msg.push_str(&format!(
-                "\n Einen davon: focus öffnen {name}.1 (Nummer der Notiz)"
+            msg.push_str(&tr!(
+                "\n Einen davon: focus öffnen {name}.1 (Nummer der Notiz)",
+                "\n One of them: focus open {name}.1 (number of the note)"
             ));
             return Err(msg);
         }
@@ -391,7 +471,10 @@ fn launch(url: &str) -> Result<(), String> {
         .unwrap_or_else(|| term::opener().into());
     match Command::new(&program).arg(url).status() {
         Ok(s) if s.success() => Ok(()),
-        _ => Err(format!("Ich konnte den Link nicht öffnen: {url}")),
+        _ => Err(tr!(
+            "Ich konnte den Link nicht öffnen: {url}",
+            "I couldn't open the link: {url}"
+        )),
     }
 }
 

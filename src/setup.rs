@@ -5,8 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::i18n::{self, Lang};
 use crate::store::{self, Store};
-use crate::{away, config, date, term};
+use crate::{away, config, date, term, tr, trs};
 
 const BEGIN: &str = "# >>> focus >>>";
 const END: &str = "# <<< focus <<<";
@@ -24,11 +25,11 @@ fn is_end(line: &str) -> bool {
 
 pub fn run() -> Result<(), String> {
     if !term::is_interactive() {
-        return Err("Bitte direkt in einem Terminalfenster ausführen.".into());
+        return Err(not_interactive());
     }
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
-        .ok_or("Ich finde dein Benutzerverzeichnis nicht.")?;
+        .ok_or_else(no_home)?;
     let shell = std::env::var("SHELL").unwrap_or_default();
     let zsh = !shell.ends_with("bash");
     let rc = if !zsh {
@@ -39,13 +40,19 @@ pub fn run() -> Result<(), String> {
             .unwrap_or(home)
             .join(".zshrc")
     };
-    let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
+    let exe = std::env::current_exe().map_err(|e| self_not_found(&e))?;
 
-    println!("\n {}\n", term::bold("Focus einrichten"));
+    ask_language()?;
+
+    println!(
+        "\n {}\n",
+        term::bold(trs!("Focus einrichten", "Set up Focus"))
+    );
     println!(
         " {}\n",
-        term::dim(&format!(
+        term::dim(&tr!(
             "Dafür ändere ich nur die Datei {} und meine Einstellungen in {}.",
+            "For this I only change the file {} and my settings in {}.",
             rc.display(),
             config::path().display()
         ))
@@ -53,24 +60,31 @@ pub fn run() -> Result<(), String> {
     if exe.components().any(|c| c.as_os_str() == "target") {
         println!(
             " {}\n",
-            term::yellow(
-                "Hinweis: Du startest Focus aus dem Bauordner. Installiere es lieber erst (siehe README)."
-            )
+            term::yellow(trs!(
+                "Hinweis: Du startest Focus aus dem Bauordner. Installiere es lieber erst (siehe README).",
+                "Note: you're running Focus from the build folder. Better install it first (see README)."
+            ))
         );
     }
 
     ask_places()?;
 
-    let alias = term::ask_yes(" Soll „f“ als Kurzbefehl für „focus“ funktionieren? [J/n] ")
-        .map_err(term::io_err)?;
-    let start =
-        term::ask_yes(" Soll jedes neue Terminalfenster die Liste für heute zeigen? [J/n] ")
-            .map_err(term::io_err)?;
+    let alias = term::ask_yes(trs!(
+        " Soll „f“ als Kurzbefehl für „focus“ funktionieren? [J/n] ",
+        " Should “f” work as a shortcut for “focus”? [Y/n] "
+    ))
+    .map_err(term::io_err)?;
+    let start = term::ask_yes(trs!(
+        " Soll jedes neue Terminalfenster die Liste für heute zeigen? [J/n] ",
+        " Should every new terminal window show today's list? [Y/n] "
+    ))
+    .map_err(term::io_err)?;
     // Die Tab-Ergänzung gibt es nur für zsh.
     let complete = zsh
-        && term::ask_yes(
+        && term::ask_yes(trs!(
             " Soll die Tab-Taste Befehle, Nummern, Themen und Personen ergänzen? [J/n] ",
-        )
+            " Should the Tab key complete commands, numbers, topics and people? [Y/n] "
+        ))
         .map_err(term::io_err)?;
     ask_clear()?;
 
@@ -83,16 +97,80 @@ pub fn run() -> Result<(), String> {
     };
     let updated = with_block(&existing, &block(&exe, &wishes, in_path(&exe)));
     if updated == existing {
-        println!("\n {} Erledigt.", term::green("✓"));
+        println!("\n {} {}", term::green("✓"), trs!("Erledigt.", "Done."));
         return Ok(());
     }
-    fs::write(&rc, updated)
-        .map_err(|e| format!("Ich kann {} nicht schreiben: {e}", rc.display()))?;
+    fs::write(&rc, updated).map_err(|e| {
+        tr!(
+            "Ich kann {} nicht schreiben: {e}",
+            "I can't write {}: {e}",
+            rc.display()
+        )
+    })?;
     println!(
-        "\n {} Erledigt. Öffne ein neues Terminalfenster, dann ist es aktiv.",
-        term::green("✓")
+        "\n {} {}",
+        term::green("✓"),
+        trs!(
+            "Erledigt. Öffne ein neues Terminalfenster, dann ist es aktiv.",
+            "Done. Open a new terminal window and it's active."
+        )
     );
     Ok(())
+}
+
+fn not_interactive() -> String {
+    tr!(
+        "Bitte direkt in einem Terminalfenster ausführen.",
+        "Please run this directly in a terminal window."
+    )
+}
+
+fn no_home() -> String {
+    tr!(
+        "Ich finde dein Benutzerverzeichnis nicht.",
+        "I can't find your home folder."
+    )
+}
+
+fn self_not_found(e: &std::io::Error) -> String {
+    tr!(
+        "Ich finde mich selbst nicht: {e}",
+        "I can't find my own program: {e}"
+    )
+}
+
+/// Die erste Frage, in beiden Sprachen: Ab der Antwort spricht Focus so.
+fn ask_language() -> Result<(), String> {
+    let now = i18n::lang();
+    println!(
+        "\n {}",
+        term::bold("Language / Sprache: [e] English · [d] Deutsch")
+    );
+    print!(
+        " {}",
+        term::dim(match now {
+            Lang::En => "Enter keeps English / Enter behält Englisch ",
+            Lang::De => "Enter keeps German / Enter behält Deutsch ",
+        })
+    );
+    let chosen = loop {
+        match term::read_key().map_err(term::io_err)? {
+            'e' => break Lang::En,
+            'd' | 'g' => break Lang::De,
+            '\n' | '\x1b' => break now,
+            _ => {}
+        }
+    };
+    println!(
+        "{}",
+        if chosen == Lang::En {
+            "English"
+        } else {
+            "Deutsch"
+        }
+    );
+    i18n::set(chosen);
+    config::set_str(i18n::KEY, Some(i18n::code(chosen)))
 }
 
 /// `focus deinstallieren`: erst alles zeigen, dann einmal fragen, dann tun.
@@ -100,12 +178,12 @@ pub fn run() -> Result<(), String> {
 /// den Papierkorb, nicht ins Nichts.
 pub fn uninstall() -> Result<(), String> {
     if !term::is_interactive() {
-        return Err("Bitte direkt in einem Terminalfenster ausführen.".into());
+        return Err(not_interactive());
     }
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
-        .ok_or("Ich finde dein Benutzerverzeichnis nicht.")?;
-    let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
+        .ok_or_else(no_home)?;
+    let exe = std::env::current_exe().map_err(|e| self_not_found(&e))?;
     let rcs: Vec<PathBuf> = shell_files(&home)
         .into_iter()
         .filter(|p| fs::read_to_string(p).is_ok_and(|s| s.lines().any(is_begin)))
@@ -116,32 +194,66 @@ pub fn uninstall() -> Result<(), String> {
     let settings = config::path();
     let has_settings = store::play_file().is_none() && settings.exists();
 
-    println!("\n {}\n", term::bold("Focus deinstallieren"));
-    println!(" Das würde ich tun:");
+    println!(
+        "\n {}\n",
+        term::bold(trs!("Focus deinstallieren", "Uninstall Focus"))
+    );
+    println!("{}", trs!(" Das würde ich tun:", " Here's what I'd do:"));
     for rc in &rcs {
-        println!("   · den Focus-Block aus {} entfernen", rc.display());
+        println!(
+            "{}",
+            tr!(
+                "   · den Focus-Block aus {} entfernen",
+                "   · remove the Focus block from {}",
+                rc.display()
+            )
+        );
     }
     match &program {
-        Program::Cargo(p) | Program::File(p) => {
-            println!("   · das Programm {} löschen", p.display())
-        }
+        Program::Cargo(p) | Program::File(p) => println!(
+            "{}",
+            tr!(
+                "   · das Programm {} löschen",
+                "   · delete the program {}",
+                p.display()
+            )
+        ),
         Program::DevBuild(p) => println!(
             "   · {}",
-            term::dim(&format!(
+            term::dim(&tr!(
                 "das Programm bleibt: Es läuft aus dem Bauordner ({})",
+                "the program stays: it runs from the build folder ({})",
                 p.display()
             ))
         ),
     }
     if has_settings {
-        println!("   · die Einstellungen {} löschen", settings.display());
+        println!(
+            "{}",
+            tr!(
+                "   · die Einstellungen {} löschen",
+                "   · delete the settings {}",
+                settings.display()
+            )
+        );
     }
     if rcs.is_empty() && !has_settings && matches!(program, Program::DevBuild(_)) {
-        println!("\n Es ist nichts installiert, das ich entfernen könnte.");
+        println!(
+            "\n{}",
+            trs!(
+                " Es ist nichts installiert, das ich entfernen könnte.",
+                " Nothing is installed that I could remove."
+            )
+        );
     } else {
         println!();
-        if !term::ask_no(" Soll ich das tun? [j/N] ").map_err(term::io_err)? {
-            println!("\n Nichts geändert.");
+        if !term::ask_no(trs!(
+            " Soll ich das tun? [j/N] ",
+            " Should I do that? [y/N] "
+        ))
+        .map_err(term::io_err)?
+        {
+            println!("\n{}", trs!(" Nichts geändert.", " Nothing changed."));
             return Ok(());
         }
     }
@@ -153,21 +265,40 @@ pub fn uninstall() -> Result<(), String> {
             .map(|s| s.tasks.iter().filter(|t| t.is_active()).count())
             .unwrap_or(0);
         println!(
-            "\n Deine Aufgaben liegen in {} ({open} offen).",
-            data.display()
+            "\n{}",
+            tr!(
+                " Deine Aufgaben liegen in {} ({open} offen).",
+                " Your tasks are in {} ({open} open).",
+                data.display()
+            )
         );
-        trash_data = term::ask_no(" Sollen sie in den Papierkorb? Enter behält sie. [j/N] ")
-            .map_err(term::io_err)?;
+        trash_data = term::ask_no(trs!(
+            " Sollen sie in den Papierkorb? Enter behält sie. [j/N] ",
+            " Move them to the trash? Enter keeps them. [y/N] "
+        ))
+        .map_err(term::io_err)?;
     }
 
     println!();
     for rc in &rcs {
         let existing = fs::read_to_string(rc).unwrap_or_default();
         match fs::write(rc, with_block(&existing, "")) {
-            Ok(()) => println!(" {} Block aus {} entfernt", term::green("✓"), rc.display()),
+            Ok(()) => println!(
+                " {} {}",
+                term::green("✓"),
+                tr!(
+                    "Block aus {} entfernt",
+                    "Removed the block from {}",
+                    rc.display()
+                )
+            ),
             Err(e) => println!(
                 " {}",
-                term::red(&format!("{} ließ sich nicht ändern: {e}", rc.display()))
+                term::red(&tr!(
+                    "{} ließ sich nicht ändern: {e}",
+                    "Couldn't change {}: {e}",
+                    rc.display()
+                ))
             ),
         }
     }
@@ -177,44 +308,48 @@ pub fn uninstall() -> Result<(), String> {
                 if let Some(dir) = settings.parent() {
                     let _ = fs::remove_dir(dir);
                 }
-                println!(" {} Einstellungen gelöscht", term::green("✓"));
+                println!(
+                    " {} {}",
+                    term::green("✓"),
+                    trs!("Einstellungen gelöscht", "Settings deleted")
+                );
             }
-            Err(e) => println!(
-                " {}",
-                term::red(&format!(
-                    "{} ließ sich nicht löschen: {e}",
-                    settings.display()
-                ))
-            ),
+            Err(e) => println!(" {}", term::red(&cant_delete(&settings, Some(&e)))),
         }
     }
     if trash_data {
         match move_to_trash(&data, &home) {
             Ok(to) => println!(
-                " {} Aufgaben in den Papierkorb gelegt ({})",
+                " {} {}",
                 term::green("✓"),
-                to.display()
+                tr!(
+                    "Aufgaben in den Papierkorb gelegt ({})",
+                    "Moved tasks to the trash ({})",
+                    to.display()
+                )
             ),
             Err(e) => println!(
                 " {}",
-                term::red(&format!(
+                term::red(&tr!(
                     "Den Papierkorb erreiche ich nicht ({e}). Die Datei liegt noch in {}.",
+                    "I can't reach the trash ({e}). The file is still in {}.",
                     data.display()
                 ))
             ),
         }
     } else if data.exists() {
         println!(
-            " {} Aufgaben bleiben in {}",
+            " {} {}",
             term::green("✓"),
-            data.display()
+            tr!("Aufgaben bleiben in {}", "Tasks stay in {}", data.display())
         );
     }
     if let Some(p) = away_file.filter(|p| p.exists()) {
         println!(
             " {}",
-            term::dim(&format!(
+            term::dim(&tr!(
                 "Die Unterwegs-Datei bleibt in {}; löschen kannst du sie selbst.",
+                "The mobile file stays in {}; you can delete it yourself.",
                 p.display()
             ))
         );
@@ -226,55 +361,80 @@ pub fn uninstall() -> Result<(), String> {
                 .status()
                 .is_ok_and(|s| s.success());
             if ok || fs::remove_file(p).is_ok() {
-                println!(" {} Programm gelöscht", term::green("✓"));
-            } else {
                 println!(
-                    " {}",
-                    term::red(&format!("{} ließ sich nicht löschen.", p.display()))
+                    " {} {}",
+                    term::green("✓"),
+                    trs!("Programm gelöscht", "Program deleted")
                 );
+            } else {
+                println!(" {}", term::red(&cant_delete(p, None)));
             }
         }
         Program::File(p) => match fs::remove_file(p) {
-            Ok(()) => println!(" {} Programm gelöscht", term::green("✓")),
-            Err(e) => println!(
-                " {}",
-                term::red(&format!("{} ließ sich nicht löschen: {e}", p.display()))
+            Ok(()) => println!(
+                " {} {}",
+                term::green("✓"),
+                trs!("Programm gelöscht", "Program deleted")
             ),
+            Err(e) => println!(" {}", term::red(&cant_delete(p, Some(&e)))),
         },
         Program::DevBuild(_) => {}
     }
     println!(
         "\n {}",
-        term::dim(
-            "In schon offenen Terminalfenstern kennt die Shell „f“ noch, bis du sie schließt."
-        )
+        term::dim(trs!(
+            "In schon offenen Terminalfenstern kennt die Shell „f“ noch, bis du sie schließt.",
+            "Terminal windows that are already open still know “f” until you close them."
+        ))
     );
     Ok(())
+}
+
+fn cant_delete(p: &Path, e: Option<&std::io::Error>) -> String {
+    match e {
+        Some(e) => tr!(
+            "{} ließ sich nicht löschen: {e}",
+            "Couldn't delete {}: {e}",
+            p.display()
+        ),
+        None => tr!(
+            "{} ließ sich nicht löschen.",
+            "Couldn't delete {}.",
+            p.display()
+        ),
+    }
 }
 
 /// `focus datei verschieben <ort>`: Die Aufgabendatei zieht um, und Focus merkt
 /// sich den Ort. Eine Datei, die dort schon liegt, überschreibt Focus nie.
 pub fn move_data(input: &str) -> Result<String, String> {
     if let Some(p) = store::play_file() {
-        return Err(format!(
+        return Err(tr!(
             "Gerade gilt die Spieldatei FOCUS_DATEI={}. Ohne FOCUS_DATEI noch einmal versuchen.",
+            "The practice file FOCUS_DATEI={} is in effect. Try again without FOCUS_DATEI.",
             p.display()
         ));
     }
-    let typed = config::typed_path(input)
-        .ok_or("Wohin? Zum Beispiel: focus datei verschieben ~/Dokumente/Planung")?;
+    let typed = config::typed_path(input).ok_or_else(|| {
+        tr!(
+            "Wohin? Zum Beispiel: focus datei verschieben ~/Dokumente/Planung",
+            "Where to? For example: focus file move ~/Documents/Planning"
+        )
+    })?;
     let target = data_file_in(typed);
     let current = store::file_path();
     if away::same_file(&target, &current) {
-        return Ok(format!(
+        return Ok(tr!(
             " Deine Aufgaben liegen schon in {}",
+            " Your tasks are already in {}",
             current.display()
         ));
     }
     if away::path().is_some_and(|a| away::same_file(&a, &target)) {
-        return Err(
-            "Dort liegt die Unterwegs-Datei. Deine Aufgaben brauchen einen eigenen Ort.".into(),
-        );
+        return Err(tr!(
+            "Dort liegt die Unterwegs-Datei. Deine Aufgaben brauchen einen eigenen Ort.",
+            "That's where the mobile file is. Your tasks need a place of their own."
+        ));
     }
     // Am Standardort braucht es keine Einstellung.
     let remember = |p: &Path| {
@@ -285,15 +445,12 @@ pub fn move_data(input: &str) -> Result<String, String> {
     if target.exists() {
         if !current.exists() {
             remember(&target)?;
-            return Ok(format!(
-                " {} Focus nimmt jetzt die Aufgaben aus {}",
-                term::green("✓"),
-                target.display()
-            ));
+            return Ok(takes_from(&target));
         }
         if !term::is_interactive() {
-            return Err(format!(
+            return Err(tr!(
                 "In {} liegt schon eine Aufgabendatei. Die überschreibe ich nicht.",
+                "There's already a task file in {}. I won't overwrite it.",
                 target.display()
             ));
         }
@@ -301,28 +458,28 @@ pub fn move_data(input: &str) -> Result<String, String> {
             .map(|s| s.tasks.iter().filter(|t| t.is_active()).count())
             .unwrap_or(0);
         println!(
-            " In {} liegt schon eine Aufgabendatei ({open} offen).",
-            target.display()
+            "{}",
+            tr!(
+                " In {} liegt schon eine Aufgabendatei ({open} offen).",
+                " There's already a task file in {} ({open} open).",
+                target.display()
+            )
         );
-        let take = term::ask_no(&format!(
+        let take = term::ask_no(&tr!(
             " Soll Focus ab jetzt die nehmen? Deine bisherige bleibt unverändert in {}. [j/N] ",
+            " Should Focus use that one from now on? Your current one stays unchanged in {}. [y/N] ",
             current.display()
         ))
         .map_err(term::io_err)?;
         if !take {
-            return Ok(" Nichts geändert.".into());
+            return Ok(tr!(" Nichts geändert.", " Nothing changed."));
         }
         remember(&target)?;
-        return Ok(format!(
-            " {} Focus nimmt jetzt die Aufgaben aus {}",
-            term::green("✓"),
-            target.display()
-        ));
+        return Ok(takes_from(&target));
     }
 
     if let Some(dir) = target.parent() {
-        fs::create_dir_all(dir)
-            .map_err(|e| format!("Ich kann den Ordner {} nicht anlegen: {e}", dir.display()))?;
+        fs::create_dir_all(dir).map_err(|e| cant_create(dir, &e))?;
     }
     // Erst merken, dann umziehen: Geht das Umziehen schief, kommt der alte Ort zurück.
     let before = config::get(config::DATA_KEY);
@@ -331,17 +488,36 @@ pub fn move_data(input: &str) -> Result<String, String> {
         && let Err(e) = move_file(&current, &target)
     {
         let _ = config::set(config::DATA_KEY, before.as_deref());
-        return Err(format!(
+        return Err(tr!(
             "Ich kann {} nicht nach {} bringen: {e}",
+            "I can't move {} to {}: {e}",
             current.display(),
             target.display()
         ));
     }
-    Ok(format!(
+    Ok(tr!(
         " {} Deine Aufgaben liegen jetzt in {}",
+        " {} Your tasks are now in {}",
         term::green("✓"),
         target.display()
     ))
+}
+
+fn takes_from(target: &Path) -> String {
+    tr!(
+        " {} Focus nimmt jetzt die Aufgaben aus {}",
+        " {} Focus now uses the tasks from {}",
+        term::green("✓"),
+        target.display()
+    )
+}
+
+pub fn cant_create(dir: &Path, e: &std::io::Error) -> String {
+    tr!(
+        "Ich kann den Ordner {} nicht anlegen: {e}",
+        "I can't create the folder {}: {e}",
+        dir.display()
+    )
 }
 
 /// Ein Ordner bekommt `Focus.md`, eine `.md`-Datei bleibt, wie sie ist.
@@ -362,9 +538,10 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     fs::copy(from, to)?;
     if fs::read(from)? != fs::read(to)? {
         let _ = fs::remove_file(to);
-        return Err(std::io::Error::other(
+        return Err(std::io::Error::other(trs!(
             "die Kopie stimmt nicht mit dem Original überein",
-        ));
+            "the copy doesn't match the original"
+        )));
     }
     fs::remove_file(from)
 }
@@ -374,15 +551,22 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
 fn ask_clear() -> Result<(), String> {
     println!(
         " {}",
-        term::dim(
-            "Nutzt du ein Fenster nur für Focus? Dann kann Focus es vor jedem Befehl leeren; oben steht der Befehl, Hochscrollen zeigt das Alte."
-        )
+        term::dim(trs!(
+            "Nutzt du ein Fenster nur für Focus? Dann kann Focus es vor jedem Befehl leeren; oben steht der Befehl, Hochscrollen zeigt das Alte.",
+            "Do you keep a window just for Focus? Then Focus can clear it before each command; the command stays on top, scrolling up shows the old output."
+        ))
     );
     let before = config::flag(config::CLEAR_KEY);
     let on = if before {
-        term::ask_yes(" Soll Focus das Fenster vor jeder Ausgabe leeren? [J/n] ")
+        term::ask_yes(trs!(
+            " Soll Focus das Fenster vor jeder Ausgabe leeren? [J/n] ",
+            " Should Focus clear the window before each output? [Y/n] "
+        ))
     } else {
-        term::ask_no(" Soll Focus das Fenster vor jeder Ausgabe leeren? [j/N] ")
+        term::ask_no(trs!(
+            " Soll Focus das Fenster vor jeder Ausgabe leeren? [j/N] ",
+            " Should Focus clear the window before each output? [y/N] "
+        ))
     }
     .map_err(term::io_err)?;
     if on != before {
@@ -395,20 +579,28 @@ fn ask_places() -> Result<(), String> {
     if let Some(p) = store::play_file() {
         println!(
             " {}\n",
-            term::dim(&format!(
+            term::dim(&tr!(
                 "Gerade gilt die Spieldatei FOCUS_DATEI={}; die Orte lasse ich deshalb, wie sie sind.",
+                "The practice file FOCUS_DATEI={} is in effect, so I'm leaving the places as they are.",
                 p.display()
             ))
         );
         return Ok(());
     }
     println!(
-        " Deine Aufgaben liegen in {}.",
-        store::file_path().display()
+        "{}",
+        tr!(
+            " Deine Aufgaben liegen in {}.",
+            " Your tasks are in {}.",
+            store::file_path().display()
+        )
     );
-    let answer = term::read_line(" Anderer Ort? Ordner oder Datei, Enter behält ihn: ")
-        .map_err(term::io_err)?
-        .unwrap_or_default();
+    let answer = term::read_line(trs!(
+        " Anderer Ort? Ordner oder Datei, Enter behält ihn: ",
+        " Somewhere else? Folder or file, Enter keeps it: "
+    ))
+    .map_err(term::io_err)?
+    .unwrap_or_default();
     if !answer.is_empty() {
         match move_data(&answer) {
             Ok(msg) => println!("{msg}"),
@@ -417,26 +609,38 @@ fn ask_places() -> Result<(), String> {
     }
     println!();
 
-    let tip = format!(
+    let tip = tr!(
         "{} Tipp: Ordner aus dem Finder hierher ziehen.",
-        away::SYNC_HINT
+        "{} Tip: drag the folder from Finder in here.",
+        away::sync_hint()
     );
     let answer = match away::path() {
         Some(p) => {
-            println!(" Die Unterwegs-Datei liegt in {}.", p.display());
+            println!(
+                "{}",
+                tr!(
+                    " Die Unterwegs-Datei liegt in {}.",
+                    " The mobile file is in {}.",
+                    p.display()
+                )
+            );
             println!(" {}", term::dim(&tip));
-            term::read_line(" Anderer Ordner, „aus“ schaltet sie ab, Enter behält sie: ")
-                .map_err(term::io_err)?
-                .unwrap_or_default()
+            term::read_line(trs!(
+                " Anderer Ordner, „aus“ schaltet sie ab, Enter behält sie: ",
+                " Another folder, “off” turns it off, Enter keeps it: "
+            ))
+            .map_err(term::io_err)?
+            .unwrap_or_default()
         }
         None => {
-            let want = term::ask_no(
+            let want = term::ask_no(trs!(
                 " Soll Focus eine Unterwegs-Datei schreiben, die du am Handy liest und ergänzt? [j/N] ",
-            )
+                " Should Focus write a mobile file you can read and add to on your phone? [y/N] "
+            ))
             .map_err(term::io_err)?;
             if want {
                 println!(" {}", term::dim(&tip));
-                term::read_line(" Ordner: ")
+                term::read_line(trs!(" Ordner: ", " Folder: "))
                     .map_err(term::io_err)?
                     .unwrap_or_default()
             } else {

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 
-use crate::{config, date, tags};
+use crate::{config, date, tags, tr, trs};
 
 /// Höchstens so viele offene Aufgaben stehen auf heute.
 pub const TODAY_LIMIT: usize = 3;
@@ -27,9 +27,16 @@ pub const ARCHIVE_DAYS: i64 = 30;
 /// So lange stehen Erledigtes und Gestrichenes im Archiv; danach löscht Focus sie.
 pub const KEEP_DAYS: i64 = 14;
 
-const HEADER: &str = "# Focus\n\n\
+fn header() -> &'static str {
+    trs!(
+        "# Focus\n\n\
 Deine Aufgaben. Du darfst diese Datei mit jedem Texteditor ändern;\n\
-Focus bringt sie beim nächsten Aufruf wieder in Ordnung.\n\n";
+Focus bringt sie beim nächsten Aufruf wieder in Ordnung.\n\n",
+        "# Focus\n\n\
+Your tasks. You can edit this file with any text editor;\n\
+Focus tidies it up the next time it runs.\n\n"
+    )
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -218,7 +225,13 @@ impl Store {
         let text = match fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) if e.kind() == ErrorKind::NotFound => String::new(),
-            Err(e) => return Err(format!("Ich kann {} nicht lesen: {e}", path.display())),
+            Err(e) => {
+                return Err(tr!(
+                    "Ich kann {} nicht lesen: {e}",
+                    "I can't read {}: {e}",
+                    path.display()
+                ));
+            }
         };
         Ok(Store::parse(&text, path, today))
     }
@@ -273,7 +286,8 @@ impl Store {
                 section = section_of(heading);
                 if section == Section::Today {
                     list_date = heading.split('·').find_map(date::from_file);
-                    store.suggested = heading.to_lowercase().contains("vorschlag");
+                    let h = heading.to_lowercase();
+                    store.suggested = h.contains("vorschlag") || h.contains("suggest");
                 }
                 continue;
             }
@@ -317,7 +331,7 @@ impl Store {
 
         for (name, below) in topics {
             let k = tags::key(&name);
-            if k == tags::NO_TOPIC || store.all_topics().any(|n| tags::key(n) == k) {
+            if tags::is_no_topic_key(&k) || store.all_topics().any(|n| tags::key(n) == k) {
                 continue;
             }
             if !below && store.important.len() < IMPORTANT_LIMIT {
@@ -398,12 +412,14 @@ impl Store {
             }
         }
         if archived == 1 {
-            self.messages.push(format!(
-                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv: focus archiv"
+            self.messages.push(tr!(
+                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv: focus archiv",
+                " 1 unimportant task sat untouched for over {ARCHIVE_DAYS} days. It's in the archive now: focus archive"
             ));
         } else if archived > 1 {
-            self.messages.push(format!(
-                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv: focus archiv"
+            self.messages.push(tr!(
+                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv: focus archiv",
+                " {archived} unimportant tasks sat untouched for over {ARCHIVE_DAYS} days. They're in the archive now: focus archive"
             ));
         }
 
@@ -524,7 +540,8 @@ impl Store {
     /// Legt ein Thema an, wenn es neu ist. `Some(true)`: über der Linie gelandet.
     pub fn ensure_topic(&mut self, tag: &str) -> Option<bool> {
         let k = tags::key(tag);
-        if k.is_empty() || k == tags::NO_TOPIC || self.all_topics().any(|n| tags::key(n) == k) {
+        if k.is_empty() || tags::is_no_topic_key(&k) || self.all_topics().any(|n| tags::key(n) == k)
+        {
             return None;
         }
         let name = tags::display(tag);
@@ -642,8 +659,8 @@ impl Store {
     }
 
     pub fn render(&self) -> String {
-        let mut s = String::from(HEADER);
-        s.push_str("## Themen\n");
+        let mut s = String::from(header());
+        s.push_str(trs!("## Themen\n", "## Topics\n"));
         for (i, n) in self.important.iter().enumerate() {
             s.push_str(&format!("{}. {n}\n", i + 1));
             s.push_str(&self.topic_note_lines(n, "   "));
@@ -655,9 +672,14 @@ impl Store {
         }
 
         s.push_str(&format!(
-            "\n## Heute · {}{}\n",
+            "\n## {} · {}{}\n",
+            trs!("Heute", "Today"),
             date::to_file(self.today),
-            if self.suggested { " · Vorschlag" } else { "" }
+            if self.suggested {
+                trs!(" · Vorschlag", " · suggestion")
+            } else {
+                ""
+            }
         ));
         for &i in &self.done_today() {
             s.push_str(&line(&self.tasks[i]));
@@ -666,11 +688,11 @@ impl Store {
             s.push_str(&line(&self.tasks[i]));
         }
 
-        s.push_str("\n## Warte auf\n");
+        s.push_str(trs!("\n## Warte auf\n", "\n## Waiting for\n"));
         for t in self.tasks.iter().filter(|t| t.status == Status::Waiting) {
             s.push_str(&line(t));
         }
-        s.push_str("\n## Eingang\n");
+        s.push_str(trs!("\n## Eingang\n", "\n## Inbox\n"));
         for t in self
             .tasks
             .iter()
@@ -678,7 +700,7 @@ impl Store {
         {
             s.push_str(&line(t));
         }
-        s.push_str("\n## Offen\n");
+        s.push_str(trs!("\n## Offen\n", "\n## Open\n"));
         for t in self
             .tasks
             .iter()
@@ -694,7 +716,7 @@ impl Store {
             .collect();
         if !done.is_empty() {
             done.sort_by_key(|t| std::cmp::Reverse(t.done_on));
-            s.push_str("\n## Erledigt\n");
+            s.push_str(trs!("\n## Erledigt\n", "\n## Done\n"));
             for t in done {
                 s.push_str(&line(t));
             }
@@ -706,7 +728,7 @@ impl Store {
             .collect();
         if !archived.is_empty() {
             archived.sort_by_key(|t| std::cmp::Reverse(t.archived_on));
-            s.push_str("\n## Archiv\n");
+            s.push_str(trs!("\n## Archiv\n", "\n## Archive\n"));
             for t in archived {
                 s.push_str(&line(t));
             }
@@ -715,7 +737,7 @@ impl Store {
         let first = self.notes.iter().position(|l| !l.trim().is_empty());
         let last = self.notes.iter().rposition(|l| !l.trim().is_empty());
         if let (Some(a), Some(b)) = (first, last) {
-            s.push_str("\n## Notizen\n");
+            s.push_str(trs!("\n## Notizen\n", "\n## Notes\n"));
             for l in &self.notes[a..=b] {
                 s.push_str(l);
                 s.push('\n');
@@ -746,8 +768,13 @@ impl Store {
         if text == self.original {
             return Ok(());
         }
-        write_atomic(&self.path, &text)
-            .map_err(|e| format!("Ich kann {} nicht schreiben: {e}", self.path.display()))?;
+        write_atomic(&self.path, &text).map_err(|e| {
+            tr!(
+                "Ich kann {} nicht schreiben: {e}",
+                "I can't write {}: {e}",
+                self.path.display()
+            )
+        })?;
         self.original = text;
         Ok(())
     }
@@ -767,21 +794,22 @@ fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
 fn section_of(heading: &str) -> Section {
     let h = heading.trim().to_lowercase();
     let starts = |p: &str| h.starts_with(p);
-    if starts("themen") {
+    // Beide Sprachen, damit ein Wechsel nichts kaputt macht.
+    if starts("themen") || starts("topics") {
         Section::Topics
-    } else if starts("heute") {
+    } else if starts("heute") || starts("today") {
         Section::Today
-    } else if starts("warte") {
+    } else if starts("warte") || starts("waiting") {
         Section::Waiting
-    } else if starts("eingang") {
+    } else if starts("eingang") || starts("inbox") {
         Section::Inbox
-    } else if starts("offen") {
+    } else if starts("offen") || starts("open") {
         Section::Open
-    } else if starts("erledigt") {
+    } else if starts("erledigt") || starts("done") {
         Section::Done
     } else if starts("archiv") {
         Section::Archive
-    } else if starts("notiz") {
+    } else if starts("notiz") || starts("notes") {
         Section::Notes
     } else {
         Section::Unknown
@@ -818,26 +846,31 @@ fn parse_meta(inner: &str) -> Option<Vec<Meta>> {
     let mut out = Vec::new();
     for part in inner.split('·') {
         let p = part.trim();
-        let m = if let Some(r) = p.strip_prefix("Nr.").or_else(|| p.strip_prefix("Nr")) {
+        // Beide Sprachen: „Nr. 4 · fällig … · seit …“ und „No. 4 · due … · since …“.
+        let prefix = |words: &[&str]| words.iter().find_map(|w| p.strip_prefix(w));
+        let m = if let Some(r) = prefix(&["Nr.", "No.", "Nr", "No"]) {
             Meta::Nr(r.trim().parse().ok()?)
-        } else if let Some(r) = p.strip_prefix("fällig") {
+        } else if let Some(r) = prefix(&["fällig", "due"]) {
             Meta::Due(date::from_file(r)?)
-        } else if let Some(r) = p.strip_prefix("seit") {
+        } else if let Some(r) = prefix(&["seit", "since"]) {
             Meta::Since(date::from_file(r)?)
-        } else if let Some(r) = p.strip_prefix("wartet auf") {
+        } else if let Some(r) = prefix(&["wartet auf", "waiting for"]) {
             let name = r.trim().trim_start_matches('@').trim();
             if name.is_empty() {
                 return None;
             }
             Meta::WaitingFor(name.to_string())
-        } else if let Some(r) = p.strip_prefix("erledigt") {
+        } else if let Some(r) = prefix(&["erledigt", "done"]) {
             Meta::DoneOn(date::from_file(r)?)
-        } else if let Some(r) = p.strip_prefix("archiviert") {
+        } else if let Some(r) = prefix(&["archiviert", "archived"]) {
             Meta::ArchivedOn(date::from_file(r)?)
-        } else if p.eq_ignore_ascii_case("jede Woche") {
+        } else if p.eq_ignore_ascii_case("jede Woche") || p.eq_ignore_ascii_case("every week") {
             Meta::Every(1)
-        } else if let Some(r) = p.strip_prefix("alle")
-            && let Some(n) = r.trim().strip_suffix("Wochen")
+        } else if let Some(r) = prefix(&["alle", "every"])
+            && let Some(n) = r
+                .trim()
+                .strip_suffix("Wochen")
+                .or_else(|| r.trim().strip_suffix("weeks"))
         {
             Meta::Every(n.trim().parse().ok().filter(|&n| n > 0)?)
         } else {
@@ -925,39 +958,40 @@ fn line(t: &Task) -> String {
     let mut meta = Vec::new();
     if !t.is_active() && t.nr > 0 {
         // Bleibt reserviert, solange es im Archiv steht, siehe `assign_numbers`.
-        meta.push(format!("Nr. {}", t.nr));
+        meta.push(tr!("Nr. {}", "No. {}", t.nr));
     }
+    let due = |d| tr!("fällig {}", "due {}", date::to_file(d));
     match t.status {
         Status::Done => {
             if let Some(d) = t.due {
-                meta.push(format!("fällig {}", date::to_file(d)));
+                meta.push(due(d));
             }
             if let Some(d) = t.done_on {
-                meta.push(format!("erledigt {}", date::to_file(d)));
+                meta.push(tr!("erledigt {}", "done {}", date::to_file(d)));
             }
         }
         Status::Archived => {
             if let Some(d) = t.due {
-                meta.push(format!("fällig {}", date::to_file(d)));
+                meta.push(due(d));
             }
             if let Some(d) = t.archived_on {
-                meta.push(format!("archiviert {}", date::to_file(d)));
+                meta.push(tr!("archiviert {}", "archived {}", date::to_file(d)));
             }
         }
         _ => {
-            meta.push(format!("Nr. {}", t.nr));
+            meta.push(tr!("Nr. {}", "No. {}", t.nr));
             if let Some(d) = t.due {
-                meta.push(format!("fällig {}", date::to_file(d)));
+                meta.push(due(d));
             }
             if let Some(p) = &t.waiting_for {
-                meta.push(format!("wartet auf @{p}"));
+                meta.push(tr!("wartet auf @{p}", "waiting for @{p}"));
             }
-            meta.push(format!("seit {}", date::to_file(t.since)));
+            meta.push(tr!("seit {}", "since {}", date::to_file(t.since)));
         }
     }
     match t.every {
-        Some(1) => meta.push("jede Woche".into()),
-        Some(n) => meta.push(format!("alle {n} Wochen")),
+        Some(1) => meta.push(tr!("jede Woche", "every week")),
+        Some(n) => meta.push(tr!("alle {n} Wochen", "every {n} weeks")),
         None => {}
     }
     let check = if t.status == Status::Done { "x" } else { " " };

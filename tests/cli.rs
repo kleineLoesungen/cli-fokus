@@ -40,12 +40,46 @@ impl Sandbox {
         let mut c = Command::new(env!("CARGO_BIN_EXE_focus"));
         c.args(args)
             .env("FOCUS_HEUTE", day)
+            .env("FOCUS_SPRACHE", "de")
             .env("FOCUS_EINSTELLUNGEN", self.dir.join("einstellungen"))
             .env_remove("FOCUS_UNTERWEGS")
             .env_remove("XDG_CONFIG_HOME")
             .env("NO_COLOR", "1")
             .env("COLUMNS", "80");
         c
+    }
+
+    /// Wie `ok`, aber in einer anderen Sprache.
+    fn ok_lang(&self, lang: &str, args: &[&str]) -> String {
+        let out = self
+            .command("2026-11-26", args)
+            .env("FOCUS_DATEI", self.file())
+            .env("FOCUS_SPRACHE", lang)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "focus {args:?} schlug fehl:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    /// Wie bei einer echten Installation: eigenes Zuhause, Sprache nicht festgelegt.
+    fn ok_fresh(&self, args: &[&str]) -> String {
+        let out = self
+            .command("2026-11-26", args)
+            .env_remove("FOCUS_DATEI")
+            .env_remove("FOCUS_SPRACHE")
+            .env("HOME", self.dir.join("home"))
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "focus {args:?} schlug fehl:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
     }
 
     fn ok_at_home(&self, args: &[&str]) -> String {
@@ -763,6 +797,7 @@ fn links_werden_geoeffnet() {
             .args(args)
             .env("FOCUS_DATEI", s.file())
             .env("FOCUS_HEUTE", "2026-11-26")
+            .env("FOCUS_SPRACHE", "de")
             .env("FOCUS_EINSTELLUNGEN", s.dir.join("einstellungen"))
             .env("FOCUS_BROWSER", "echo")
             .env("NO_COLOR", "1")
@@ -834,6 +869,7 @@ fn dateien_aus_der_zeit_als_focus_noch_fokus_hiess_werden_weiter_benutzt() {
         .args(["hilfe"])
         .env("HOME", &home)
         .env("FOCUS_HEUTE", "2026-11-26")
+        .env("FOCUS_SPRACHE", "de")
         .env("NO_COLOR", "1")
         .env_remove("FOCUS_DATEI")
         .env_remove("FOCUS_EINSTELLUNGEN")
@@ -847,6 +883,7 @@ fn dateien_aus_der_zeit_als_focus_noch_fokus_hiess_werden_weiter_benutzt() {
         .args(["alles"])
         .env("HOME", &home)
         .env("FOCUS_HEUTE", "2026-11-26")
+        .env("FOCUS_SPRACHE", "de")
         .env("NO_COLOR", "1")
         .env_remove("FOCUS_DATEI")
         .env_remove("FOCUS_EINSTELLUNGEN")
@@ -856,4 +893,130 @@ fn dateien_aus_der_zeit_als_focus_noch_fokus_hiess_werden_weiter_benutzt() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("Alte Aufgabe"));
     assert!(!docs.join("Focus.md").exists());
     assert!(!home.join(".config").join("focus").exists());
+}
+
+#[test]
+fn neue_installationen_sprechen_englisch() {
+    let s = Sandbox::new("englisch-neu");
+    fs::create_dir_all(s.dir.join("home").join("Documents")).unwrap();
+    let out = s.ok_fresh(&[]);
+    assert!(
+        out.contains("No tasks yet. Write down the first one:"),
+        "{out}"
+    );
+    let out = s.ok_fresh(&["+", "prepare", "slides", "#work", "tomorrow"]);
+    assert!(
+        out.contains("Task 1: prepare slides · #work · due tomorrow (Friday, Nov 27)"),
+        "{out}"
+    );
+    let file = fs::read_to_string(s.dir.join("home").join("Documents").join("Focus.md")).unwrap();
+    assert!(file.contains("## Topics\n1. Work\n"));
+    assert!(
+        file.contains(
+            "## Open\n- [ ] prepare slides #work  [No. 1 · due 2026-11-27 · since 2026-11-26]"
+        ),
+        "{file}"
+    );
+    // Keine Einstellung nötig: Englisch ist der Standard.
+    assert!(!s.dir.join("einstellungen").exists());
+}
+
+#[test]
+fn eine_deutsche_aufgabendatei_bleibt_deutsch() {
+    let s = Sandbox::new("deutsch-bleibt");
+    let docs = s.dir.join("home").join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    fs::write(
+        docs.join("Focus.md"),
+        "## Offen\n- [ ] Brot kaufen  [Nr. 1 · seit 20.11.2026]\n",
+    )
+    .unwrap();
+    let out = s.ok_fresh(&["alles"]);
+    assert!(out.contains("Brot kaufen"));
+    assert!(out.contains("WICHTIG"), "{out}");
+    let einstellungen = fs::read_to_string(s.dir.join("einstellungen")).unwrap();
+    assert!(einstellungen.contains("sprache = de"));
+}
+
+#[test]
+fn beim_sprachwechsel_geht_nichts_verloren() {
+    let s = Sandbox::new("sprachwechsel");
+    s.ok(&["+", "Präsentation", "#arbeit", "morgen", "@tom"]);
+    s.ok(&["+", "Wochenplan", "#arbeit", "jeden", "montag"]);
+    s.ok(&["notiz", "1", "https://example.org"]);
+    s.ok(&["abgeben", "1", "@tom"]);
+    s.ok(&["+", "Brot"]);
+    s.ok(&["fertig", "3"]);
+    let deutsch = fs::read_to_string(s.file()).unwrap();
+
+    // Auf Englisch gelesen und geschrieben …
+    let out = s.ok_lang("en", &["all"]);
+    assert!(
+        out.contains("weekly plan") || out.contains("Wochenplan"),
+        "{out}"
+    );
+    let englisch = fs::read_to_string(s.file()).unwrap();
+    assert!(englisch.contains("## Waiting for\n- [ ] Präsentation #arbeit @tom  [No. 1 · due 2026-11-27 · waiting for @tom · since 2026-11-26]\n  https://example.org\n"), "{englisch}");
+    assert!(englisch.contains("· every week]"));
+    assert!(englisch.contains("done 2026-11-26"));
+    // … und zurück auf Deutsch: wieder genau dieselbe Datei.
+    s.ok(&["alles"]);
+    assert_eq!(fs::read_to_string(s.file()).unwrap(), deutsch);
+}
+
+#[test]
+fn englische_befehle_und_termine_gehen_immer() {
+    let s = Sandbox::new("englische-woerter");
+    s.ok(&["+", "Bericht", "#arbeit", "tomorrow"]);
+    let out = s.ok(&["today", "1"]);
+    assert!(out.contains("Aufgabe 1 steht jetzt auf heute"), "{out}");
+    s.ok(&["edit", "1", "no", "date"]);
+    assert!(!fs::read_to_string(s.file()).unwrap().contains("fällig"));
+    s.ok(&["done", "1"]);
+    assert!(s.ok(&["archive"]).contains("Bericht"));
+    assert!(
+        s.ok(&["#none"])
+            .contains("Alle offenen Aufgaben haben ein Thema.")
+    );
+}
+
+#[test]
+fn auf_englisch_gelten_englische_kuerzel_nicht_deutsche() {
+    let s = Sandbox::new("kuerzel");
+    // „do“ ist auf Englisch ein Wort, kein Donnerstag.
+    let out = s.ok_lang("en", &["+", "things", "to", "do"]);
+    assert!(out.contains("Task 1: things to do · no topic"), "{out}");
+    let out = s.ok_lang("en", &["+", "call", "Anna", "on", "friday"]);
+    assert!(out.contains("due tomorrow (Friday, Nov 27)"), "{out}");
+    let out = s.ok_lang("en", &["+", "plan", "every", "2", "weeks", "on", "monday"]);
+    assert!(out.contains("↻ every 2 weeks on Monday"), "{out}");
+}
+
+#[test]
+fn die_englische_unterwegs_datei_hat_new_am_ende() {
+    let s = Sandbox::new("mobile-englisch");
+    fs::create_dir_all(s.dir.join("icloud")).unwrap();
+    let run = |args: &[&str]| {
+        let out = s
+            .command("2026-11-26", args)
+            .env("FOCUS_DATEI", s.file())
+            .env("FOCUS_UNTERWEGS", s.dir.join("icloud"))
+            .env("FOCUS_SPRACHE", "en")
+            .output()
+            .unwrap();
+        String::from_utf8(out.stdout).unwrap()
+    };
+    run(&["+", "report", "#work"]);
+    let file = s.dir.join("icloud").join("Focus-mobile.md");
+    let stand = fs::read_to_string(&file).unwrap();
+    assert!(
+        stand.starts_with("# Focus mobile\n\nAs of: Thursday, Nov 26, "),
+        "{stand}"
+    );
+    assert!(stand.ends_with("## New\n"));
+    fs::write(&file, stand + "order jerseys #club friday\n").unwrap();
+    let out = run(&[]);
+    assert!(out.contains("From your phone:"), "{out}");
+    assert!(out.contains("Task 2: order jerseys · #club"));
+    assert!(fs::read_to_string(&file).unwrap().ends_with("## New\n"));
 }
