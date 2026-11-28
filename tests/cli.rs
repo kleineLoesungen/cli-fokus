@@ -1020,3 +1020,18 @@ fn die_englische_unterwegs_datei_hat_new_am_ende() {
     assert!(out.contains("Task 2: order jerseys · #club"));
     assert!(fs::read_to_string(&file).unwrap().ends_with("## New\n"));
 }
+
+#[test]
+fn die_anleitung_gibt_es_in_beiden_sprachen() {
+    let s = Sandbox::new("anleitung-englisch");
+    let out = s.ok_lang("en", &["manual", "review"]);
+    assert!(out.contains("Once a week: review"), "{out}");
+    assert!(!out.contains("aufräumen"));
+    let alles = s.ok_lang("en", &["manual"]);
+    assert!(alles.contains("ALL COMMANDS"));
+    assert!(!alles.contains("Command  "));
+    assert!(
+        s.ok(&["anleitung", "aufraeumen"])
+            .contains("Einmal pro Woche: aufräumen")
+    );
+}

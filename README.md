@@ -1,499 +1,508 @@
 # Focus
 
-**Weniger Liste, mehr erledigt.** Ein kleiner Helfer fürs Terminal auf dem Mac,
-der jeden Morgen eine Frage beantwortet: *Was ist heute dran?*
+*English · [Deutsch](README.de.md)*
 
-## Die Idee
+**Less list, more done.** A small terminal helper for macOS and Linux that
+answers one question every morning: *What's on for today?*
 
-* Du schreibst Aufgaben auf, wie sie dir einfallen: ein Satz, fertig.
-* Focus erkennt selbst, was **dringend** ist (Termin bis übermorgen oder
-  verstrichen) und was **wichtig** ist (Thema über der Linie, siehe unten).
-* Auf **heute** stehen höchstens **drei** offene Aufgaben, und **wichtig**
-  sind höchstens **drei** Themen. Mehr nicht, damit Wählen nötig bleibt.
+## The idea
 
-Du vergibst keine Prioritäten und schätzt keine Stunden.
+* You write tasks down as they come to you: one sentence, done.
+* Focus works out on its own what is **urgent** (due within two days or
+  overdue) and what is **important** (its topic is above the line, see below).
+* **Today** holds at most **three** open tasks, and at most **three** topics
+  are **important**. No more, so that choosing stays necessary.
+
+You don't set priorities and you don't estimate hours.
 
 ---
 
-## Typische Situationen
+## Typical situations
 
-### Morgens: Was ist heute dran?
+### In the morning: what's on for today?
 
 ```
 focus
 ```
 ```
- Donnerstag, 26. November                                  1 von 3 erledigt
+ Thursday, November 26                                         1 of 3 done
  ──────────────────────────────────────────────────────────────────────────
 
- HEUTE
-     ✓ Angebot an Kunden schicken                                 #arbeit
-   2 ▶ Präsentation vorbereiten                    fällig morgen  #arbeit
-   4 · Laufschuhe kaufen                                          #gesundheit
+ TODAY
+     ✓ send offer to client                                         #work
+   2 ▶ prepare presentation                         due tomorrow    #work
+   4 · buy running shoes                                            #health
 
- DRINGEND, ABER NICHT WICHTIG   → schnell erledigen oder abgeben
-   6 · Reisekosten abrechnen                       fällig morgen  #haus
+ URGENT, BUT NOT IMPORTANT   → do it quickly or delegate
+   6 · file travel expenses                         due tomorrow    #home
 
- 4 weitere offen · 2 warten auf andere
- 2 liegen schon lange → focus aufräumen
+ 4 more open · 2 waiting on others
+ 2 have been sitting for a while → focus review
 ```
 
-Die Zahl ist die **Nummer** der Aufgabe, ▶ zeigt, womit du anfängst. Morgens
-stellt Focus die Liste selbst zusammen (dringend und wichtig zuerst); tauschen
-kannst du jederzeit.
+The number is the task's **number**, ▶ shows what to start with. In the
+morning Focus puts the list together itself (urgent and important first); you
+can swap any time.
 
 ```
-focus heute 5            Aufgabe 5 auf heute
-focus heute 5 statt 2    tauschen, wenn heute voll ist
-focus später 2           wieder von heute herunter
-focus fertig 2           abhaken – dann ist wieder ein Platz frei
+focus today 5             task 5 on today
+focus today 5 instead 2   swap when today is full
+focus later 2             take it off today again
+focus done 2              check it off – that frees up a spot
 ```
 
-### Dir fällt etwas ein
+### Something comes to mind
 
 ```
-focus + Präsentation vorbereiten #arbeit morgen
+focus + prepare presentation #work tomorrow
 ```
 ```
- ✓ Aufgabe 1: Präsentation vorbereiten · #arbeit · fällig morgen (Freitag 27.11.)
+ ✓ Task 1: prepare presentation · #work · due tomorrow (Friday, Nov 27)
 ```
 
-`#thema` und `@person` sind freiwillig, der Termin auch. Er steht **am Ende**
-(`heute`, `morgen`, `freitag`, `3.12.`, `in 2 wochen`, `nächste woche`). Ist
-etwas **heute** fällig, kommt es gleich auf die Liste für heute, solange dort
-Platz ist.
+`#topic` and `@person` are optional, and so is the date. It goes **at the
+end** (`today`, `tomorrow`, `friday`, `next friday`, `2026-12-03`, `in 2 weeks`,
+`next week`). If something is due **today**, it goes straight onto today's
+list, as long as there's room.
 
-Was regelmäßig ansteht, bekommt eine **Wiederholung** am Ende:
-
-```
-focus + Wochenplan schreiben #arbeit jeden montag
-focus + Pflanzen gießen alle 2 wochen am freitag
-```
-
-Hakst du sie ab, legt Focus gleich die nächste an. Verpasst du einen Termin,
-rückt sie zum nächsten weiter, statt sich zu stapeln. Ändern geht mit
-`focus ändern 4 alle 4 wochen montag`, beenden mit `ohne wiederholung` oder
-`focus streichen 4`.
-
-Bei Zeichen wie `'` oder `?` im Text: nur `focus +` tippen, dann fragt Focus.
-
-### Mehr dazu merken: Notizen und Links
+Things that come up regularly get a **repeat** at the end:
 
 ```
-focus notiz 5 https://figma.com/file/abc
-focus notiz 5 Ansprechpartner Max, Budget steht im Angebot
+focus + write weekly plan #work every monday
+focus + water the plants every 2 weeks on friday
+```
+
+When you check one off, Focus creates the next one right away. If you miss a
+date, it moves on to the next one instead of piling up. Change it with
+`focus edit 4 every 4 weeks monday`, end it with `no repeat` or
+`focus drop 4`.
+
+With characters like `'` or `?` in the text: just type `focus +` and Focus asks.
+
+### Keeping more about it: notes and links
+
+```
+focus note 5 https://figma.com/file/abc
+focus note 5 contact is Max, budget is in the offer
 focus 5
 ```
 ```
- 5  Website-Relaunch
-     #arbeit · fällig 12.12. · seit heute
+ 5  website relaunch
+     #work · due Dec 12 · since today
 
    5.1  https://figma.com/file/abc
-   5.2  Ansprechpartner Max, Budget steht im Angebot
+   5.2  contact is Max, budget is in the offer
 ```
 
-Eine Notiz ist eine Zeile Text oder ein Link. `focus notiz 5.2 …` ersetzt
-die zweite, `focus notiz 5.2 löschen` löscht sie. `focus notiz 5` allein geht
-die Notizen durch: Ziffer wählt eine, dann [ä] ändern oder [l] löschen, [n]
-legt eine neue an. Die Tab-Taste zeigt nach `focus notiz 5.` die Notizen mit
-Text, du musst dir die Nummern also nicht merken. `focus öffnen 5` öffnet den
-Link im Browser (bei mehreren fragt Focus, welchen).
+A note is one line of text or a link. `focus note 5.2 …` replaces the second
+one, `focus note 5.2 delete` deletes it. `focus note 5` on its own goes through
+the notes: a digit picks one, then [e] edit or [d] delete, [n] adds a new one.
+After `focus note 5.` the Tab key shows the notes with their text, so you don't
+have to remember the numbers. `focus open 5` opens the link in the browser (if
+there are several, Focus asks which).
 
-Themen haben auch Notizen: `focus notiz #arbeit Wiki: https://…`. Sie stehen
-dann in `focus #arbeit` unten.
+Topics have notes too: `focus note #work Wiki: https://…`. They then appear at
+the bottom of `focus #work`.
 
-In den Listen siehst du nur ein Zeichen hinter dem Text, ↗ bei einem Link,
-✎ bei anderen Notizen. In der Datei stehen die Notizen eingerückt unter ihrer
-Aufgabe oder ihrem Thema, in der Unterwegs-Datei auch. Sie bleiben, wenn du die
-Aufgabe änderst, auf heute legst oder archivierst, und kommen bei einer
-Wiederholung mit.
+In the lists you only see a mark after the text, ↗ for a link, ✎ for other
+notes. In the file the notes are indented below their task or topic, and the
+same goes for the mobile file. They stay when you edit the task, put it on
+today or archive it, and come along with a repeat.
 
-### Etwas hat sich geändert
-
-```
-focus ändern 4 #haus @tom freitag     Thema, Person, Termin
-focus ändern 4 Keller und Dachboden   neuer Text, der Rest bleibt
-focus ändern 4 ohne termin            auch: ohne thema (#ohne), ohne @anna, ohne wiederholung
-```
-
-### Jetzt loslegen
+### Something changed
 
 ```
-focus jetzt
+focus edit 4 #home @tom friday        topic, person, date
+focus edit 4 basement and attic       new text, the rest stays
+focus edit 4 no date                  also: no topic (#none), no @anna, no repeat
 ```
 
-Der Bildschirm zeigt nur noch die Aufgabe mit ▶ und eine 25-Minuten-Uhr.
-`f` fertig, `p` Pause, `s` später, `q` zurück.
-
-### Der Überblick über alles
+### Getting started right now
 
 ```
-focus alles
-```
-```
-                       DRINGEND                    NICHT DRINGEND
-           ┌──────────────────────────────┬──────────────────────────────┐
-   WICHTIG │  2 ▶ Präsentation vo… morgen │  5   Website-Texte    12.12. │
-           │                              │  3   Urlaub abstimme…        │
-           │                              │  4 ▶ Laufschuhe kauf…        │
-           │                          TUN │                       PLANEN │
-           ├──────────────────────────────┼──────────────────────────────┤
- UNWICHTIG │  6   Reisekosten abr… morgen │  7   Keller ausmist… 18 Tage │
-           │                              │ 10   Mama zurückruf…         │
-           │         SCHNELL ODER ABGEBEN │                   STREICHEN? │
-           └──────────────────────────────┴──────────────────────────────┘
+focus now
 ```
 
-**Planen** ist die wertvollste Ecke: Das drängelt nie und geht darum am
-leichtesten unter. Was unter **Streichen?** 30 Tage ohne Termin liegt, räumt
-Focus selbst ins Archiv.
+The screen shows only the task with ▶ and a 25-minute clock.
+`d` done, `p` pause, `l` later, `q` back.
 
-### Versehentlich abgehakt?
-
-```
-focus archiv
-```
-```
- ERLEDIGT
-   2 ✓ Pflanzen gießen                                             heute  #haus
-
- GESTRICHEN
-   3 × Reisekosten abrechnen                                       gestern
-
- Zurückholen: focus zurück <Nr> · nach 14 Tagen löscht Focus endgültig
-```
-
-`focus zurück 2` holt die Aufgabe zurück, auf heute, wenn sie dort stand.
-Erledigtes und Gestrichenes behält seine Nummer, solange es im Archiv steht,
-und ist nach **14 Tagen endgültig weg**.
-
-### Woran hänge ich in einem Thema?
+### The overview of everything
 
 ```
-focus #arbeit
+focus all
 ```
 ```
- #arbeit   wichtig
-   2 ▶ Präsentation vorbereiten                 fällig morgen
-   5 · Website-Texte                            fällig 12.12.
-
- LIEGT BEI ANDEREN
-   8 · Vertrag prüfen                                 bei @tom  seit 12 Tagen
-
- In den letzten 7 Tagen erledigt: Angebot an Kunden schicken
-```
-
-Was noch kein Thema hat, zeigt `focus #ohne`. Ein Thema gibst du mit
-`focus ändern 3 #haus`; `focus ändern 3 #ohne` nimmt es wieder weg. `#ohne`
-heißt überall „kein Thema“, deshalb legt Focus nie ein Thema „Ohne“ an.
-
-### Komme ich bei dem voran, was mir wichtig ist?
-
-```
-focus themen
-```
-```
- DEINE THEMEN    offen    letzte 7 Tage
- 1  #arbeit          3    ○ ○ ○ ○ ○ ○ ●
- 2  #familie         2    ○ ○ ○ ○ ○ ○ ○
- 3  #gesundheit      1    ○ ○ ○ ○ ○ ○ ○
- ─── wichtig ────────────────────────────────
-    #haus            2    ○ ○ ○ ○ ○ ○ ○
-    #ohne            1    ohne Thema
+                         URGENT                         NOT URGENT
+           ┌────────────────────────────────┬────────────────────────────────┐
+ IMPORTANT │  2 ▶ prepare present… tomorrow │  5   website copy       Dec 12 │
+           │                                │  3   plan vacation             │
+           │                                │  4 ▶ buy running shoes         │
+           │                             DO │                           PLAN │
+           ├────────────────────────────────┼────────────────────────────────┤
+     MINOR │  6   file travel exp… tomorrow │  7   clear out basem…  18 days │
+           │                                │ 10   call mom back             │
+           │              QUICK OR DELEGATE │                          DROP? │
+           └────────────────────────────────┴────────────────────────────────┘
 ```
 
-Ein Punkt je Tag, rechts ist heute. Über der Linie stehen höchstens drei
-Themen; die ersten drei, die du anlegst, landen dort von selbst.
+**Plan** is the most valuable corner: it never pushes, and that's why it's
+the easiest to lose. Whatever sits under **Drop?** for 30 days without a date,
+Focus moves to the archive on its own.
+
+### Checked off by accident?
 
 ```
-focus themen ordnen                    fragt, welche drei wichtig sind
-focus themen umbenennen arbiet arbeit  überall; gibt es „arbeit“ schon, wird es eins
+focus archive
+```
+```
+ DONE
+   2 ✓ water the plants                                           today  #home
+
+ DROPPED
+   3 × file travel expenses                                   yesterday
+
+ Bring back: focus restore <no> · after 14 days Focus deletes for good
 ```
 
-### Du triffst Anna
+`focus restore 2` brings the task back, onto today if it was there. Done and
+dropped tasks keep their number while they're in the archive, and are **gone
+for good after 14 days**.
+
+### Where am I stuck in a topic?
+
+```
+focus #work
+```
+```
+ #work   important
+   2 ▶ prepare presentation                      due tomorrow
+   5 · website copy                                due Dec 12
+
+ WITH OTHERS
+   8 · review contract                              with @tom  for 12 days
+
+ Done in the last 7 days: send offer to client
+```
+
+`focus #none` shows what doesn't have a topic yet. Give it one with
+`focus edit 3 #home`; `focus edit 3 #none` takes it away again. `#none` (and
+the German `#ohne`) means "no topic" everywhere, so Focus never creates a topic
+called "None".
+
+### Am I making progress on what matters to me?
+
+```
+focus topics
+```
+```
+ YOUR TOPICS      open    last 7 days
+ 1  #work            3    ○ ○ ○ ○ ○ ○ ●
+ 2  #family          2    ○ ○ ○ ○ ○ ○ ○
+ 3  #health          1    ○ ○ ○ ○ ○ ○ ○
+ ─── important ──────────────────────────────
+    #home            2    ○ ○ ○ ○ ○ ○ ○
+    #none            1    no topic
+```
+
+One dot per day, today is on the right. At most three topics are above the
+line; the first three you create land there on their own.
+
+```
+focus topics order                 asks which three are important
+focus topics rename wrok work      everywhere; if "work" exists, they merge
+```
+
+### You're meeting Anna
 
 ```
 focus @anna
 ```
 ```
  @anna
-   3 · Urlaub abstimmen @anna                                   #familie
+   3 · plan vacation @anna                                      #family
 
- WARTE AUF @anna
-   9 · Fotos vom Wochenende schicken                            seit 5 Tagen
+ WAITING FOR @anna
+   9 · send weekend photos                                      for 5 days
 ```
 
-`focus personen` listet alle, bei denen gerade etwas offen ist.
+`focus people` lists everyone you have something open with.
 
-### Worauf warte ich noch?
-
-```
-focus abgeben 8 @tom     Aufgabe 8 liegt jetzt bei @tom
-focus warten
-```
-```
- WARTE AUF   → nachhaken: focus aufräumen
-   8 · Vertrag prüfen                                 bei @tom  seit 12 Tagen
-   9 · Fotos vom Wochenende schicken                 bei @anna  seit 5 Tagen
-```
-
-Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
-`focus fertig 8`.
-
-### Wo war das noch?
+### What am I still waiting for?
 
 ```
-focus suche angebot
+focus delegate 8 @tom     task 8 is now with @tom
+focus waiting
 ```
 ```
- GEFUNDEN: ANGEBOT
-   4 · Angebot prüfen ✎                               fällig Freitag  #arbeit
+ WAITING FOR   → follow up: focus review
+   8 · review contract                              with @tom  for 12 days
+   9 · send weekend photos                         with @anna  for 5 days
 ```
 
-Focus sucht in Text, Thema, Personen und Notizen. Mehrere Wörter müssen alle
-vorkommen, Groß- und Kleinschreibung ist egal, und `pruefen` findet auch
-`prüfen`. Was im Archiv passt, steht blass darunter.
+What's been waiting longest is on top. When something comes back done:
+`focus done 8`.
 
-### Unterwegs: nachsehen und aufschreiben
-
-```
-focus unterwegs ~/Dropbox/Focus
-```
-
-Ab jetzt schreibt Focus bei jedem Aufruf den Stand in eine zweite Datei,
-`Focus-unterwegs.md`, in diesem Ordner. Welcher Dienst den Ordner zum Handy
-bringt, ist dir überlassen: iCloud Drive, Google Drive, Dropbox, OneDrive,
-Nextcloud, Syncthing – Focus schreibt nur eine Textdatei. Ein Android-Handy
-kommt nicht an iCloud Drive; für iPhone und Android zusammen eignet sich ein
-anderer Dienst. Lieber `.txt`? `focus unterwegs ~/Dropbox/Focus/Focus.txt`.
+### Where was that again?
 
 ```
-# Focus unterwegs
-
-Stand: Freitag 27.11., 06:10
-
-Neues schreibst du ganz unten unter „Neu“ …
-
-## Heute · Freitag 27.11.
-- 2 Präsentation vorbereiten · Arbeit · fällig Samstag 28.11.
-
-## Warte auf
-- 8 Vertrag prüfen · bei Tom seit 12.11.
-
-## Offen
-
-### Arbeit · wichtig
-- 5 Website-Texte · fällig Samstag 12.12.
-
-## Neu
-- Trikots bestellen #verein freitag
-Idee für den Talentpfad
+focus search offer
+```
+```
+ FOUND: OFFER
+   4 · check offer ✎                                    due Friday  #work
 ```
 
-Oben steht der Stand zum Lesen, mit Datum statt „morgen“, weil man ihn
-vielleicht erst später liest. Was dir unterwegs einfällt, schreibst du ganz
-unten unter **Neu**, eine Zeile je Aufgabe, wie bei `focus +`. Beim nächsten
-Aufruf holt Focus die Zeilen ab, legt sie als Aufgaben an und leert den
-Abschnitt. Alles darüber schreibt Focus jedes Mal neu; abhaken und ändern geht
-am Computer.
+Focus searches text, topic, people and notes. Several words must all appear,
+case doesn't matter, and `pruefen` also finds `prüfen`. Matches in the archive
+appear faded below.
 
-Weil „Neu“ am Ende steht, reicht es, eine Zeile an die Datei anzuhängen. Das
-können Kurzbefehle auf dem iPhone und Automatisierungs-Apps unter Android, also
-auch per Sprache, ohne die Datei zu öffnen. Zum Lesen und Schreiben von Hand
-brauchst du am Handy einen Texteditor, der Dateien direkt im Sync-Ordner öffnet
-(auf dem iPhone etwa Runestone); die Dateien-Apps zeigen Textdateien nur an.
-
-Deine `Focus.md` bleibt, wo sie ist: Die Unterwegs-Datei ist nur eine Kopie.
-`focus unterwegs` zeigt, wo sie liegt, `focus unterwegs aus` schaltet sie ab.
-
-### Einmal pro Woche: aufräumen
+### On the go: look things up and write them down
 
 ```
-focus aufräumen
+focus mobile ~/Dropbox/Focus
 ```
 
-Focus geht durch, was **überfällig** ist (ab dem Tag nach dem Termin) und was
-seit zwei Wochen liegt (oder seit einer Woche bei jemand anderem). Eine Taste
-je Aufgabe:
+From now on Focus writes the current state to a second file,
+`Focus-mobile.md`, in that folder every time it runs. Which service brings the
+folder to your phone is up to you: iCloud Drive, Google Drive, Dropbox,
+OneDrive, Nextcloud, Syncthing – Focus only writes a text file. An Android
+phone can't reach iCloud Drive; for iPhone and Android together, pick another
+service. Prefer `.txt`? `focus mobile ~/Dropbox/Focus/Focus.txt`.
 
 ```
- Steuer abgeben · kein Thema · seit gestern fällig · seit gestern
- [h] heute  [n] neuer Termin  [w] diese Woche  [t] Thema geben
- [b] behalten  [f] erledigt  [x] streichen
+# Focus mobile
+
+As of: Friday, Nov 27, 06:10
+
+Write new things at the very bottom under “New” …
+
+## Today · Friday, Nov 27
+- 2 prepare presentation · Work · due Saturday, Nov 28
+
+## Waiting for
+- 8 review contract · with Tom since Nov 12
+
+## Open
+
+### Work · important
+- 5 website copy · due Saturday, Dec 12
+
+## New
+- order jerseys #club friday
+idea for the training path
 ```
 
-Bei Abgegebenem gibt es zusätzlich `[n] nachhaken` (legt „Bei Tom nachhaken: …“
-auf heute) und `[z] zurück zu mir`.
+The state to read is on top, with dates instead of "tomorrow", because you
+might read it later. Whatever comes to mind on the go, you write at the very
+bottom under **New**, one line per task, like with `focus +`. The next time it
+runs, Focus picks up the lines, creates them as tasks and empties the section.
+Focus rewrites everything above each time; checking off and changing happens
+on the computer.
+
+Because "New" is at the end, appending a line to the file is enough. iPhone
+Shortcuts and Android automation apps can do that, so you can even use your
+voice without opening the file. To read and write by hand you need a text
+editor on your phone that opens files directly in the sync folder (on the
+iPhone, for example, Runestone); the Files apps only display text files.
+
+Your `Focus.md` stays where it is: the mobile file is just a copy.
+`focus mobile` shows where it is, `focus mobile off` turns it off.
+
+### Once a week: review
+
+```
+focus review
+```
+
+Focus goes through what is **overdue** (from the day after the due date) and
+what has been sitting for two weeks (or for one week with someone else). One
+key per task:
+
+```
+ file taxes · no topic · due since yesterday · since yesterday
+ [t] today  [n] new date  [w] this week  [o] give a topic
+ [k] keep  [d] done  [x] drop
+```
+
+For delegated tasks there's also `[f] follow up` (puts "Follow up with Tom: …"
+on today) and `[m] back to me`.
 
 ---
 
-## Alle Befehle
+## All commands
 
-| Befehl | |
+| Command | |
 |---|---|
-| `focus` | was heute dran ist |
-| `focus + Text #thema @person termin` | aufschreiben |
-| `focus heute 4` · `später 4` · `fertig 4` | Liste für heute |
-| `focus ändern 4 …` | Text, Thema, Person, Termin ändern |
-| `focus 4` · `notiz 4 …` · `notiz 4.2 …` · `öffnen 4` | eine Aufgabe mit Notizen · Notiz dazu · ändern · Link öffnen |
-| `focus streichen 4` | weg damit (14 Tage im Archiv) |
-| `focus archiv` · `focus zurück 4` | Erledigtes ansehen · zurückholen |
-| `focus jetzt` | nur eine Aufgabe, mit Uhr |
-| `focus alles` | die vier Felder |
-| `focus #arbeit` · `focus themen` | ein Thema · alle Themen |
-| `focus #ohne` | Aufgaben ohne Thema |
-| `focus themen ordnen` · `umbenennen a b` | Themen pflegen |
-| `focus @anna` · `focus personen` | eine Person · alle Personen |
-| `focus abgeben 4 @tom` · `focus warten` | abgeben · was bei anderen liegt |
-| `focus suche wort …` | Aufgaben finden, auch in Notizen und im Archiv |
-| `focus aufräumen` | Liegengebliebenes durchgehen |
-| `focus datei` | die Aufgabendatei im Texteditor öffnen |
-| `focus datei verschieben ort` | die Aufgabendatei an einen anderen Ort legen |
-| `focus unterwegs ordner` · `unterwegs aus` | Stand fürs Handy, mit „Neu“ zum Aufschreiben |
-| `focus web` | Focus im Browser-Tab |
-| `focus hilfe` | die kurze Übersicht |
-| `focus anleitung` · `anleitung unterwegs` | diese Anleitung, oder nur der passende Abschnitt |
+| `focus` | what's on for today |
+| `focus + text #topic @person date` | write it down |
+| `focus today 4` · `later 4` · `done 4` | today's list |
+| `focus edit 4 …` | change text, topic, person, date |
+| `focus 4` · `note 4 …` · `note 4.2 …` · `open 4` | a task with its notes · add a note · change one · open a link |
+| `focus drop 4` | get rid of it (14 days in the archive) |
+| `focus archive` · `focus restore 4` | see what's done · bring it back |
+| `focus now` | just one task, with a clock |
+| `focus all` | the four quadrants |
+| `focus #work` · `focus topics` | one topic · all topics |
+| `focus #none` | tasks without a topic |
+| `focus topics order` · `rename a b` | look after your topics |
+| `focus @anna` · `focus people` | one person · everyone |
+| `focus delegate 4 @tom` · `focus waiting` | hand it off · what's with others |
+| `focus search word …` | find tasks, also in notes and the archive |
+| `focus review` | go through what got stuck |
+| `focus file` | open the task file in a text editor |
+| `focus file move place` | move the task file somewhere else |
+| `focus mobile folder` · `mobile off` | state for your phone, with "New" to write in |
+| `focus web` | Focus in a browser tab |
+| `focus setup` | language, places, shortcut `f`, Tab key |
+| `focus help` | the short overview |
+| `focus manual` · `manual mobile` | this manual, or just the matching section |
 
-Statt `focus` geht auch `f` (siehe Einrichten). Die **Tab-Taste** ergänzt
-Befehle, Nummern samt Text, `#themen`, `@personen`, Termine und Wiederholungen
-– zweimal Tab zeigt die Liste, nach Gruppen geordnet:
+The German commands always work too (`focus heute 4`, `focus fertig 4`,
+`morgen`, `jeden montag`), even when Focus speaks English.
+
+Instead of `focus` you can type `f` (see setup). The **Tab key** completes
+commands, numbers with their text, `#topics`, `@people`, dates and repeats –
+pressing Tab twice shows the list, grouped:
 
 ```
-focus fertig ⇥⇥
-Heute
-7   Reisekosten  · heute
-1   Präsentation vorbereiten  · morgen
-#arbeit · wichtig
-2   Website-Texte  · 12.12.
-Ohne Thema
-5   Mama zurückrufen
-Bei anderen
-6   Fotos schicken  · bei @anna
+focus done ⇥⇥
+Today
+7   travel expenses  · today
+1   prepare presentation  · tomorrow
+#work · important
+2   website copy  · Dec 12
+No topic
+5   call mom back
+With others
+6   send photos  · with @anna
 ```
 
 ---
 
-## Deine Daten
+## Your data
 
-Alles steht in einer Textdatei, anfangs `Dokumente/Focus.md`. Du kannst sie mit
-jedem Editor lesen und ändern (`focus datei`); eine neue Zeile `- Fahrrad
-reparieren #haus` reicht, den Rest ergänzt Focus. Eingerückte Zeilen darunter
-sind Notizen zu dieser Aufgabe. Erledigtes und Gestrichenes
-löscht Focus nach 14 Tagen. Kein Konto, keine Cloud – außer dein Mac sichert
-den Ordner Dokumente in iCloud, oder du legst die Datei selbst in einen
-Sync-Ordner oder schaltest die Unterwegs-Datei ein.
+Everything is in one text file, at first `Documents/Focus.md`. You can read
+and edit it with any editor (`focus file`); a new line `- fix bike #home` is
+enough, Focus fills in the rest. Indented lines below a task are notes for
+that task. Done and dropped tasks are deleted after 14 days. No account, no
+cloud – unless your Mac backs up the Documents folder to iCloud, or you put the
+file into a sync folder yourself or turn on the mobile file.
 
-Woanders hin geht sie mit `focus datei verschieben ~/Planung` (ein Ordner
-bekommt `Focus.md`, eine `.md`-Datei bleibt, wie sie heißt). Focus zieht die
-Datei um und merkt sich den Ort. Liegt dort schon eine Aufgabendatei, fragt
-Focus, ob es die nehmen soll, und überschreibt nichts. Die Orte stehen in
-`~/.config/focus/einstellungen`; `focus einrichten` fragt auch danach.
+Move it elsewhere with `focus file move ~/Planning` (a folder gets `Focus.md`,
+a `.md` file keeps its name). Focus moves the file and remembers the place. If
+there's already a task file there, Focus asks whether to use it and overwrites
+nothing. The places are stored in `~/.config/focus/einstellungen`;
+`focus setup` asks about them too.
 
-## Im Browser: `focus web`
+The file is written in the language Focus speaks, and read in both: switching
+languages changes the headings, nothing gets lost.
 
-Wer ohnehin viel im Browser arbeitet: `focus web` öffnet Focus als Tab, im
-selben Look wie im Terminal. Oben steht immer die Liste für heute, darunter
-die Antwort auf deinen letzten Befehl, ganz unten tippst du wie gewohnt
-(`+ Bericht #arbeit freitag`, ein `focus` vorne darf mit). Dazu:
+## In the browser: `focus web`
 
-- **Anklicken:** Eine Aufgabennummer zeigt die Aufgabe mit ihren Notizen,
-  `#thema` alles im Thema, `@person` alles mit der Person. Ein Link öffnet
-  sich in einem neuen Tab.
-- **Tab-Taste** ergänzt wie in der Shell, **↑** holt frühere Befehle.
-- Kommst du zurück in den Tab, ist die Liste aktuell, auch nach Änderungen im
-  Terminal.
-- **Übersicht anpassen:** „▾ Übersicht“ oben links klappt die Liste ein, die
-  Linie darunter ändert beim Ziehen ihre Höhe (Doppelklick klappt auch ein).
-- **Hell oder dunkel:** Der Knopf oben rechts schaltet zwischen auto (wie das
-  System), hell und dunkel. Der Browser merkt sich beides.
-- Im Hintergrund fällt ein leiser Zeichenregen aus Ziffern und Focus-Zeichen.
-  `regen` in der Eingabe schaltet ihn aus und wieder an. Wer am Mac „Bewegung
-  reduzieren“ eingestellt hat, bekommt ihn nicht.
+If you work in the browser a lot anyway: `focus web` opens Focus as a tab,
+looking just like the terminal. Today's list is always on top, below it the
+answer to your last command, and at the very bottom you type as usual
+(`+ report #work friday`, a leading `focus` is fine). Also:
 
-Der Tab läuft, solange `focus web` im Terminal läuft (Strg+C beendet). Focus
-hört nur auf `127.0.0.1:4711`, ist also nur auf deinem Mac erreichbar; ein
-anderer Port geht mit `focus web 4712`. Was im Terminal nachfragt (Notizen
-durchgehen, Themen ordnen, aufräumen), geht im Browser nicht; dort sagt Focus,
-wie es mit einem Befehl geht.
+- **Click:** a task number shows the task with its notes, `#topic` everything
+  in the topic, `@person` everything with that person. A link opens in a new
+  tab.
+- **Tab key** completes like in the shell, **↑** brings back earlier commands.
+- When you come back to the tab, the list is up to date, even after changes in
+  the terminal.
+- **Adjust the overview:** "▾ Overview" at the top left collapses the list,
+  dragging the line below it changes its height (double-click collapses too).
+- **Light or dark:** the button at the top right switches between auto (like
+  the system), light and dark. The browser remembers both.
+- A quiet rain of digits and Focus characters falls in the background. Typing
+  `regen` turns it off and on again. If you've set "Reduce motion" on your Mac,
+  you won't get it.
 
-## Was Focus absichtlich nicht kann
+The tab works as long as `focus web` runs in the terminal (Ctrl+C stops it).
+Focus only listens on `127.0.0.1:4711`, so it's only reachable from your
+computer; use another port with `focus web 4712`. Things that ask questions in
+the terminal (going through notes, ordering topics, review) don't work in the
+browser; there Focus tells you how to do it with a command.
 
-Keine Prioritätsstufen, keine Unteraufgaben, kein Adressbuch, keine
-Mitteilungen, kein Teilen mit anderen (die Unterwegs-Datei ist für dich). Und kein viertes wichtiges Thema. Alles davon wäre
-etwas, das gepflegt werden will.
+## What Focus deliberately can't do
+
+No priority levels, no subtasks, no address book, no notifications, no
+sharing with others (the mobile file is for you). And no fourth important
+topic. Each of those would be something that needs looking after.
 
 ---
 
-## Installieren, aktualisieren, entfernen
+## Install, update, remove
 
-Focus läuft auf macOS (Apple Silicon und Intel) und Linux.
+Focus runs on macOS (Apple Silicon and Intel) and Linux.
 
-**Mit Homebrew** (macOS und Linux):
+**With Homebrew** (macOS and Linux):
 
 ```bash
 brew install kleineLoesungen/tap/focus
 ```
 
-**Ohne Homebrew** lädt ein Skript das passende Programm von GitHub nach
+**Without Homebrew** a script downloads the right program from GitHub to
 `~/.cargo/bin`:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/kleineLoesungen/cli-focus/releases/latest/download/focus-installer.sh | sh
 ```
 
-**Aus dem Quelltext:** Mit [Rust](https://rustup.rs) im Projektordner
+**From source:** with [Rust](https://rustup.rs), in the project folder
 `cargo install --path .`.
 
-Danach einmal:
+Then once:
 
 ```bash
-focus einrichten
+focus setup
 ```
 
-`focus einrichten` fragt, wo deine Aufgaben liegen sollen, ob es eine
-Unterwegs-Datei geben soll, ob `f` als Kurzbefehl gehen soll, ob jedes neue
-Terminalfenster die Liste für heute zeigt, ob die Tab-Taste ergänzen soll
-(zsh) und ob Focus das Fenster vor jedem Befehl leeren soll. Es schreibt dafür
-einen markierten Block in deine `.zshrc` und die Einstellungen in
-`~/.config/focus/einstellungen`. In zsh stehen `focus` und `f` dort mit
-`noglob`, damit Links mit `?` oder `*` nicht an zsh scheitern („no matches
-found“).
+`focus setup` first asks for the language (English or German; new
+installations start in English, existing ones with a German task file stay
+German), then where your tasks should live, whether there should be a mobile
+file, whether `f` should work as a shortcut, whether every new terminal window
+shows today's list, whether the Tab key should complete (zsh) and whether
+Focus should clear the window before each command. For that it writes a marked
+block into your `.zshrc` and the settings into `~/.config/focus/einstellungen`.
+In zsh, `focus` and `f` are set up there with `noglob`, so links with `?` or
+`*` don't trip up zsh ("no matches found").
 
-**Ein Fenster nur für Focus:** Mit `leeren = ja` in den Einstellungen leert
-Focus vor jedem Befehl den sichtbaren Bereich. Oben steht grau der Befehl
-(`› focus + Bericht morgen`), darunter die Antwort. Der Verlauf bleibt,
-Hochscrollen oder `⌘↑` zeigt das Alte. Leitest du die Ausgabe um
-(`focus | grep …`), wird nichts geleert.
+**A window just for Focus:** with `leeren = ja` in the settings, Focus clears
+the visible area before each command. The command is shown on top in grey
+(`› focus + report tomorrow`), the answer below. The history stays; scrolling
+up or `⌘↑` shows the old output. If you redirect the output
+(`focus | grep …`), nothing is cleared.
 
-Einen Ordner kannst du aus dem Finder ins
-Terminal ziehen, statt den Pfad zu tippen.
+You can drag a folder from Finder into the terminal instead of typing the
+path.
 
-**Unter Linux** schreibt `focus einrichten` bei bash in die `.bashrc`. Die
-Tab-Ergänzung gibt es nur für zsh. Links und `focus datei` öffnet Focus mit
-`xdg-open`, beim Deinstallieren landen die Aufgaben auf Wunsch im Papierkorb
-des Desktops (`~/.local/share/Trash`).
+**On Linux**, `focus setup` writes to `.bashrc` for bash. Tab completion is
+only available for zsh. Focus opens links and `focus file` with `xdg-open`;
+when uninstalling, your tasks go to the desktop trash if you want
+(`~/.local/share/Trash`).
 
-**Aktualisieren:** `brew upgrade focus`, das Skript noch einmal, oder
-`cargo install --path .` – je nachdem, wie du installiert hast. Deine Aufgaben
-bleiben.
+**Update:** `brew upgrade focus`, the script again, or `cargo install --path .`
+– depending on how you installed. Your tasks stay.
 
-**Von „fokus“ auf „focus“:** Früher hießen Programm und Datei `fokus` und
-`Fokus.md`. Focus benutzt eine vorhandene `Dokumente/Fokus.md` und die
-Einstellungen aus `~/.config/fokus/` einfach weiter. Danach einmal
-`focus einrichten`, damit der Block in der `.zshrc` und der Kurzbefehl `f` auf
-das neue Programm zeigen, und das alte entfernen: `cargo uninstall fokus`.
+**From "fokus" to "focus":** the program and file used to be called `fokus`
+and `Fokus.md`. Focus simply keeps using an existing `Documents/Fokus.md` and
+the settings from `~/.config/fokus/`, and stays in German if that file is
+German. Afterwards run `focus setup` once, so the block in `.zshrc` and the
+shortcut `f` point to the new program, and remove the old one:
+`cargo uninstall fokus`.
 
-**Entfernen:** `focus deinstallieren`. Es zeigt erst, was es tut, und fragt
-nach. Deine Aufgaben bleiben, außer du sagst ausdrücklich ja – dann kommen sie
-in den Papierkorb. Die Einstellungen löscht es mit, die Unterwegs-Datei nicht.
+**Remove:** `focus uninstall`. It first shows what it will do and asks. Your
+tasks stay unless you explicitly say yes – then they go to the trash. It
+deletes the settings too, but not the mobile file.
 
-Zum Ausprobieren mit einer Spieldatei: `export FOCUS_DATEI=/tmp/spiel.md`.
-Solange die gilt, lässt Focus deine Unterwegs-Datei in Ruhe (außer du setzt
-auch `FOCUS_UNTERWEGS`).
-Tests: `cargo test`. Eine neue Version erscheint mit einem Tag, etwa
-`git tag v0.2.0 && git push --tags`: GitHub baut dann die Programme für macOS
-und Linux, hängt sie an ein Release und aktualisiert die Homebrew-Formel.
+To try things out with a practice file: `export FOCUS_DATEI=/tmp/practice.md`.
+While that's set, Focus leaves your mobile file alone (unless you also set
+`FOCUS_UNTERWEGS`). `FOCUS_SPRACHE=de` or `en` sets the language for one call.
+Tests: `cargo test`. A new version comes out with a tag, for example
+`git tag v0.2.0 && git push --tags`: GitHub then builds the programs for macOS
+and Linux, attaches them to a release and updates the Homebrew formula.
 
-## Lizenz
+## License
 
-GPL-3.0, siehe [LICENSE](LICENSE).
+GPL-3.0, see [LICENSE](LICENSE).

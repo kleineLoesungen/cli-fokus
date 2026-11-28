@@ -4,24 +4,30 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use crate::{term, tr, trs};
+use crate::{i18n, term, tr, trs};
 
-const README: &str = include_str!("../README.md");
+const README_EN: &str = include_str!("../README.md");
+const README_DE: &str = include_str!("../README.de.md");
+
+/// Die Anleitung in der gewählten Sprache.
+fn readme() -> &'static str {
+    if i18n::en() { README_EN } else { README_DE }
+}
 
 /// `focus anleitung` zeigt alles, `focus anleitung unterwegs` nur, was passt.
 pub fn run(args: &[String]) -> Result<(), String> {
     let query = args.join(" ");
     let query = query.trim();
     let text = if query.is_empty() {
-        render(README)
+        render(readme())
     } else {
-        let sections = find(README, query);
+        let sections = find(readme(), query);
         if sections.is_empty() {
             let mut msg = tr!(
                 " Zu „{query}“ steht nichts in der Anleitung. Diese Abschnitte gibt es:\n\n",
                 " There's nothing on “{query}” in the manual. These sections exist:\n\n"
             );
-            for (level, title) in headings(README) {
+            for (level, title) in headings(readme()) {
                 let indent = if level <= 2 { "   " } else { "     " };
                 msg.push_str(&format!("{indent}{title}\n"));
             }
@@ -237,7 +243,7 @@ fn table(rows: &[&str]) -> String {
         let pad = " ".repeat(w.saturating_sub(visible_width(&row[0])));
         let line = format!("   {}{pad}  {}", row[0], rest);
         if head {
-            if rest.trim().is_empty() && row[0].trim() == "Befehl" {
+            if rest.trim().is_empty() && matches!(row[0].trim(), "Befehl" | "Command") {
                 continue;
             }
             out.push_str(&format!("{}\n", term::dim(line.trim_end())));
