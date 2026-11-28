@@ -161,6 +161,25 @@ pub fn age_label(since: NaiveDate, today: NaiveDate) -> String {
     }
 }
 
+/// Wie viele Tage bis `due`, mit oder ohne Samstag und Sonntag. Ohne zählen
+/// nur Montag bis Freitag zwischen morgen und dem Termin: Am Freitag ist eine
+/// Aufgabe für Montag dann in einem Tag fällig, nicht in drei. Ein Termin am
+/// Wochenende zählt wie der Freitag davor.
+pub fn days_until(today: NaiveDate, due: NaiveDate, weekend: bool) -> i64 {
+    let n = (due - today).num_days();
+    if weekend || n <= 0 {
+        return n;
+    }
+    (1..=n)
+        .filter(|&k| {
+            (today + Days::new(k as u64))
+                .weekday()
+                .num_days_from_monday()
+                < 5
+        })
+        .count() as i64
+}
+
 /// Der Sonntag dieser Woche (heute, wenn heute Sonntag ist).
 pub fn end_of_week(today: NaiveDate) -> NaiveDate {
     let left = 6 - today.weekday().num_days_from_monday();
@@ -502,5 +521,20 @@ mod tests {
         assert_eq!(due_label(d(2027, 1, 5).unwrap(), t), "fällig 05.01.2027");
         assert_eq!(long(t), "Donnerstag, 26. November");
         assert_eq!(end_of_week(t), d(2026, 11, 29).unwrap());
+    }
+
+    #[test]
+    fn ohne_wochenende_zaehlen_nur_werktage() {
+        // Freitag, 27.11.
+        let fr = d(2026, 11, 27).unwrap();
+        let mo = d(2026, 11, 30).unwrap();
+        assert_eq!(days_until(fr, mo, true), 3);
+        assert_eq!(days_until(fr, mo, false), 1);
+        // Termin am Sonntag: wie der Freitag davor, also heute.
+        assert_eq!(days_until(fr, d(2026, 11, 29).unwrap(), false), 0);
+        // Überfälliges bleibt überfällig.
+        assert_eq!(days_until(fr, d(2026, 11, 25).unwrap(), false), -2);
+        // Donnerstag bis Dienstag: Fr, Mo, Di.
+        assert_eq!(days_until(heute(), d(2026, 12, 1).unwrap(), false), 3);
     }
 }

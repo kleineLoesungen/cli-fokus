@@ -482,7 +482,8 @@ focus setup
 installations start in English, existing ones with a German task file stay
 German), then where your tasks should live, whether there should be a mobile
 file, how many tasks today and how many important topics there may be (1 to 9,
-3 if you don't say), whether `f` should work as a shortcut, whether every new terminal window
+3 if you don't say), whether Saturday and Sunday count for "due in … days"
+(without them, on Friday a task for Monday is already urgent), whether `f` should work as a shortcut, whether every new terminal window
 shows today's list, whether the Tab key should complete (zsh) and whether
 Focus should clear the window before each command. For that it writes a marked
 block into your `.zshrc` and the settings into `~/.config/focus/einstellungen`.
