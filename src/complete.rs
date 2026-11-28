@@ -41,6 +41,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     ("Ansehen", "themen", "deine Themen"),
     ("Ansehen", "personen", "alle Personen mit offenen Aufgaben"),
     ("Ansehen", "warten", "alles, was bei anderen liegt"),
+    ("Ansehen", "suche", "Aufgaben finden, auch in Notizen"),
     ("Ansehen", "archiv", "Erledigtes und Gestrichenes, 14 Tage"),
     ("Ändern", "ändern", "Text, Thema, Person oder Termin ändern"),
     ("Ändern", "abgeben", "Aufgabe an jemanden geben"),
@@ -64,6 +65,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
         "einrichten",
         "Kurzbefehl und Tab-Taste einrichten",
     ),
+    ("Datei und Einrichtung", "web", "Fokus im Browser-Tab"),
     ("Datei und Einrichtung", "deinstallieren", "Fokus entfernen"),
     ("Datei und Einrichtung", "hilfe", "alle Befehle"),
     (

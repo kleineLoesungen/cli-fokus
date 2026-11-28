@@ -8,9 +8,12 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 static COLOR: OnceLock<bool> = OnceLock::new();
 
-/// Farbe nur im Terminal, und nie, wenn `NO_COLOR` gesetzt ist.
+/// Farbe nur im Terminal (oder für `fokus web`), und nie, wenn `NO_COLOR` gesetzt ist.
 pub fn color() -> bool {
-    *COLOR.get_or_init(|| std::env::var_os("NO_COLOR").is_none() && io::stdout().is_terminal())
+    *COLOR.get_or_init(|| {
+        std::env::var_os("NO_COLOR").is_none()
+            && (io::stdout().is_terminal() || std::env::var_os("FOKUS_FARBE").is_some())
+    })
 }
 
 fn paint(code: &str, s: &str) -> String {

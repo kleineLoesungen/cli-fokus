@@ -240,6 +240,20 @@ fokus warten
 Das am längsten Liegende steht oben. Kommt etwas erledigt zurück:
 `fokus fertig 8`.
 
+### Wo war das noch?
+
+```
+fokus suche angebot
+```
+```
+ GEFUNDEN: ANGEBOT
+   4 · Angebot prüfen ✎                               fällig Freitag  Arbeit
+```
+
+Fokus sucht in Text, Thema, Personen und Notizen. Mehrere Wörter müssen alle
+vorkommen, Groß- und Kleinschreibung ist egal, und `pruefen` findet auch
+`prüfen`. Was im Archiv passt, steht blass darunter.
+
 ### Unterwegs: nachsehen und aufschreiben
 
 ```
@@ -331,10 +345,12 @@ auf heute) und `[z] zurück zu mir`.
 | `fokus themen ordnen` · `umbenennen a b` | Themen pflegen |
 | `fokus @anna` · `fokus personen` | eine Person · alle Personen |
 | `fokus abgeben 4 @tom` · `fokus warten` | abgeben · was bei anderen liegt |
+| `fokus suche wort …` | Aufgaben finden, auch in Notizen und im Archiv |
 | `fokus aufräumen` | Liegengebliebenes durchgehen |
 | `fokus datei` | die Aufgabendatei im Texteditor öffnen |
 | `fokus datei verschieben ort` | die Aufgabendatei an einen anderen Ort legen |
 | `fokus unterwegs ordner` · `unterwegs aus` | Stand fürs Handy, mit „Neu“ zum Aufschreiben |
+| `fokus web` | Fokus im Browser-Tab |
 | `fokus hilfe` | die kurze Übersicht |
 | `fokus anleitung` · `anleitung unterwegs` | diese Anleitung, oder nur der passende Abschnitt |
 
@@ -372,6 +388,32 @@ bekommt `Fokus.md`, eine `.md`-Datei bleibt, wie sie heißt). Fokus zieht die
 Datei um und merkt sich den Ort. Liegt dort schon eine Aufgabendatei, fragt
 Fokus, ob es die nehmen soll, und überschreibt nichts. Die Orte stehen in
 `~/.config/fokus/einstellungen`; `fokus einrichten` fragt auch danach.
+
+## Im Browser: `fokus web`
+
+Wer ohnehin viel im Browser arbeitet: `fokus web` öffnet Fokus als Tab, im
+selben Look wie im Terminal. Oben steht immer die Liste für heute, darunter
+die Antwort auf deinen letzten Befehl, ganz unten tippst du wie gewohnt
+(`+ Bericht #arbeit freitag`, ein `fokus` vorne darf mit). Dazu:
+
+- **Nummern und Links anklicken:** Eine Aufgabennummer zeigt die Aufgabe mit
+  ihren Notizen, ein Link öffnet sich in einem neuen Tab.
+- **Tab-Taste** ergänzt wie in der Shell, **↑** holt frühere Befehle.
+- Kommst du zurück in den Tab, ist die Liste aktuell, auch nach Änderungen im
+  Terminal.
+- **Übersicht anpassen:** „▾ Übersicht“ oben links klappt die Liste ein, die
+  Linie darunter ändert beim Ziehen ihre Höhe (Doppelklick klappt auch ein).
+- **Hell oder dunkel:** Der Knopf oben rechts schaltet zwischen auto (wie das
+  System), hell und dunkel. Der Browser merkt sich beides.
+- Im Hintergrund fällt ein leiser Zeichenregen aus Ziffern und Fokus-Zeichen.
+  `regen` in der Eingabe schaltet ihn aus und wieder an. Wer am Mac „Bewegung
+  reduzieren“ eingestellt hat, bekommt ihn nicht.
+
+Der Tab läuft, solange `fokus web` im Terminal läuft (Strg+C beendet). Fokus
+hört nur auf `127.0.0.1:4711`, ist also nur auf deinem Mac erreichbar; ein
+anderer Port geht mit `fokus web 4712`. Was im Terminal nachfragt (Notizen
+durchgehen, Themen ordnen, aufräumen), geht im Browser nicht; dort sagt Fokus,
+wie es mit einem Befehl geht.
 
 ## Was Fokus absichtlich nicht kann
 
