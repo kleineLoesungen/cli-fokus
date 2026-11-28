@@ -299,8 +299,7 @@ fn versehentlich_abgehakt_kommt_zurueck() {
     let s = Sandbox::new("zurueck");
     s.ok(&["+", "Präsentation"]);
     s.ok(&["heute", "1"]);
-    let out = s.ok(&["fertig", "1"]);
-    assert!(out.contains("Versehen? fokus zurück 1"));
+    assert!(s.ok(&["fertig", "1"]).contains("Erledigt: Präsentation"));
     assert!(s.ok(&["zurück", "1"]).contains("wieder auf heute"));
     assert!(s.ok(&[]).contains("1 ▶ Präsentation"));
 }

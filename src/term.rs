@@ -52,6 +52,14 @@ pub fn width() -> usize {
         .clamp(40, 100)
 }
 
+/// Leert den sichtbaren Bereich und setzt den Cursor nach oben links. Der
+/// Verlauf bleibt: Hochscrollen zeigt, was vorher da stand. Nur im Terminal.
+pub fn clear_screen() {
+    if io::stdout().is_terminal() {
+        print!("\x1b[H\x1b[2J");
+    }
+}
+
 pub fn is_interactive() -> bool {
     io::stdin().is_terminal() && io::stdout().is_terminal()
 }
