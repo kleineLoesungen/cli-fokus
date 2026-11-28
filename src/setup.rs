@@ -21,7 +21,7 @@ pub fn run() -> Result<(), String> {
     let shell = std::env::var("SHELL").unwrap_or_default();
     let zsh = !shell.ends_with("bash");
     let rc = if !zsh {
-        home.join(".bash_profile")
+        bash_rc(&home)
     } else {
         std::env::var_os("ZDOTDIR")
             .map(PathBuf::from)
@@ -55,9 +55,12 @@ pub fn run() -> Result<(), String> {
     let start =
         term::ask_yes(" Soll jedes neue Terminalfenster die Liste für heute zeigen? [J/n] ")
             .map_err(term::io_err)?;
-    let complete =
-        term::ask_yes(" Soll die Tab-Taste Befehle, Nummern, Themen und Personen ergänzen? [J/n] ")
-            .map_err(term::io_err)?;
+    // Die Tab-Ergänzung gibt es nur für zsh.
+    let complete = zsh
+        && term::ask_yes(
+            " Soll die Tab-Taste Befehle, Nummern, Themen und Personen ergänzen? [J/n] ",
+        )
+        .map_err(term::io_err)?;
     ask_clear()?;
 
     let existing = fs::read_to_string(&rc).unwrap_or_default();
@@ -478,16 +481,58 @@ fn shell_files(home: &Path) -> Vec<PathBuf> {
     let zdot = std::env::var_os("ZDOTDIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| home.to_path_buf());
-    let mut v = vec![zdot.join(".zshrc"), home.join(".bash_profile")];
+    let mut v = vec![
+        zdot.join(".zshrc"),
+        home.join(".bash_profile"),
+        home.join(".bashrc"),
+    ];
     v.dedup();
     v
 }
 
-/// Verschiebt in `~/.Trash`; gibt es den Namen dort schon, mit Zahl dahinter.
+/// Wo bash ihre Einstellungen liest: Terminal.app startet Login-Shells
+/// (`.bash_profile`), Linux-Terminals meist nicht (`.bashrc`).
+fn bash_rc(home: &Path) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        home.join(".bash_profile")
+    } else {
+        home.join(".bashrc")
+    }
+}
+
+/// Verschiebt in den Papierkorb; gibt es den Namen dort schon, mit Zahl dahinter.
+/// Am Mac `~/.Trash`, sonst der Papierkorb nach freedesktop.org, den Dateimanager
+/// wie Nautilus oder Dolphin zeigen und aus dem sie wiederherstellen können.
 fn move_to_trash(file: &Path, home: &Path) -> std::io::Result<PathBuf> {
-    let trash = home.join(".Trash");
-    let to = free_name(&trash, file);
-    fs::rename(file, &to)?;
+    if cfg!(target_os = "macos") {
+        let to = free_name(&home.join(".Trash"), file);
+        move_file(file, &to)?;
+        return Ok(to);
+    }
+    let trash = std::env::var_os("XDG_DATA_HOME")
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".local").join("share"))
+        .join("Trash");
+    let files = trash.join("files");
+    let info = trash.join("info");
+    fs::create_dir_all(&files)?;
+    fs::create_dir_all(&info)?;
+    let to = free_name(&files, file);
+    let name = to
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Fokus.md");
+    let from = fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    fs::write(
+        info.join(format!("{name}.trashinfo")),
+        format!(
+            "[Trash Info]\nPath={}\nDeletionDate={}\n",
+            from.display(),
+            chrono::Local::now().format("%Y-%m-%dT%H:%M:%S")
+        ),
+    )?;
+    move_file(file, &to)?;
     Ok(to)
 }
 
@@ -542,7 +587,7 @@ fn block(exe: &Path, w: &Wishes, found: bool) -> String {
             lines.push(format!("alias f={exe}"));
         }
     }
-    if w.complete {
+    if w.complete && w.zsh {
         lines.push(format!("eval \"$({exe} _zsh)\""));
     }
     if w.start {
@@ -607,8 +652,10 @@ mod tests {
         assert_eq!(einmal, zweimal);
         assert_eq!(
             einmal,
-            "export X=1\n\n# >>> fokus >>>\nalias f='/usr/local/bin/fokus'\neval \"$('/usr/local/bin/fokus' _zsh)\"\n'/usr/local/bin/fokus'\n# <<< fokus <<<\n"
+            "export X=1\n\n# >>> fokus >>>\nalias f='/usr/local/bin/fokus'\n'/usr/local/bin/fokus'\n# <<< fokus <<<\n"
         );
+        // In bash gibt es keine Tab-Ergänzung von Fokus: das zsh-Skript bliebe dort nur ein Fehler.
+        assert!(!b.contains("_zsh"));
         assert_eq!(with_block(&einmal, ""), "export X=1\n");
     }
 

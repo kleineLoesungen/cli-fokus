@@ -32,7 +32,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         term::green("✓"),
         term::dim("Nur auf diesem Mac erreichbar. Strg+C beendet.")
     );
-    let _ = Command::new("open").arg(&url).status();
+    let _ = Command::new(term::opener()).arg(&url).status();
 
     let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
     // Immer nur ein Befehl auf einmal: zwei gleichzeitige könnten sich die Datei überschreiben.
