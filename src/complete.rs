@@ -1,6 +1,6 @@
 //! Autovervollständigung mit der Tab-Taste (zsh).
 //!
-//! Die Shell fragt bei jedem Tab `fokus _complete <Wörter bis hier>` und
+//! Die Shell fragt bei jedem Tab `focus _complete <Wörter bis hier>` und
 //! bekommt je Zeile `Gruppe<Tab>Wert<Tab>Anzeige` zurück. So kennt die
 //! Vervollständigung immer die aktuellen Nummern, Themen und Personen, ohne
 //! eigene Liste. Aufeinanderfolgende Zeilen derselben Gruppe zeigt zsh unter
@@ -65,8 +65,8 @@ const COMMANDS: &[(&str, &str, &str)] = &[
         "einrichten",
         "Kurzbefehl und Tab-Taste einrichten",
     ),
-    ("Datei und Einrichtung", "web", "Fokus im Browser-Tab"),
-    ("Datei und Einrichtung", "deinstallieren", "Fokus entfernen"),
+    ("Datei und Einrichtung", "web", "Focus im Browser-Tab"),
+    ("Datei und Einrichtung", "deinstallieren", "Focus entfernen"),
     ("Datei und Einrichtung", "hilfe", "alle Befehle"),
     (
         "Datei und Einrichtung",
@@ -205,7 +205,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
     }
 }
 
-/// Ohne `#` davor, für `fokus themen ordnen|umbenennen`.
+/// Ohne `#` davor, für `focus themen ordnen|umbenennen`.
 fn bare(items: Vec<Item>) -> Vec<Item> {
     items
         .into_iter()
@@ -274,7 +274,7 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<Item> {
         .collect()
 }
 
-/// Was im Archiv steht, mit Text – für `fokus zurück`. Das Neueste zuerst.
+/// Was im Archiv steht, mit Text – für `focus zurück`. Das Neueste zuerst.
 fn archived(store: &Store, skip: &[u32]) -> Vec<Item> {
     let today = store.today;
     let mut tasks: Vec<&Task> = store
@@ -399,14 +399,14 @@ fn safe(value: &str) -> String {
         .collect()
 }
 
-/// Das Skript, das `fokus einrichten` per `eval` in die `.zshrc` holt.
+/// Das Skript, das `focus einrichten` per `eval` in die `.zshrc` holt.
 pub fn zsh_script(exe: &Path) -> String {
     let exe = format!("'{}'", exe.display().to_string().replace('\'', r"'\''"));
     let files = FILES;
     format!(
-        r#"# Tab-Vervollständigung für fokus. Erzeugt von „fokus _zsh“.
-# Jede Gruppe bekommt eine eigene Überschrift; die Reihenfolge kommt von fokus.
-_fokus() {{
+        r#"# Tab-Vervollständigung für focus. Erzeugt von „focus _zsh“.
+# Jede Gruppe bekommt eine eigene Überschrift; die Reihenfolge kommt von focus.
+_focus() {{
   local -a vals disp expl
   local g v d grp="" started=0
   local -i ret=1 n=0
@@ -419,7 +419,7 @@ _fokus() {{
       (( n++ ))
       expl=()
       [[ -n $grp ]] && expl=(-X "%B$grp%b")
-      compadd -Q -V "fokus-$n" "${{expl[@]}}" -l -d disp -a vals && ret=0
+      compadd -Q -V "focus-$n" "${{expl[@]}}" -l -d disp -a vals && ret=0
       vals=() disp=()
     fi
     started=1 grp=$g
@@ -430,7 +430,7 @@ _fokus() {{
     (( n++ ))
     expl=()
     [[ -n $grp ]] && expl=(-X "%B$grp%b")
-    compadd -Q -V "fokus-$n" "${{expl[@]}}" -l -d disp -a vals && ret=0
+    compadd -Q -V "focus-$n" "${{expl[@]}}" -l -d disp -a vals && ret=0
   fi
   return ret
 }}
@@ -438,7 +438,7 @@ _fokus() {{
 if ! (( $+functions[compdef] )); then
   autoload -Uz compinit && compinit -i
 fi
-compdef _fokus fokus f
+compdef _focus focus f
 "#
     )
 }

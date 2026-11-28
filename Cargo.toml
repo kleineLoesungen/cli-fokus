@@ -1,11 +1,11 @@
 [package]
-name = "fokus"
+name = "focus"
 version = "0.1.0"
 edition = "2024"
 description = "Was ist heute dran? Aufgaben nach dringend und wichtig, im Terminal."
 license = "GPL-3.0-or-later"
-repository = "https://github.com/kleineLoesungen/cli-fokus"
-homepage = "https://github.com/kleineLoesungen/cli-fokus"
+repository = "https://github.com/kleineLoesungen/cli-focus"
+homepage = "https://github.com/kleineLoesungen/cli-focus"
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }

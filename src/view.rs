@@ -187,7 +187,7 @@ fn header(left: &str, right: &str, width: usize) -> String {
     s
 }
 
-/// `fokus` – was heute dran ist.
+/// `focus` – was heute dran ist.
 pub fn today(store: &Store) -> String {
     let width = term::list_width();
     let done = store.done_today();
@@ -227,12 +227,12 @@ pub fn today(store: &Store) -> String {
         Some("Alles für heute geschafft.".to_string())
     } else if open.is_empty() && !suggestion.is_empty() {
         Some(format!(
-            "Noch nichts für heute. Mein Vorschlag: fokus heute {}",
+            "Noch nichts für heute. Mein Vorschlag: focus heute {}",
             suggestion.join(" ")
         ))
     } else if open.is_empty() && any_open {
         Some(format!(
-            "Noch nichts für heute. Wähle bis zu {TODAY_LIMIT}: fokus heute <Nr>  (Nummern: fokus alles)"
+            "Noch nichts für heute. Wähle bis zu {TODAY_LIMIT}: focus heute <Nr>  (Nummern: focus alles)"
         ))
     } else if open.is_empty() {
         Some("Noch nichts für heute.".to_string())
@@ -240,7 +240,7 @@ pub fn today(store: &Store) -> String {
         None
     };
     let hint = if store.suggested && !open.is_empty() {
-        "Vorschlag von Fokus · tauschen: fokus heute <Nr>".to_string()
+        "Vorschlag von Focus · tauschen: focus heute <Nr>".to_string()
     } else {
         String::new()
     };
@@ -320,9 +320,9 @@ pub fn today(store: &Store) -> String {
     }
     if !parts.is_empty() {
         let next = if stale + overdue > 0 {
-            "fokus aufräumen"
+            "focus aufräumen"
         } else {
-            "fokus alles"
+            "focus alles"
         };
         if let Some(last) = parts.last_mut() {
             last.push_str(&format!(" → {next}"));
@@ -335,13 +335,13 @@ pub fn today(store: &Store) -> String {
 fn welcome() -> String {
     format!(
         "\n Noch keine Aufgaben. Schreib die erste auf:\n\n   {}\n\n {}\n {}\n",
-        term::bold("fokus + Präsentation vorbereiten #arbeit morgen"),
+        term::bold("focus + Präsentation vorbereiten #arbeit morgen"),
         term::dim("#arbeit ist das Thema, morgen der Termin. Beides darfst du weglassen."),
-        term::dim("Alle Befehle: fokus hilfe"),
+        term::dim("Alle Befehle: focus hilfe"),
     )
 }
 
-/// `fokus alles` – die vier Felder.
+/// `focus alles` – die vier Felder.
 pub fn matrix(store: &Store) -> String {
     let width = term::width();
     let mut q: [Vec<&Task>; 4] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
@@ -374,7 +374,7 @@ pub fn matrix(store: &Store) -> String {
             s.push_str(&format!(
                 " {}\n",
                 term::dim(&format!(
-                    "{waiting} {} bei anderen: fokus personen",
+                    "{waiting} {} bei anderen: focus personen",
                     if waiting == 1 { "liegt" } else { "liegen" }
                 ))
             ));
@@ -437,7 +437,7 @@ pub fn matrix(store: &Store) -> String {
     }
     if waiting > 0 {
         legend.push(format!(
-            "{waiting} {} bei anderen: fokus personen",
+            "{waiting} {} bei anderen: focus personen",
             if waiting == 1 { "liegt" } else { "liegen" }
         ));
     }
@@ -589,7 +589,7 @@ fn matrix_wide(
     }
 }
 
-/// `fokus themen`
+/// `focus themen`
 pub fn topics(store: &Store) -> String {
     let inbox = store
         .tasks
@@ -600,7 +600,7 @@ pub fn topics(store: &Store) -> String {
         let mut s = String::from(
             "\n Noch keine Themen. Ein Thema entsteht, sobald du es in eine Aufgabe schreibst:\n\n   ",
         );
-        s.push_str(&term::bold("fokus + Laufschuhe kaufen #gesundheit"));
+        s.push_str(&term::bold("focus + Laufschuhe kaufen #gesundheit"));
         s.push('\n');
         if inbox > 0 {
             s.push_str(&format!(
@@ -735,7 +735,7 @@ pub fn topics(store: &Store) -> String {
     }
     out.push_str(&format!(
         "\n {}\n",
-        term::dim("Welche drei wichtig sind, wählst du mit: fokus themen ordnen")
+        term::dim("Welche drei wichtig sind, wählst du mit: focus themen ordnen")
     ));
     if term::color() {
         out
@@ -793,13 +793,13 @@ fn person_counts(store: &Store) -> Vec<PersonCount> {
     v
 }
 
-/// `fokus personen`
+/// `focus personen`
 pub fn persons(store: &Store) -> String {
     let list = person_counts(store);
     if list.is_empty() {
         return format!(
             "\n Bei niemandem ist gerade etwas offen.\n {}\n",
-            term::dim("Schreib @name in eine Aufgabe, etwa: fokus + Urlaub abstimmen @anna")
+            term::dim("Schreib @name in eine Aufgabe, etwa: focus + Urlaub abstimmen @anna")
         );
     }
     let name_w = list
@@ -832,12 +832,12 @@ pub fn persons(store: &Store) -> String {
     }
     out.push_str(&format!(
         "\n {}\n",
-        term::dim("Alles zu einer Person: fokus @name")
+        term::dim("Alles zu einer Person: focus @name")
     ));
     out
 }
 
-/// `fokus @anna`
+/// `focus @anna`
 pub fn person(store: &Store, raw: &str) -> String {
     let k = tags::key(tags::clean(raw));
     let name = store
@@ -864,7 +864,7 @@ pub fn person(store: &Store, raw: &str) -> String {
     if with.is_empty() && waiting.is_empty() {
         return format!(
             "\n Bei {name} ist gerade nichts offen.\n {}\n",
-            term::dim("Alle Personen: fokus personen")
+            term::dim("Alle Personen: focus personen")
         );
     }
     let blocks = vec![
@@ -906,7 +906,7 @@ pub fn person(store: &Store, raw: &str) -> String {
     out
 }
 
-/// `fokus #arbeit` – alles in einem Thema.
+/// `focus #arbeit` – alles in einem Thema.
 pub fn topic(store: &Store, raw: &str) -> String {
     let k = tags::key(tags::clean(raw));
     if k.is_empty() {
@@ -954,7 +954,7 @@ pub fn topic(store: &Store, raw: &str) -> String {
     if none && open.is_empty() && waiting.is_empty() {
         return format!(
             "\n Alle offenen Aufgaben haben ein Thema.\n {}\n",
-            term::dim("Deine Themen: fokus themen")
+            term::dim("Deine Themen: focus themen")
         );
     }
     let target = notes::Target::Topic(name.clone(), None);
@@ -968,7 +968,7 @@ pub fn topic(store: &Store, raw: &str) -> String {
         if !topic_notes.is_empty() {
             out.push_str(&format!("\n{topic_notes}"));
         }
-        out.push_str(&format!(" {}\n", term::dim("Deine Themen: fokus themen")));
+        out.push_str(&format!(" {}\n", term::dim("Deine Themen: focus themen")));
         return out;
     }
     let width = term::list_width();
@@ -1030,7 +1030,7 @@ pub fn topic(store: &Store, raw: &str) -> String {
     if none && let Some(t) = open.first().or(waiting.first()) {
         out.push_str(&format!(
             " {}\n",
-            term::dim(&format!("Thema geben: fokus ändern {} #thema", t.nr))
+            term::dim(&format!("Thema geben: focus ändern {} #thema", t.nr))
         ));
     }
     out
@@ -1058,7 +1058,7 @@ fn waiting_row(store: &Store, t: &Task) -> Row {
     }
 }
 
-/// `fokus warten` – alles, was bei anderen liegt, das Älteste zuerst.
+/// `focus warten` – alles, was bei anderen liegt, das Älteste zuerst.
 pub fn waiting(store: &Store) -> String {
     let mut list: Vec<&Task> = store
         .tasks
@@ -1068,7 +1068,7 @@ pub fn waiting(store: &Store) -> String {
     if list.is_empty() {
         return format!(
             "\n Du wartest gerade auf niemanden.\n {}\n",
-            term::dim("Abgeben geht so: fokus abgeben 4 @tom")
+            term::dim("Abgeben geht so: focus abgeben 4 @tom")
         );
     }
     list.sort_by_key(|t| t.since);
@@ -1076,7 +1076,7 @@ pub fn waiting(store: &Store) -> String {
     let blocks = vec![Block {
         title: "WARTE AUF".into(),
         hint: if stale {
-            "→ nachhaken: fokus aufräumen".into()
+            "→ nachhaken: focus aufräumen".into()
         } else {
             String::new()
         },
@@ -1087,7 +1087,7 @@ pub fn waiting(store: &Store) -> String {
     out.push_str(&layout(&blocks, term::list_width()));
     out.push_str(&format!(
         " {}\n",
-        term::dim("Zurück zu dir: fokus heute <Nr> · kam erledigt zurück: fokus fertig <Nr>")
+        term::dim("Zurück zu dir: focus heute <Nr> · kam erledigt zurück: focus fertig <Nr>")
     ));
     out
 }
@@ -1101,7 +1101,7 @@ fn fold(s: &str) -> String {
         .replace('ß', "ss")
 }
 
-/// `fokus suche wort …` – Aufgaben, in denen alle Wörter vorkommen: im Text,
+/// `focus suche wort …` – Aufgaben, in denen alle Wörter vorkommen: im Text,
 /// im Thema, bei der Person, in den Notizen. Dazu, was im Archiv passt.
 pub fn search(store: &Store, words: &[String]) -> String {
     let wanted: Vec<String> = words
@@ -1157,7 +1157,7 @@ pub fn search(store: &Store, words: &[String]) -> String {
         },
         Block {
             title: "IM ARCHIV".into(),
-            hint: "zurückholen: fokus zurück <Nr>".into(),
+            hint: "zurückholen: focus zurück <Nr>".into(),
             rows: gone
                 .iter()
                 .map(|t| {
@@ -1179,7 +1179,7 @@ pub fn search(store: &Store, words: &[String]) -> String {
     out
 }
 
-/// `fokus archiv` – Erledigtes und Gestrichenes der letzten 14 Tage.
+/// `focus archiv` – Erledigtes und Gestrichenes der letzten 14 Tage.
 pub fn archive(store: &Store) -> String {
     let today = store.today;
     let mut list: Vec<&Task> = store
@@ -1235,99 +1235,99 @@ pub fn archive(store: &Store) -> String {
     out.push_str(&format!(
         " {}\n",
         term::dim(&format!(
-            "Zurückholen: fokus zurück <Nr> · nach {KEEP_DAYS} Tagen löscht Fokus endgültig"
+            "Zurückholen: focus zurück <Nr> · nach {KEEP_DAYS} Tagen löscht Focus endgültig"
         ))
     ));
     out
 }
 
-/// `fokus hilfe`
+/// `focus hilfe`
 pub fn help(path: &Path, away: Option<&Path>) -> String {
     let rows: &[(&str, &str)] = &[
-        ("fokus", "zeigt, was heute dran ist"),
+        ("focus", "zeigt, was heute dran ist"),
         (
-            "fokus + Text #thema @person termin",
+            "focus + Text #thema @person termin",
             "schreibt eine Aufgabe auf",
         ),
         (
-            "fokus +",
+            "focus +",
             "fragt nach dem Text (gut bei Zeichen wie ' oder ?)",
         ),
-        ("fokus heute 4", "legt Aufgabe 4 auf heute"),
-        ("fokus später 4", "nimmt Aufgabe 4 wieder von heute"),
-        ("fokus fertig 4", "hakt Aufgabe 4 ab"),
+        ("focus heute 4", "legt Aufgabe 4 auf heute"),
+        ("focus später 4", "nimmt Aufgabe 4 wieder von heute"),
+        ("focus fertig 4", "hakt Aufgabe 4 ab"),
         (
-            "fokus ändern 4 morgen",
+            "focus ändern 4 morgen",
             "ändert Text, #thema, @person oder Termin",
         ),
-        ("fokus 4", "zeigt Aufgabe 4 mit ihren Notizen"),
+        ("focus 4", "zeigt Aufgabe 4 mit ihren Notizen"),
         (
-            "fokus notiz 4 text",
+            "focus notiz 4 text",
             "Notiz oder Link dazu, auch zu #thema (4.2 ändert eine)",
         ),
-        ("fokus notiz 4.2 löschen", "löscht die zweite Notiz"),
-        ("fokus öffnen 4", "öffnet den Link aus den Notizen"),
-        ("fokus jetzt", "zeigt nur eine Aufgabe, mit Uhr"),
-        ("fokus alles", "zeigt alle Aufgaben in vier Feldern"),
+        ("focus notiz 4.2 löschen", "löscht die zweite Notiz"),
+        ("focus öffnen 4", "öffnet den Link aus den Notizen"),
+        ("focus jetzt", "zeigt nur eine Aufgabe, mit Uhr"),
+        ("focus alles", "zeigt alle Aufgaben in vier Feldern"),
         (
-            "fokus themen",
+            "focus themen",
             "zeigt deine Themen und wie es dort vorangeht",
         ),
-        ("fokus themen ordnen", "wählt die drei wichtigen Themen"),
+        ("focus themen ordnen", "wählt die drei wichtigen Themen"),
         (
-            "fokus themen umbenennen a b",
+            "focus themen umbenennen a b",
             "benennt Thema a in b um (überall)",
         ),
-        ("fokus @anna", "zeigt alles, was du mit Anna hast"),
-        ("fokus personen", "zeigt alle Personen mit offenen Aufgaben"),
-        ("fokus #arbeit", "zeigt alles im Thema Arbeit"),
-        ("fokus #ohne", "zeigt die Aufgaben ohne Thema"),
-        ("fokus warten", "zeigt alles, was bei anderen liegt"),
+        ("focus @anna", "zeigt alles, was du mit Anna hast"),
+        ("focus personen", "zeigt alle Personen mit offenen Aufgaben"),
+        ("focus #arbeit", "zeigt alles im Thema Arbeit"),
+        ("focus #ohne", "zeigt die Aufgaben ohne Thema"),
+        ("focus warten", "zeigt alles, was bei anderen liegt"),
         (
-            "fokus suche wort",
+            "focus suche wort",
             "findet Aufgaben, auch in Notizen und im Archiv",
         ),
         (
-            "fokus abgeben 4 @tom",
+            "focus abgeben 4 @tom",
             "gibt Aufgabe 4 an Tom und merkt sie als „warte auf“",
         ),
         (
-            "fokus streichen 4",
+            "focus streichen 4",
             "streicht Aufgabe 4 (14 Tage im Archiv)",
         ),
         (
-            "fokus archiv",
+            "focus archiv",
             "zeigt Erledigtes und Gestrichenes, 14 Tage lang",
         ),
-        ("fokus zurück 4", "holt Aufgabe 4 aus dem Archiv zurück"),
+        ("focus zurück 4", "holt Aufgabe 4 aus dem Archiv zurück"),
         (
-            "fokus aufräumen",
+            "focus aufräumen",
             "geht liegengebliebene Aufgaben mit dir durch",
         ),
-        ("fokus datei", "öffnet deine Aufgabendatei im Texteditor"),
+        ("focus datei", "öffnet deine Aufgabendatei im Texteditor"),
         (
-            "fokus datei verschieben ort",
+            "focus datei verschieben ort",
             "legt deine Aufgabendatei an einen anderen Ort",
         ),
         (
-            "fokus unterwegs ordner",
+            "focus unterwegs ordner",
             "schreibt den Stand fürs Handy dorthin (aus: abschalten)",
         ),
-        ("fokus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
+        ("focus einrichten", "richtet Kurzbefehl f und Tab-Taste ein"),
         (
-            "fokus web",
-            "öffnet Fokus im Browser-Tab, im Look des Terminals",
+            "focus web",
+            "öffnet Focus im Browser-Tab, im Look des Terminals",
         ),
         (
-            "fokus deinstallieren",
-            "entfernt Fokus wieder (deine Aufgaben nur auf Wunsch)",
+            "focus deinstallieren",
+            "entfernt Focus wieder (deine Aufgaben nur auf Wunsch)",
         ),
         (
-            "fokus anleitung stichwort",
+            "focus anleitung stichwort",
             "die ganze Anleitung, oder nur der passende Abschnitt",
         ),
     ];
-    let mut out = format!("\n {}\n\n", term::bold("Fokus – was ist heute dran?"));
+    let mut out = format!("\n {}\n\n", term::bold("Focus – was ist heute dran?"));
     for (cmd, what) in rows {
         if term::text_width(cmd) > 28 {
             out.push_str(&format!(
@@ -1346,8 +1346,8 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
     out.push_str(&format!(
         "\n {}\n {}\n {}\n {}\n",
         term::dim("Termine: heute, morgen, freitag, 3.12., in 2 wochen · jeden montag, alle 2 wochen freitag"),
-        term::dim("Statt „fokus“ geht auch „f“, wenn du „fokus einrichten“ benutzt hast."),
-        term::dim("Mehr zu allem: fokus anleitung, etwa fokus anleitung unterwegs"),
+        term::dim("Statt „focus“ geht auch „f“, wenn du „focus einrichten“ benutzt hast."),
+        term::dim("Mehr zu allem: focus anleitung, etwa focus anleitung unterwegs"),
         term::dim(&format!("Deine Aufgaben liegen in {}", path.display())),
     ));
     if let Some(a) = away {
@@ -1378,7 +1378,7 @@ pub fn summary(store: &Store, t: &Task) -> String {
     parts.join(" · ")
 }
 
-/// `fokus 5`: eine Aufgabe mit allen Notizen.
+/// `focus 5`: eine Aufgabe mit allen Notizen.
 pub fn detail(store: &Store, nr: u32) -> String {
     let Some(i) = store.find(nr) else {
         return format!(" Eine offene Aufgabe {nr} gibt es nicht.\n");
@@ -1422,17 +1422,17 @@ pub fn detail(store: &Store, nr: u32) -> String {
         out.push_str(&format!(
             "\n {}\n",
             term::dim(&format!(
-                "Noch keine Notizen. Dazu: fokus notiz {nr} Text oder Link"
+                "Noch keine Notizen. Dazu: focus notiz {nr} Text oder Link"
             ))
         ));
     } else {
         out.push_str(&format!("\n{lines}\n"));
         let mut hints = vec![
-            format!("neu: fokus notiz {nr} …"),
-            format!("ändern: fokus notiz {nr}.1 …"),
+            format!("neu: focus notiz {nr} …"),
+            format!("ändern: focus notiz {nr}.1 …"),
         ];
         if !store::links(&t.notes.join(" ")).is_empty() || !store::links(&t.text).is_empty() {
-            hints.push(format!("Link: fokus öffnen {nr}"));
+            hints.push(format!("Link: focus öffnen {nr}"));
         }
         out.push_str(&format!(" {}\n", term::dim(&hints.join(" · "))));
     }

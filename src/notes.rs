@@ -1,4 +1,4 @@
-//! Notizen und Links zu Aufgaben und Themen: `fokus notiz …`, `fokus öffnen …`.
+//! Notizen und Links zu Aufgaben und Themen: `focus notiz …`, `focus öffnen …`.
 //!
 //! Eine Notiz ist eine Zeile Text oder ein Link, ohne Felder. Sie heißt nach
 //! ihrer Aufgabe: `5.2` ist die zweite Notiz zu Aufgabe 5, `#arbeit.1` die
@@ -77,7 +77,7 @@ fn topic_name(store: &Store, name: &str) -> String {
 fn check(store: &Store, t: &Target) -> Result<(), String> {
     match t {
         Target::Task(n, _) => store.find(*n).map(|_| ()).ok_or_else(|| {
-            format!("Eine offene Aufgabe {n} gibt es nicht. Die Nummern stehen in: fokus alles")
+            format!("Eine offene Aufgabe {n} gibt es nicht. Die Nummern stehen in: focus alles")
         }),
         Target::Topic(name, _) => {
             if tags::key(name) == tags::NO_TOPIC {
@@ -87,7 +87,7 @@ fn check(store: &Store, t: &Target) -> Result<(), String> {
                 Ok(())
             } else {
                 Err(format!(
-                    "Ein Thema „{}“ kenne ich nicht. Deine Themen: fokus themen",
+                    "Ein Thema „{}“ kenne ich nicht. Deine Themen: focus themen",
                     tags::display(name)
                 ))
             }
@@ -121,15 +121,15 @@ fn notes_mut<'a>(store: &'a mut Store, t: &Target) -> &'a mut Vec<String> {
 
 const DELETE: &[&str] = &["löschen", "loeschen", "weg", "streichen", "entfernen"];
 
-/// `fokus notiz 5 Text` · `notiz 5.2 Text` · `notiz 5.2 löschen` · `notiz 5`
+/// `focus notiz 5 Text` · `notiz 5.2 Text` · `notiz 5.2 löschen` · `notiz 5`
 pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
     let Some(first) = args.first() else {
         return Err(
-            "Wozu? Zum Beispiel: fokus notiz 5 https://… oder fokus notiz #arbeit Wiki: …".into(),
+            "Wozu? Zum Beispiel: focus notiz 5 https://… oder focus notiz #arbeit Wiki: …".into(),
         );
     };
     let target = Target::parse(first).ok_or_else(|| {
-        format!("„{first}“ ist keine Aufgabe und kein Thema. Zum Beispiel: fokus notiz 5 Text")
+        format!("„{first}“ ist keine Aufgabe und kein Thema. Zum Beispiel: focus notiz 5 Text")
     })?;
     check(store, &target)?;
     let text = args[1..].join(" ");
@@ -158,7 +158,7 @@ pub fn command(store: &mut Store, args: &[String]) -> Result<String, String> {
             if i > count {
                 return Err(match count {
                     0 => {
-                        format!("Zu {name} gibt es noch keine Notiz. Neu: fokus notiz {name} Text")
+                        format!("Zu {name} gibt es noch keine Notiz. Neu: focus notiz {name} Text")
                     }
                     1 => format!("Zu {name} gibt es nur eine Notiz: {name}.1"),
                     n => format!("Zu {name} gibt es nur {n} Notizen, bis {name}.{n}."),
@@ -196,7 +196,7 @@ fn delete(store: &mut Store, target: &Target, i: usize) -> String {
     format!(
         " {} Notiz {name}.{i} gelöscht: {old}\n   {}",
         term::green("✓"),
-        term::dim(&format!("Zurückholen: fokus notiz {name} {old}"))
+        term::dim(&format!("Zurückholen: focus notiz {name} {old}"))
     )
 }
 
@@ -220,7 +220,7 @@ fn listing(store: &Store, target: &Target) -> String {
             let body = lines(store, target);
             let name = label(store, target);
             if body.is_empty() {
-                format!(" Zu {name} gibt es noch keine Notiz. Neu: fokus notiz {name} Text")
+                format!(" Zu {name} gibt es noch keine Notiz. Neu: focus notiz {name} Text")
             } else {
                 format!("\n {}\n{body}", term::bold(&topic_heading(store, target)))
             }
@@ -235,7 +235,7 @@ fn topic_heading(store: &Store, target: &Target) -> String {
     }
 }
 
-/// `fokus notiz 5` im Terminal: Ziffer wählt, [n] neu, Enter fertig.
+/// `focus notiz 5` im Terminal: Ziffer wählt, [n] neu, Enter fertig.
 fn interactive(store: &mut Store, target: &Target) -> Result<String, String> {
     let name = label(store, target);
     loop {
@@ -312,11 +312,11 @@ fn edit_one(store: &mut Store, target: &Target, i: usize) -> Result<Option<Strin
     }
 }
 
-/// `fokus öffnen 5` · `öffnen 5.2` · `öffnen #arbeit`
+/// `focus öffnen 5` · `öffnen 5.2` · `öffnen #arbeit`
 pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
     let first = args
         .first()
-        .ok_or("Welchen Link? Zum Beispiel: fokus öffnen 5")?;
+        .ok_or("Welchen Link? Zum Beispiel: focus öffnen 5")?;
     let target = Target::parse(first)
         .ok_or_else(|| format!("„{first}“ ist keine Aufgabe und kein Thema."))?;
     check(store, &target)?;
@@ -352,7 +352,7 @@ pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
         0 => {
             return Err(match target.index() {
                 Some(i) => format!("In Notiz {name}.{i} steht kein Link."),
-                None => format!("Zu {name} gibt es keinen Link. Neu: fokus notiz {name} https://…"),
+                None => format!("Zu {name} gibt es keinen Link. Neu: focus notiz {name} https://…"),
             });
         }
         1 => links[0].clone(),
@@ -374,7 +374,7 @@ pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
                 msg.push_str(&format!("\n   {l}"));
             }
             msg.push_str(&format!(
-                "\n Einen davon: fokus öffnen {name}.1 (Nummer der Notiz)"
+                "\n Einen davon: focus öffnen {name}.1 (Nummer der Notiz)"
             ));
             return Err(msg);
         }
@@ -383,9 +383,9 @@ pub fn open(store: &Store, args: &[String]) -> Result<String, String> {
     Ok(format!(" ↗ {url}"))
 }
 
-/// Mit dem Standardbrowser öffnen; `FOKUS_BROWSER` kann ein anderes Programm nennen.
+/// Mit dem Standardbrowser öffnen; `FOCUS_BROWSER` kann ein anderes Programm nennen.
 fn launch(url: &str) -> Result<(), String> {
-    let program = std::env::var("FOKUS_BROWSER")
+    let program = std::env::var("FOCUS_BROWSER")
         .ok()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| term::opener().into());

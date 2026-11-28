@@ -1,4 +1,4 @@
-//! Fokus – was ist heute dran?
+//! Focus – was ist heute dran?
 
 mod away;
 mod complete;
@@ -22,7 +22,7 @@ use std::process::ExitCode;
 use store::Store;
 
 fn main() -> ExitCode {
-    // `fokus | head` schließt die Ausgabe vorzeitig. Das ist kein Fehler, nur Schluss.
+    // `focus | head` schließt die Ausgabe vorzeitig. Das ist kein Fehler, nur Schluss.
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let payload = info.payload();
@@ -61,7 +61,7 @@ fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         Some("--version" | "-v" | "version") => {
-            println!("fokus {}", env!("CARGO_PKG_VERSION"));
+            println!("focus {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
         Some("einrichten") => return setup::run(),
@@ -84,7 +84,7 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         // Vor dem Laden: Deinstallieren soll keine leere Aufgabendatei anlegen.
         Some("deinstallieren" | "entfernen" | "uninstall") => return setup::uninstall(),
-        // Vor dem Laden: Sonst schriebe Fokus am Ende die alte Datei wieder hin.
+        // Vor dem Laden: Sonst schriebe Focus am Ende die alte Datei wieder hin.
         Some("datei")
             if args
                 .get(1)
@@ -167,7 +167,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             if text.trim().is_empty() {
                 if !term::is_interactive() {
                     return Err(
-                        "Was soll ich aufschreiben? Zum Beispiel: fokus + Laufschuhe kaufen".into(),
+                        "Was soll ich aufschreiben? Zum Beispiel: focus + Laufschuhe kaufen".into(),
                     );
                 }
                 println!(
@@ -209,14 +209,14 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         }
         Some("ändern" | "aendern" | "bearbeiten") => {
             let Some(first) = rest.first() else {
-                return Err("Welche Aufgabe? Zum Beispiel: fokus ändern 4 morgen".into());
+                return Err("Welche Aufgabe? Zum Beispiel: focus ändern 4 morgen".into());
             };
             let nr = ops::parse_nr(first)?;
             let mut change = rest[1..].join(" ");
             if change.trim().is_empty() {
                 if !term::is_interactive() {
                     return Err(format!(
-                        "Was soll sich ändern? Zum Beispiel: fokus ändern {nr} morgen"
+                        "Was soll sich ändern? Zum Beispiel: focus ändern {nr} morgen"
                     ));
                 }
                 let i = store.find(nr).ok_or_else(|| ops::not_found(nr))?;
@@ -241,7 +241,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             let (nr, person) = match rest {
                 [nr, person] => (ops::parse_nr(nr)?, person.as_str()),
                 [nr] => (ops::parse_nr(nr)?, ""),
-                _ => return Err("So geht es: fokus abgeben 4 @tom".into()),
+                _ => return Err("So geht es: focus abgeben 4 @tom".into()),
             };
             println!("{}", ops::delegate(store, nr, person)?);
         }
@@ -264,11 +264,11 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
                     println!("{}", ops::rename_topic(store, old, &new.join(" "))?);
                     print!("{}", view::topics(store));
                 }
-                _ => return Err("So geht es: fokus themen umbenennen haus garten".into()),
+                _ => return Err("So geht es: focus themen umbenennen haus garten".into()),
             },
             Some(other) => {
                 return Err(format!(
-                    "„{other}“ kenne ich bei Themen nicht. Es gibt: fokus themen ordnen, fokus themen umbenennen"
+                    "„{other}“ kenne ich bei Themen nicht. Es gibt: focus themen ordnen, focus themen umbenennen"
                 ));
             }
             None => print!("{}", view::topics(store)),
@@ -279,7 +279,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some("warten" | "wartet" | "abgegeben") => print!("{}", view::waiting(store)),
         Some("suche" | "suchen" | "finde" | "finden") => {
             if rest.is_empty() {
-                return Err("Wonach suchen? Zum Beispiel: fokus suche angebot".into());
+                return Err("Wonach suchen? Zum Beispiel: focus suche angebot".into());
             }
             print!("{}", view::search(store, rest));
         }
@@ -292,7 +292,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             }
         }
         Some("öffnen" | "oeffnen" | "open" | "link") => println!("{}", notes::open(store, rest)?),
-        // `fokus 5` oder `fokus 5.2`: eine Aufgabe mit ihren Notizen.
+        // `focus 5` oder `focus 5.2`: eine Aufgabe mit ihren Notizen.
         Some(n) if notes::task_nr(n).is_some() => {
             print!("{}", view::detail(store, notes::task_nr(n).unwrap_or(0)));
         }
@@ -310,7 +310,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         }
         Some(other) => {
             return Err(format!(
-                "„{other}“ kenne ich nicht. Alle Befehle: fokus hilfe\n Eine Aufgabe aufschreiben: fokus + {}",
+                "„{other}“ kenne ich nicht. Alle Befehle: focus hilfe\n Eine Aufgabe aufschreiben: focus + {}",
                 args.join(" ")
             ));
         }
@@ -319,7 +319,7 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
 }
 
 /// Leeres Fenster, oben der Befehl, der gerade läuft. Wer nur dieses Fenster für
-/// Fokus nutzt, sieht so immer nur den letzten Befehl und seine Antwort.
+/// Focus nutzt, sieht so immer nur den letzten Befehl und seine Antwort.
 fn fresh_screen(args: &[String]) {
     if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
         return;
@@ -329,7 +329,7 @@ fn fresh_screen(args: &[String]) {
 }
 
 fn header(args: &[String]) -> String {
-    let mut s = String::from("› fokus");
+    let mut s = String::from("› focus");
     for a in args {
         s.push(' ');
         s.push_str(a);
@@ -339,7 +339,7 @@ fn header(args: &[String]) -> String {
 
 /// Nach einer Änderung die Liste für heute. Im Browser steht sie schon oben.
 fn list_after_change(store: &Store) {
-    if std::env::var_os("FOKUS_WEB").is_none() {
+    if std::env::var_os("FOCUS_WEB").is_none() {
         println!();
         print!("{}", view::today(store));
     }
@@ -347,7 +347,7 @@ fn list_after_change(store: &Store) {
 
 fn numbers(args: &[String], verb: &str) -> Result<Vec<u32>, String> {
     if args.is_empty() {
-        return Err(format!("Welche Aufgabe? Zum Beispiel: fokus {verb} 2"));
+        return Err(format!("Welche Aufgabe? Zum Beispiel: focus {verb} 2"));
     }
     args.iter().map(|a| ops::parse_nr(a)).collect()
 }
@@ -359,7 +359,7 @@ fn numbers_with_instead(args: &[String]) -> Result<(Vec<u32>, Option<u32>), Stri
             let nrs = numbers(&args[..p], "heute")?;
             let instead = match &args[p + 1..] {
                 [m] => ops::parse_nr(m)?,
-                _ => return Err("So geht es: fokus heute 4 statt 2".into()),
+                _ => return Err("So geht es: focus heute 4 statt 2".into()),
             };
             if nrs.len() != 1 {
                 return Err("Mit „statt“ geht nur eine Aufgabe auf einmal.".into());
@@ -376,8 +376,8 @@ mod tests {
 
     #[test]
     fn die_kopfzeile_zeigt_den_befehl() {
-        assert_eq!(header(&[]), "› fokus");
+        assert_eq!(header(&[]), "› focus");
         let args: Vec<String> = ["+", "Test?", "morgen"].map(String::from).into();
-        assert_eq!(header(&args), "› fokus + Test? morgen");
+        assert_eq!(header(&args), "› focus + Test? morgen");
     }
 }

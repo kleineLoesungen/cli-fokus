@@ -15,9 +15,9 @@ pub fn key(s: &str) -> String {
         .collect()
 }
 
-/// `#ohne` ist kein Thema, sondern heißt überall „kein Thema“: `fokus #ohne`
-/// zeigt die Aufgaben ohne Thema, `fokus ändern 3 #ohne` nimmt es weg. Ein
-/// Thema „Ohne“ legt Fokus deshalb nie an.
+/// `#ohne` ist kein Thema, sondern heißt überall „kein Thema“: `focus #ohne`
+/// zeigt die Aufgaben ohne Thema, `focus ändern 3 #ohne` nimmt es weg. Ein
+/// Thema „Ohne“ legt Focus deshalb nie an.
 pub const NO_TOPIC: &str = "ohne";
 
 /// Ist das Wort `#ohne`?
@@ -51,12 +51,12 @@ pub fn display(tag: &str) -> String {
     }
 }
 
-/// So zeigt Fokus ein Thema: mit `#`, so wie man es tippt. „Eigenes Projekt“ → `#eigenes-projekt`.
+/// So zeigt Focus ein Thema: mit `#`, so wie man es tippt. „Eigenes Projekt“ → `#eigenes-projekt`.
 pub fn topic_label(name: &str) -> String {
     format!("#{}", to_tag(&display(name)))
 }
 
-/// So zeigt Fokus eine Person: mit `@`, so wie man sie tippt. „Anna“ → `@anna`.
+/// So zeigt Focus eine Person: mit `@`, so wie man sie tippt. „Anna“ → `@anna`.
 pub fn person_label(raw: &str) -> String {
     format!("@{}", clean(raw).to_lowercase())
 }

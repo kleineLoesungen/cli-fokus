@@ -10,19 +10,19 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(name: &str) -> Sandbox {
-        let dir = std::env::temp_dir().join(format!("fokus-test-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("focus-test-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         Sandbox { dir }
     }
 
     fn file(&self) -> PathBuf {
-        self.dir.join("Fokus.md")
+        self.dir.join("Focus.md")
     }
 
     fn run_on(&self, day: &str, args: &[&str]) -> Output {
         self.command(day, args)
-            .env("FOKUS_DATEI", self.file())
+            .env("FOCUS_DATEI", self.file())
             .output()
             .unwrap()
     }
@@ -30,18 +30,18 @@ impl Sandbox {
     /// Ohne Spieldatei, mit eigenem Zuhause und eigenen Einstellungen: wie echt.
     fn run_at_home(&self, args: &[&str]) -> Output {
         self.command("2026-11-26", args)
-            .env_remove("FOKUS_DATEI")
+            .env_remove("FOCUS_DATEI")
             .env("HOME", self.dir.join("home"))
             .output()
             .unwrap()
     }
 
     fn command(&self, day: &str, args: &[&str]) -> Command {
-        let mut c = Command::new(env!("CARGO_BIN_EXE_fokus"));
+        let mut c = Command::new(env!("CARGO_BIN_EXE_focus"));
         c.args(args)
-            .env("FOKUS_HEUTE", day)
-            .env("FOKUS_EINSTELLUNGEN", self.dir.join("einstellungen"))
-            .env_remove("FOKUS_UNTERWEGS")
+            .env("FOCUS_HEUTE", day)
+            .env("FOCUS_EINSTELLUNGEN", self.dir.join("einstellungen"))
+            .env_remove("FOCUS_UNTERWEGS")
             .env_remove("XDG_CONFIG_HOME")
             .env("NO_COLOR", "1")
             .env("COLUMNS", "80");
@@ -52,27 +52,27 @@ impl Sandbox {
         let out = self.run_at_home(args);
         assert!(
             out.status.success(),
-            "fokus {args:?} schlug fehl:\n{}",
+            "focus {args:?} schlug fehl:\n{}",
             String::from_utf8_lossy(&out.stderr)
         );
         String::from_utf8(out.stdout).unwrap()
     }
 
     fn away(&self) -> PathBuf {
-        self.dir.join("icloud").join("Fokus-unterwegs.md")
+        self.dir.join("icloud").join("Focus-unterwegs.md")
     }
 
     /// Mit Spieldatei und ausdrücklich gesetzter Unterwegs-Datei.
     fn ok_away(&self, args: &[&str]) -> String {
         let out = self
             .command("2026-11-26", args)
-            .env("FOKUS_DATEI", self.file())
-            .env("FOKUS_UNTERWEGS", self.away())
+            .env("FOCUS_DATEI", self.file())
+            .env("FOCUS_UNTERWEGS", self.away())
             .output()
             .unwrap();
         assert!(
             out.status.success(),
-            "fokus {args:?} schlug fehl:\n{}",
+            "focus {args:?} schlug fehl:\n{}",
             String::from_utf8_lossy(&out.stderr)
         );
         String::from_utf8(out.stdout).unwrap()
@@ -86,7 +86,7 @@ impl Sandbox {
         let out = self.run_on(day, args);
         assert!(
             out.status.success(),
-            "fokus {args:?} schlug fehl:\n{}",
+            "focus {args:?} schlug fehl:\n{}",
             String::from_utf8_lossy(&out.stderr)
         );
         String::from_utf8(out.stdout).unwrap()
@@ -96,7 +96,7 @@ impl Sandbox {
         let out = self.run_on("2026-11-26", args);
         assert!(
             !out.status.success(),
-            "fokus {args:?} hätte fehlschlagen sollen"
+            "focus {args:?} hätte fehlschlagen sollen"
         );
         String::from_utf8(out.stderr).unwrap()
     }
@@ -109,11 +109,11 @@ impl Drop for Sandbox {
 }
 
 #[test]
-fn ohne_aufgaben_erklaert_fokus_den_ersten_schritt() {
+fn ohne_aufgaben_erklaert_focus_den_ersten_schritt() {
     let s = Sandbox::new("leer");
     let out = s.ok(&[]);
     assert!(out.contains("Donnerstag, 26. November"));
-    assert!(out.contains("fokus + Präsentation vorbereiten #arbeit morgen"));
+    assert!(out.contains("focus + Präsentation vorbereiten #arbeit morgen"));
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn heute_hat_hoechstens_drei_plaetze() {
     }
     s.ok(&["heute", "1", "2", "3"]);
     let err = s.fails(&["heute", "4"]);
-    assert!(err.contains("fokus heute 4 statt <Nr>"));
+    assert!(err.contains("focus heute 4 statt <Nr>"));
     let out = s.ok(&["heute", "4", "statt", "2"]);
     assert!(out.contains("Aufgabe 2 ist wieder von heute herunter."));
     assert!(out.contains("0 von 3 erledigt"));
@@ -204,7 +204,7 @@ fn ein_neuer_tag_bringt_einen_vorschlag() {
     s.ok(&["+", "Nachbar", "#garten"]);
     s.ok(&["+", "Vereinskram", "#verein"]);
     let out = s.ok_on("2026-11-27", &[]);
-    assert!(out.contains("Vorschlag von Fokus"));
+    assert!(out.contains("Vorschlag von Focus"));
     assert!(out.contains("1 ▶ Bericht"), "{out}");
     // #verein ist das vierte Thema und damit unwichtig: nie im Vorschlag.
     assert!(!out.contains("Vereinskram"));
@@ -214,8 +214,8 @@ fn ein_neuer_tag_bringt_einen_vorschlag() {
 fn unbekannte_befehle_helfen_weiter() {
     let s = Sandbox::new("unbekannt");
     let err = s.fails(&["kaufen", "Milch"]);
-    assert!(err.contains("fokus hilfe"));
-    assert!(err.contains("fokus + kaufen Milch"));
+    assert!(err.contains("focus hilfe"));
+    assert!(err.contains("focus + kaufen Milch"));
 }
 
 #[test]
@@ -306,7 +306,7 @@ fn versehentlich_abgehakt_kommt_zurueck() {
 #[test]
 fn ueberfaelliges_erscheint_am_naechsten_tag_im_aufraeumen() {
     let s = Sandbox::new("ueberfaellig");
-    // Ohne Thema, also unwichtig: Fokus schlägt sie morgens nicht für heute vor.
+    // Ohne Thema, also unwichtig: Focus schlägt sie morgens nicht für heute vor.
     s.ok(&["+", "Steuer", "heute"]);
     s.ok(&["später", "1"]);
     assert!(s.ok(&["aufräumen"]).contains("Nichts aufzuräumen"));
@@ -394,7 +394,7 @@ fn ohne_aenderung_bleibt_die_unterwegs_datei_unberuehrt() {
 #[test]
 fn eine_spieldatei_schreibt_nie_in_die_echte_unterwegs_datei() {
     let s = Sandbox::new("unterwegs-spiel");
-    let echt = s.dir.join("echt").join("Fokus-unterwegs.md");
+    let echt = s.dir.join("echt").join("Focus-unterwegs.md");
     fs::write(
         s.dir.join("einstellungen"),
         format!("unterwegs = {}\n", echt.display()),
@@ -418,7 +418,7 @@ fn eine_nicht_geladene_icloud_datei_wird_nicht_ueberschrieben() {
     let s = Sandbox::new("unterwegs-icloud");
     let dir = s.dir.join("icloud");
     fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join(".Fokus-unterwegs.md.icloud"), "Platzhalter").unwrap();
+    fs::write(dir.join(".Focus-unterwegs.md.icloud"), "Platzhalter").unwrap();
     let out = s.ok_away(&["+", "Brot"]);
     assert!(out.contains("noch nicht aus iCloud geladen"));
     assert!(!s.away().exists());
@@ -429,17 +429,17 @@ fn die_unterwegs_datei_wird_eingeschaltet_und_abgeschaltet() {
     let s = Sandbox::new("unterwegs-befehl");
     fs::create_dir_all(s.dir.join("home").join("Documents")).unwrap();
     s.ok_at_home(&["+", "Brot", "kaufen"]);
-    let ordner = s.dir.join("home").join("iCloud").join("Fokus");
+    let ordner = s.dir.join("home").join("iCloud").join("Focus");
     let out = s.ok_at_home(&["unterwegs", ordner.to_str().unwrap()]);
-    assert!(out.contains("Fokus schreibt den Stand jetzt nach"));
-    let datei = ordner.join("Fokus-unterwegs.md");
+    assert!(out.contains("Focus schreibt den Stand jetzt nach"));
+    let datei = ordner.join("Focus-unterwegs.md");
     assert!(
         fs::read_to_string(&datei)
             .unwrap()
             .contains("- 1 Brot kaufen")
     );
     let einstellungen = fs::read_to_string(s.dir.join("einstellungen")).unwrap();
-    assert!(einstellungen.contains("unterwegs = ~/iCloud/Fokus/Fokus-unterwegs.md"));
+    assert!(einstellungen.contains("unterwegs = ~/iCloud/Focus/Focus-unterwegs.md"));
 
     assert!(
         s.ok_at_home(&["unterwegs"])
@@ -451,7 +451,7 @@ fn die_unterwegs_datei_wird_eingeschaltet_und_abgeschaltet() {
     );
 
     let out = s.ok_at_home(&["unterwegs", "aus"]);
-    assert!(out.contains("Fokus schreibt keine Unterwegs-Datei mehr"));
+    assert!(out.contains("Focus schreibt keine Unterwegs-Datei mehr"));
     assert!(!s.dir.join("einstellungen").exists());
     assert!(
         s.ok_at_home(&["unterwegs"])
@@ -465,38 +465,38 @@ fn die_unterwegs_datei_kann_nicht_die_aufgabendatei_sein() {
     let docs = s.dir.join("home").join("Documents");
     fs::create_dir_all(&docs).unwrap();
     s.ok_at_home(&["+", "Brot"]);
-    let out = s.run_at_home(&["unterwegs", docs.join("Fokus.md").to_str().unwrap()]);
+    let out = s.run_at_home(&["unterwegs", docs.join("Focus.md").to_str().unwrap()]);
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("Das ist deine Aufgabendatei selbst"));
 }
 
 #[test]
-fn die_aufgabendatei_zieht_um_und_fokus_findet_sie_wieder() {
+fn die_aufgabendatei_zieht_um_und_focus_findet_sie_wieder() {
     let s = Sandbox::new("verschieben");
     let docs = s.dir.join("home").join("Documents");
     fs::create_dir_all(&docs).unwrap();
     s.ok_at_home(&["+", "Brot", "kaufen"]);
-    assert!(docs.join("Fokus.md").exists());
+    assert!(docs.join("Focus.md").exists());
 
     let ziel = s.dir.join("home").join("Planung");
     let out = s.ok_at_home(&["datei", "verschieben", ziel.to_str().unwrap()]);
     assert!(out.contains("Deine Aufgaben liegen jetzt in"));
-    assert!(!docs.join("Fokus.md").exists());
-    assert!(ziel.join("Fokus.md").exists());
+    assert!(!docs.join("Focus.md").exists());
+    assert!(ziel.join("Focus.md").exists());
     let einstellungen = fs::read_to_string(s.dir.join("einstellungen")).unwrap();
-    assert!(einstellungen.contains("datei = ~/Planung/Fokus.md"));
+    assert!(einstellungen.contains("datei = ~/Planung/Focus.md"));
 
     let out = s.ok_at_home(&["alles"]);
     assert!(out.contains("Brot kaufen"));
     assert!(
-        !docs.join("Fokus.md").exists(),
+        !docs.join("Focus.md").exists(),
         "der alte Ort darf nicht wieder entstehen"
     );
-    assert!(s.ok_at_home(&["hilfe"]).contains("Planung/Fokus.md"));
+    assert!(s.ok_at_home(&["hilfe"]).contains("Planung/Focus.md"));
 
     // Zurück an den Standardort: Die Einstellung verschwindet wieder.
     s.ok_at_home(&["datei", "verschieben", docs.to_str().unwrap()]);
-    assert!(docs.join("Fokus.md").exists());
+    assert!(docs.join("Focus.md").exists());
     assert!(!s.dir.join("einstellungen").exists());
 }
 
@@ -508,16 +508,16 @@ fn beim_umziehen_wird_keine_vorhandene_datei_ueberschrieben() {
     s.ok_at_home(&["+", "Brot"]);
     let ziel = s.dir.join("anderswo");
     fs::create_dir_all(&ziel).unwrap();
-    fs::write(ziel.join("Fokus.md"), "## Offen\n- Fremd\n").unwrap();
+    fs::write(ziel.join("Focus.md"), "## Offen\n- Fremd\n").unwrap();
 
     let out = s.run_at_home(&["datei", "verschieben", ziel.to_str().unwrap()]);
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("Die überschreibe ich nicht"));
     assert_eq!(
-        fs::read_to_string(ziel.join("Fokus.md")).unwrap(),
+        fs::read_to_string(ziel.join("Focus.md")).unwrap(),
         "## Offen\n- Fremd\n"
     );
-    assert!(docs.join("Fokus.md").exists());
+    assert!(docs.join("Focus.md").exists());
     assert!(!s.dir.join("einstellungen").exists());
 }
 
@@ -536,7 +536,7 @@ fn eine_unterwegs_datei_mit_neu_oben_wird_sauber_uebernommen() {
     s.ok_away(&["+", "Brot", "kaufen", "heute"]);
     fs::write(
         s.away(),
-        "# Fokus unterwegs\n\nStand: Donnerstag 26.11., 06:10\n\n## Neu\n\n- Milch\n\n## Heute · Donnerstag 26.11.\n- 1 Brot kaufen\n",
+        "# Focus unterwegs\n\nStand: Donnerstag 26.11., 06:10\n\n## Neu\n\n- Milch\n\n## Heute · Donnerstag 26.11.\n- 1 Brot kaufen\n",
     )
     .unwrap();
     let out = s.ok_away(&[]);
@@ -615,7 +615,7 @@ fn die_anleitung_zeigt_den_passenden_abschnitt() {
     let s = Sandbox::new("anleitung");
     let out = s.ok(&["anleitung", "aufraeumen"]);
     assert!(out.contains("Einmal pro Woche: aufräumen"));
-    assert!(out.contains("fokus aufräumen"));
+    assert!(out.contains("focus aufräumen"));
     assert!(!out.contains("```"));
     assert!(!out.contains("ALLE BEFEHLE"));
     // Lesen legt keine Aufgabendatei an.
@@ -664,7 +664,7 @@ fn notizen_aufschreiben_aendern_loeschen_und_zeigen() {
 
     let out = s.ok(&["notiz", "1.1", "löschen"]);
     assert!(out.contains("Notiz 1.1 gelöscht: Figma: https://figma.com/file/abc"));
-    assert!(out.contains("Zurückholen: fokus notiz 1 Figma: https://figma.com/file/abc"));
+    assert!(out.contains("Zurückholen: focus notiz 1 Figma: https://figma.com/file/abc"));
     assert!(s.ok(&["1"]).contains("1.1  Ansprechpartnerin Lisa"));
 
     assert!(s.fails(&["notiz", "1.5", "x"]).contains("nur eine Notiz"));
@@ -759,12 +759,12 @@ fn links_werden_geoeffnet() {
     ]);
     s.ok(&["notiz", "1", "ohne", "Link"]);
     let run = |args: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_fokus"))
+        Command::new(env!("CARGO_BIN_EXE_focus"))
             .args(args)
-            .env("FOKUS_DATEI", s.file())
-            .env("FOKUS_HEUTE", "2026-11-26")
-            .env("FOKUS_EINSTELLUNGEN", s.dir.join("einstellungen"))
-            .env("FOKUS_BROWSER", "echo")
+            .env("FOCUS_DATEI", s.file())
+            .env("FOCUS_HEUTE", "2026-11-26")
+            .env("FOCUS_EINSTELLUNGEN", s.dir.join("einstellungen"))
+            .env("FOCUS_BROWSER", "echo")
             .env("NO_COLOR", "1")
             .output()
             .unwrap()
@@ -773,7 +773,7 @@ fn links_werden_geoeffnet() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("https://example.org/kommentare"));
     let out = run(&["öffnen", "1.2"]);
     assert!(String::from_utf8_lossy(&out.stderr).contains("In Notiz 1.2 steht kein Link"));
-    // Zwei Links, kein Terminal zum Fragen: Fokus nennt beide.
+    // Zwei Links, kein Terminal zum Fragen: Focus nennt beide.
     let out = run(&["öffnen", "1"]);
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("2 Links"));
@@ -817,4 +817,43 @@ fn suche_findet_auch_in_notizen_und_im_archiv() {
         "{out}"
     );
     assert!(s.ok(&["suche", "xyz"]).contains("finde ich nichts"));
+}
+
+#[test]
+fn dateien_aus_der_zeit_als_focus_noch_fokus_hiess_werden_weiter_benutzt() {
+    let s = Sandbox::new("alter-name");
+    let home = s.dir.join("home");
+    let docs = home.join("Documents");
+    fs::create_dir_all(&docs).unwrap();
+    fs::write(docs.join("Fokus.md"), "## Offen\n- [ ] Alte Aufgabe\n").unwrap();
+    let alte_einstellungen = home.join(".config").join("fokus");
+    fs::create_dir_all(&alte_einstellungen).unwrap();
+    fs::write(alte_einstellungen.join("einstellungen"), "leeren = ja\n").unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_focus"))
+        .args(["hilfe"])
+        .env("HOME", &home)
+        .env("FOCUS_HEUTE", "2026-11-26")
+        .env("NO_COLOR", "1")
+        .env_remove("FOCUS_DATEI")
+        .env_remove("FOCUS_EINSTELLUNGEN")
+        .env_remove("XDG_CONFIG_HOME")
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("Documents/Fokus.md"), "{text}");
+
+    let out = Command::new(env!("CARGO_BIN_EXE_focus"))
+        .args(["alles"])
+        .env("HOME", &home)
+        .env("FOCUS_HEUTE", "2026-11-26")
+        .env("NO_COLOR", "1")
+        .env_remove("FOCUS_DATEI")
+        .env_remove("FOCUS_EINSTELLUNGEN")
+        .env_remove("XDG_CONFIG_HOME")
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("Alte Aufgabe"));
+    assert!(!docs.join("Focus.md").exists());
+    assert!(!home.join(".config").join("focus").exists());
 }

@@ -6,14 +6,14 @@ use chrono::Days;
 use crate::{date, input, tags, term, view};
 
 pub fn not_found(nr: u32) -> String {
-    format!("Eine offene Aufgabe {nr} gibt es nicht. Alle Nummern siehst du mit: fokus alles")
+    format!("Eine offene Aufgabe {nr} gibt es nicht. Alle Nummern siehst du mit: focus alles")
 }
 
 fn index(store: &Store, nr: u32) -> Result<usize, String> {
     store.find(nr).ok_or_else(|| not_found(nr))
 }
 
-/// `fokus + …`
+/// `focus + …`
 pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     let parsed = input::parse_new(raw, store.today);
     if tags::without_no_topic(&parsed.text).is_empty() {
@@ -47,7 +47,7 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     Ok(msg)
 }
 
-/// `fokus heute 4 [statt 2]` – höchstens drei offene Aufgaben auf heute.
+/// `focus heute 4 [statt 2]` – höchstens drei offene Aufgaben auf heute.
 pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<String, String> {
     let i = index(store, nr)?;
     if store.tasks[i].status == Status::Today {
@@ -73,7 +73,7 @@ pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<Str
             }
             None => {
                 return Err(format!(
-                    "Auf heute stehen schon {TODAY_LIMIT} Aufgaben. Sag, welche weichen soll: fokus heute {nr} statt <Nr>"
+                    "Auf heute stehen schon {TODAY_LIMIT} Aufgaben. Sag, welche weichen soll: focus heute {nr} statt <Nr>"
                 ));
             }
         };
@@ -101,7 +101,7 @@ pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<Str
     Ok(out)
 }
 
-/// `fokus fertig 4`
+/// `focus fertig 4`
 pub fn done(store: &mut Store, nr: u32) -> Result<String, String> {
     let i = index(store, nr)?;
     let today = store.today;
@@ -137,7 +137,7 @@ pub fn done(store: &mut Store, nr: u32) -> Result<String, String> {
     Ok(msg)
 }
 
-/// `fokus später 4`
+/// `focus später 4`
 pub fn later(store: &mut Store, nr: u32) -> Result<String, String> {
     let i = index(store, nr)?;
     if store.tasks[i].status != Status::Today {
@@ -148,7 +148,7 @@ pub fn later(store: &mut Store, nr: u32) -> Result<String, String> {
     Ok(format!(" Aufgabe {nr} ist wieder von heute herunter."))
 }
 
-/// `fokus streichen 4`
+/// `focus streichen 4`
 pub fn strike(store: &mut Store, nr: u32) -> Result<String, String> {
     let i = index(store, nr)?;
     let today = store.today;
@@ -163,10 +163,10 @@ pub fn strike(store: &mut Store, nr: u32) -> Result<String, String> {
     Ok(format!(" Gestrichen: {}.{series}", t.display()))
 }
 
-/// `fokus zurück 4` – holt Erledigtes oder Gestrichenes aus dem Archiv.
+/// `focus zurück 4` – holt Erledigtes oder Gestrichenes aus dem Archiv.
 pub fn restore(store: &mut Store, nr: u32) -> Result<String, String> {
     let i = store.find_restorable(nr).ok_or_else(|| {
-        format!("Im Archiv gibt es keine Aufgabe {nr}. Was drin steht, zeigt: fokus archiv")
+        format!("Im Archiv gibt es keine Aufgabe {nr}. Was drin steht, zeigt: focus archiv")
     })?;
     let today = store.today;
     let old = store.tasks[i].clone();
@@ -209,11 +209,11 @@ pub fn restore(store: &mut Store, nr: u32) -> Result<String, String> {
     Ok(format!(" Aufgabe {nr} ist {place}: {}.{note}", t.display()))
 }
 
-/// `fokus abgeben 4 @tom`
+/// `focus abgeben 4 @tom`
 pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, String> {
     let name = tags::clean(person);
     if tags::key(name).is_empty() {
-        return Err(format!("An wen? Zum Beispiel: fokus abgeben {nr} @tom"));
+        return Err(format!("An wen? Zum Beispiel: focus abgeben {nr} @tom"));
     }
     let i = index(store, nr)?;
     let today = store.today;
@@ -233,7 +233,7 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
 }
 
 /// Was heute fällig ist, gehört auf die Liste für heute – solange dort Platz ist.
-/// Die Grenze von drei bleibt; ist sie erreicht, sagt Fokus, wie man tauscht.
+/// Die Grenze von drei bleibt; ist sie erreicht, sagt Focus, wie man tauscht.
 fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     let i = store.find(nr)?;
     let t = &store.tasks[i];
@@ -247,7 +247,7 @@ fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     };
     if store.today_open().len() >= TODAY_LIMIT {
         return Some(format!(
-            "{why}, aber heute ist voll. Tauschen: fokus heute {nr} statt <Nr>"
+            "{why}, aber heute ist voll. Tauschen: focus heute {nr} statt <Nr>"
         ));
     }
     let i = store.move_to_end(i);
@@ -261,11 +261,11 @@ fn new_topic_note(tag: &str, above: bool) -> String {
     if above {
         format!("Neues Thema {name}, über der Linie.")
     } else {
-        format!("Neues Thema {name}, unter der Linie. Ändern: fokus themen ordnen")
+        format!("Neues Thema {name}, unter der Linie. Ändern: focus themen ordnen")
     }
 }
 
-/// `fokus ändern 4 …` – ändert nur, was angegeben ist, in derselben Schreibweise
+/// `focus ändern 4 …` – ändert nur, was angegeben ist, in derselben Schreibweise
 /// wie beim Aufschreiben. Dazu `ohne termin`, `ohne thema` (oder `#ohne`), `ohne @anna`.
 pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
     let i = index(store, nr)?;
@@ -341,7 +341,7 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
         && new_words.is_empty()
     {
         return Err(format!(
-            "Was soll sich ändern? Zum Beispiel: fokus ändern {nr} morgen"
+            "Was soll sich ändern? Zum Beispiel: focus ändern {nr} morgen"
         ));
     }
 
@@ -421,7 +421,7 @@ pub fn change(store: &mut Store, nr: u32, raw: &str) -> Result<String, String> {
     Ok(msg)
 }
 
-/// `fokus themen umbenennen haus garten` – in der Liste und in allen Aufgaben,
+/// `focus themen umbenennen haus garten` – in der Liste und in allen Aufgaben,
 /// auch den erledigten. Gibt es das neue Thema schon, werden beide eins.
 pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, String> {
     let all: Vec<String> = store.all_topics().cloned().collect();
@@ -433,7 +433,7 @@ pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, S
             .cloned()
             .ok_or_else(|| {
                 format!(
-                    "Ein Thema „{}“ kenne ich nicht. Deine Themen: fokus themen",
+                    "Ein Thema „{}“ kenne ich nicht. Deine Themen: focus themen",
                     old.trim_start_matches('#')
                 )
             })?,
@@ -441,12 +441,12 @@ pub fn rename_topic(store: &mut Store, old: &str, new: &str) -> Result<String, S
     let new_name = tags::display(new.trim().trim_start_matches('#'));
     if tags::key(&new_name).is_empty() {
         return Err(
-            "Wie soll das Thema heißen? Zum Beispiel: fokus themen umbenennen haus garten".into(),
+            "Wie soll das Thema heißen? Zum Beispiel: focus themen umbenennen haus garten".into(),
         );
     }
     if tags::key(&new_name) == tags::NO_TOPIC {
         return Err(
-            "„Ohne“ ist vergeben: #ohne heißt bei Fokus „kein Thema“. Such dir einen anderen Namen aus."
+            "„Ohne“ ist vergeben: #ohne heißt bei Focus „kein Thema“. Such dir einen anderen Namen aus."
                 .into(),
         );
     }
@@ -567,11 +567,11 @@ pub fn set_topic(store: &mut Store, nr: u32, choice: &str) -> Result<String, Str
     Ok(msg)
 }
 
-/// `fokus themen ordnen 2 1 4` – genau diese (höchstens drei) kommen über die Linie.
+/// `focus themen ordnen 2 1 4` – genau diese (höchstens drei) kommen über die Linie.
 pub fn reorder(store: &mut Store, picks: &[String]) -> Result<String, String> {
     if picks.len() > IMPORTANT_LIMIT {
         return Err(format!(
-            "Höchstens {IMPORTANT_LIMIT} Themen dürfen über der Linie stehen. Genau darum geht es bei Fokus: Wenn alles wichtig ist, ist nichts wichtig."
+            "Höchstens {IMPORTANT_LIMIT} Themen dürfen über der Linie stehen. Genau darum geht es bei Focus: Wenn alles wichtig ist, ist nichts wichtig."
         ));
     }
     let all: Vec<String> = store.all_topics().cloned().collect();
@@ -604,7 +604,7 @@ pub fn reorder(store: &mut Store, picks: &[String]) -> Result<String, String> {
     Ok(msg)
 }
 
-/// `fokus themen ordnen` ohne Angaben: fragt nach.
+/// `focus themen ordnen` ohne Angaben: fragt nach.
 pub fn reorder_interactive(store: &mut Store) -> Result<String, String> {
     let all: Vec<String> = store.all_topics().cloned().collect();
     if all.is_empty() {
@@ -612,7 +612,7 @@ pub fn reorder_interactive(store: &mut Store) -> Result<String, String> {
     }
     if !term::is_interactive() {
         return Err(
-            "Sag, welche drei wichtig sind, zum Beispiel: fokus themen ordnen 2 1 4".into(),
+            "Sag, welche drei wichtig sind, zum Beispiel: focus themen ordnen 2 1 4".into(),
         );
     }
     println!("\n {}\n", term::bold("DEINE THEMEN"));
@@ -693,7 +693,7 @@ pub fn parse_nr(s: &str) -> Result<u32, String> {
     match s.parse::<u32>() {
         Ok(n) if n > 0 => Ok(n),
         _ => Err(format!(
-            "„{s}“ ist keine Aufgabennummer. Die Nummern siehst du mit: fokus alles"
+            "„{s}“ ist keine Aufgabennummer. Die Nummern siehst du mit: focus alles"
         )),
     }
 }
@@ -816,7 +816,7 @@ mod tests {
             put_today(&mut s, nr, None).unwrap();
         }
         let msg = change(&mut s, 4, "heute").unwrap();
-        assert!(msg.contains("fokus heute 4 statt <Nr>"), "{msg}");
+        assert!(msg.contains("focus heute 4 statt <Nr>"), "{msg}");
         assert_eq!(s.today_open().len(), 3);
     }
 

@@ -8,11 +8,11 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 static COLOR: OnceLock<bool> = OnceLock::new();
 
-/// Farbe nur im Terminal (oder für `fokus web`), und nie, wenn `NO_COLOR` gesetzt ist.
+/// Farbe nur im Terminal (oder für `focus web`), und nie, wenn `NO_COLOR` gesetzt ist.
 pub fn color() -> bool {
     *COLOR.get_or_init(|| {
         std::env::var_os("NO_COLOR").is_none()
-            && (io::stdout().is_terminal() || std::env::var_os("FOKUS_FARBE").is_some())
+            && (io::stdout().is_terminal() || std::env::var_os("FOCUS_FARBE").is_some())
     })
 }
 
@@ -52,9 +52,9 @@ pub fn opener() -> &'static str {
     }
 }
 
-/// Läuft Fokus für `fokus web`?
+/// Läuft Focus für `focus web`?
 pub fn web() -> bool {
-    std::env::var_os("FOKUS_WEB").is_some()
+    std::env::var_os("FOCUS_WEB").is_some()
 }
 
 /// Breite der Listen: im Terminal höchstens 90, damit das Auge die Zeile hält;
