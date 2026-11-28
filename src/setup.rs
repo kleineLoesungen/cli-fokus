@@ -58,6 +58,7 @@ pub fn run() -> Result<(), String> {
     let complete =
         term::ask_yes(" Soll die Tab-Taste Befehle, Nummern, Themen und Personen ergänzen? [J/n] ")
             .map_err(term::io_err)?;
+    ask_clear()?;
 
     let existing = fs::read_to_string(&rc).unwrap_or_default();
     let wishes = Wishes {
@@ -68,7 +69,7 @@ pub fn run() -> Result<(), String> {
     };
     let updated = with_block(&existing, &block(&exe, &wishes, in_path(&exe)));
     if updated == existing {
-        println!("\n Kurzbefehl und Tab-Taste waren schon so eingerichtet.");
+        println!("\n {} Erledigt.", term::green("✓"));
         return Ok(());
     }
     fs::write(&rc, updated)
@@ -355,6 +356,27 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
 }
 
 /// Die beiden Fragen nach den Orten in `fokus einrichten`.
+/// Fenster leeren vor jeder Ausgabe: gut, wenn ein Terminalfenster nur für Fokus da ist.
+fn ask_clear() -> Result<(), String> {
+    println!(
+        " {}",
+        term::dim(
+            "Nutzt du ein Fenster nur für Fokus? Dann kann Fokus es vor jedem Befehl leeren; oben steht der Befehl, Hochscrollen zeigt das Alte."
+        )
+    );
+    let before = config::flag(config::CLEAR_KEY);
+    let on = if before {
+        term::ask_yes(" Soll Fokus das Fenster vor jeder Ausgabe leeren? [J/n] ")
+    } else {
+        term::ask_no(" Soll Fokus das Fenster vor jeder Ausgabe leeren? [j/N] ")
+    }
+    .map_err(term::io_err)?;
+    if on != before {
+        config::set_flag(config::CLEAR_KEY, on)?;
+    }
+    Ok(())
+}
+
 fn ask_places() -> Result<(), String> {
     if let Some(p) = store::play_file() {
         println!(
@@ -495,26 +517,30 @@ struct Wishes {
     start: bool,
     complete: bool,
     /// zsh bricht bei `?`/`*` ohne Treffer ab, bevor Fokus startet (z. B. bei
-    /// Links mit `?msg=…`). `noglob` vor dem Alias reicht die Wörter unverändert durch.
+    /// Links mit `?msg=…`). `noglob` im Alias reicht die Wörter unverändert durch.
     zsh: bool,
 }
 
 /// Der Block für die Shell-Datei; leer, wenn nichts gewünscht ist.
 fn block(exe: &Path, w: &Wishes, found: bool) -> String {
     let exe = sq(&exe.display().to_string());
-    // Der Alias-Text wird beim Aufruf noch einmal gelesen, deshalb doppelt quoten.
-    let target = if w.zsh {
-        sq(&format!("noglob {exe}"))
-    } else {
-        exe.clone()
-    };
     let mut lines = Vec::new();
-    // In zsh auch dann, wenn „fokus“ im PATH liegt: der Alias bringt das noglob mit.
-    if w.zsh || !found {
-        lines.push(format!("alias fokus={target}"));
-    }
-    if w.alias {
-        lines.push(format!("alias f={target}"));
+    if w.zsh {
+        // Eine Funktion statt des Pfads im Alias: Die Tab-Taste sieht dann den
+        // Befehl „fokus“ und nicht einen Pfad samt Anführungszeichen. `function`
+        // davor, damit ein schon gesetzter Alias beim erneuten Laden nicht stört.
+        lines.push(format!("function fokus {{ {exe} \"$@\"; }}"));
+        lines.push("alias fokus='noglob fokus'".to_string());
+        if w.alias {
+            lines.push("alias f='noglob fokus'".to_string());
+        }
+    } else {
+        if !found {
+            lines.push(format!("alias fokus={exe}"));
+        }
+        if w.alias {
+            lines.push(format!("alias f={exe}"));
+        }
     }
     if w.complete {
         lines.push(format!("eval \"$({exe} _zsh)\""));
@@ -631,7 +657,8 @@ mod tests {
             zsh: true,
         };
         let b = block(Path::new("/Users/x y/fokus"), &w, true);
-        assert!(b.contains(r"alias fokus='noglob '\''/Users/x y/fokus'\'''"));
-        assert!(b.contains(r"alias f='noglob '\''/Users/x y/fokus'\'''"));
+        assert!(b.contains(r#"function fokus { '/Users/x y/fokus' "$@"; }"#));
+        assert!(b.contains("alias fokus='noglob fokus'"));
+        assert!(b.contains("alias f='noglob fokus'"));
     }
 }

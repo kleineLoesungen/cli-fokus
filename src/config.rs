@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 
 pub const DATA_KEY: &str = "datei";
 pub const AWAY_KEY: &str = "unterwegs";
+/// `leeren = ja`: vor jeder Ausgabe den sichtbaren Bereich leeren, mit Kopfzeile.
+pub const CLEAR_KEY: &str = "leeren";
 
 const HEADER: &str = "# Fokus-Einstellungen. Ändern geht am einfachsten mit „fokus einrichten“.\n";
 
@@ -43,16 +45,32 @@ pub fn get(key: &str) -> Option<PathBuf> {
     value_in(&text, key).map(|v| expand(&v))
 }
 
+/// Ein Ja/Nein-Wert. Fehlt er, gilt nein.
+pub fn flag(key: &str) -> bool {
+    fs::read_to_string(path())
+        .ok()
+        .and_then(|t| value_in(&t, key))
+        .is_some_and(|v| matches!(v.to_lowercase().as_str(), "ja" | "yes" | "true" | "1"))
+}
+
+pub fn set_flag(key: &str, on: bool) -> Result<(), String> {
+    set_text(key, Some(if on { "ja" } else { "nein" }))
+}
+
 /// Setzt einen Wert (`None` entfernt ihn) und lässt alles andere stehen.
 pub fn set(key: &str, value: Option<&Path>) -> Result<(), String> {
+    let value = value.map(shorten);
+    set_text(key, value.as_deref())
+}
+
+fn set_text(key: &str, value: Option<&str>) -> Result<(), String> {
     let file = path();
     let existing = match fs::read_to_string(&file) {
         Ok(s) => s,
         Err(e) if e.kind() == ErrorKind::NotFound => String::new(),
         Err(e) => return Err(format!("Ich kann {} nicht lesen: {e}", file.display())),
     };
-    let value = value.map(shorten);
-    let updated = with_value(&existing, key, value.as_deref());
+    let updated = with_value(&existing, key, value);
     if updated == existing {
         return Ok(());
     }

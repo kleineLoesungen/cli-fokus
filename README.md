@@ -395,11 +395,20 @@ fokus einrichten
 
 `fokus einrichten` fragt, wo deine Aufgaben liegen sollen, ob es eine
 Unterwegs-Datei geben soll, ob `f` als Kurzbefehl gehen soll, ob jedes neue
-Terminalfenster die Liste für heute zeigt und ob die Tab-Taste ergänzen soll
-(zsh). Es schreibt dafür einen markierten Block in deine `.zshrc` und die Orte
-in `~/.config/fokus/einstellungen`. In zsh stehen `fokus` und `f` dort mit
+Terminalfenster die Liste für heute zeigt, ob die Tab-Taste ergänzen soll
+(zsh) und ob Fokus das Fenster vor jedem Befehl leeren soll. Es schreibt dafür
+einen markierten Block in deine `.zshrc` und die Einstellungen in
+`~/.config/fokus/einstellungen`. In zsh stehen `fokus` und `f` dort mit
 `noglob`, damit Links mit `?` oder `*` nicht an zsh scheitern („no matches
-found“). Einen Ordner kannst du aus dem Finder ins
+found“).
+
+**Ein Fenster nur für Fokus:** Mit `leeren = ja` in den Einstellungen leert
+Fokus vor jedem Befehl den sichtbaren Bereich. Oben steht grau der Befehl
+(`› fokus + Bericht morgen`), darunter die Antwort. Der Verlauf bleibt,
+Hochscrollen oder `⌘↑` zeigt das Alte. Leitest du die Ausgabe um
+(`fokus | grep …`), wird nichts geleert.
+
+Einen Ordner kannst du aus dem Finder ins
 Terminal ziehen, statt den Pfad zu tippen.
 
 **Aktualisieren:** `cargo install --path .` noch einmal. Deine Aufgaben bleiben.

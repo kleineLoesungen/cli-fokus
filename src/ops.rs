@@ -40,12 +40,6 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     );
     if let Some(n) = due_today {
         notes.insert(0, n);
-    } else if store.is_important(t) && store.is_urgent(t) && store.today_open().len() < TODAY_LIMIT
-    {
-        notes.push(format!(
-            "Dringend und wichtig. Auf heute legen: fokus heute {}",
-            t.nr
-        ));
     }
     for n in notes {
         msg.push_str(&format!("\n   {}", term::dim(&n)));
@@ -134,10 +128,6 @@ pub fn done(store: &mut Store, nr: u32) -> Result<String, String> {
             date::exact(next)
         ));
     }
-    msg.push_str(&format!(
-        "\n   {}",
-        term::dim(&format!("Versehen? fokus zurück {nr}"))
-    ));
     if was_today && store.today_open().is_empty() {
         msg.push_str(&format!(
             "\n   {}",
@@ -170,13 +160,7 @@ pub fn strike(store: &mut Store, nr: u32) -> Result<String, String> {
     } else {
         ""
     };
-    Ok(format!(
-        " Gestrichen: {}.{series}\n   {}",
-        t.display(),
-        term::dim(&format!(
-            "14 Tage lang im Archiv. Zurückholen: fokus zurück {nr}"
-        ))
-    ))
+    Ok(format!(" Gestrichen: {}.{series}", t.display()))
 }
 
 /// `fokus zurück 4` – holt Erledigtes oder Gestrichenes aus dem Archiv.
@@ -242,11 +226,7 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
     t.waiting_for = Some(name.to_string());
     t.since = today;
     let shown = tags::display(name);
-    Ok(format!(
-        " Aufgabe {nr} liegt jetzt bei {shown}: {}\n   {}",
-        t.display(),
-        term::dim(&format!("Alles zu {shown}: fokus @{}", tags::key(name)))
-    ))
+    Ok(format!(" Aufgabe {nr} liegt jetzt bei {shown}: {}", t.display()))
 }
 
 /// Was heute fällig ist, gehört auf die Liste für heute – solange dort Platz ist.
@@ -264,23 +244,21 @@ fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     };
     if store.today_open().len() >= TODAY_LIMIT {
         return Some(format!(
-            "{why}, aber auf heute stehen schon {TODAY_LIMIT}. Tauschen: fokus heute {nr} statt <Nr>"
+            "{why}, aber heute ist voll. Tauschen: fokus heute {nr} statt <Nr>"
         ));
     }
     let i = store.move_to_end(i);
     store.tasks[i].status = Status::Today;
     store.suggested = false;
-    Some(format!("{why}, darum steht sie jetzt auf heute."))
+    Some(format!("{why}, steht jetzt auf heute."))
 }
 
 fn new_topic_note(tag: &str, above: bool) -> String {
     let name = tags::display(tag);
     if above {
-        format!("Neues Thema „{name}“. Es steht über der Linie und zählt als wichtig.")
+        format!("Neues Thema „{name}“, über der Linie.")
     } else {
-        format!(
-            "Neues Thema „{name}“. Über der Linie sind schon {IMPORTANT_LIMIT} Themen, also zählt es als nicht wichtig. Ändern: fokus themen ordnen"
-        )
+        format!("Neues Thema „{name}“, unter der Linie. Ändern: fokus themen ordnen")
     }
 }
 
@@ -812,7 +790,7 @@ mod tests {
     fn termin_heute_kommt_auf_die_liste_solange_platz_ist() {
         let mut s = leer();
         let msg = add(&mut s, "Rechnung zahlen heute").unwrap();
-        assert!(msg.contains("steht sie jetzt auf heute"));
+        assert!(msg.contains("steht jetzt auf heute"));
         add(&mut s, "Keller").unwrap();
         add(&mut s, "Bericht morgen").unwrap();
         // Ein Termin morgen ändert an der Liste nichts.

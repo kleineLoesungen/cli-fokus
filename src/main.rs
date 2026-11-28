@@ -48,6 +48,10 @@ fn main() -> ExitCode {
 
 fn run(args: &[String]) -> Result<(), String> {
     let first = args.first().map(|s| s.to_lowercase());
+    if !matches!(first.as_deref(), Some("_complete" | "_zsh")) && config::flag(config::CLEAR_KEY)
+    {
+        fresh_screen(args);
+    }
     match first.as_deref() {
         Some("hilfe" | "help" | "-h" | "--help" | "?") => {
             print!(
@@ -308,6 +312,25 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
     Ok(())
 }
 
+/// Leeres Fenster, oben der Befehl, der gerade läuft. Wer nur dieses Fenster für
+/// Fokus nutzt, sieht so immer nur den letzten Befehl und seine Antwort.
+fn fresh_screen(args: &[String]) {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return;
+    }
+    term::clear_screen();
+    println!(" {}\n", term::dim(&header(args)));
+}
+
+fn header(args: &[String]) -> String {
+    let mut s = String::from("› fokus");
+    for a in args {
+        s.push(' ');
+        s.push_str(a);
+    }
+    s
+}
+
 fn numbers(args: &[String], verb: &str) -> Result<Vec<u32>, String> {
     if args.is_empty() {
         return Err(format!("Welche Aufgabe? Zum Beispiel: fokus {verb} 2"));
@@ -330,5 +353,17 @@ fn numbers_with_instead(args: &[String]) -> Result<(Vec<u32>, Option<u32>), Stri
             Ok((nrs, Some(instead)))
         }
         None => Ok((numbers(args, "heute")?, None)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn die_kopfzeile_zeigt_den_befehl() {
+        assert_eq!(header(&[]), "› fokus");
+        let args: Vec<String> = ["+", "Test?", "morgen"].map(String::from).into();
+        assert_eq!(header(&args), "› fokus + Test? morgen");
     }
 }
