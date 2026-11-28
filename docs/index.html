@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus – less list, more done</title>
+<meta name="description" content="A small terminal helper for macOS and Linux that answers one question every morning: what's on for today?">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='14' fill='%2315171a'/%3E %3Crect x='2' y='2' width='60' height='60' rx='12' fill='none' stroke='%232a2e34' stroke-width='2'/%3E %3Cpath d='M15 20 L29 32 L15 44' fill='none' stroke='%237fc77f' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E %3Crect x='33' y='41' width='17' height='6' rx='2' fill='%237fc77f'/%3E %3Ccircle cx='49' cy='17' r='4' fill='%236cc5d6'/%3E %3C/svg%3E">
+<style>
+:root {
+  --bg: #fafaf7;
+  --fg: #1c1e22;
+  --muted: #5c626a;
+  --line: #e4e3de;
+  --card: #ffffff;
+  --accent: #2b8a43;
+  --accent-2: #1d8496;
+  --code-bg: #f0efea;
+  --term-bg: #15171a;
+  --term-bar: #1e2125;
+  --term-line: #2a2e34;
+  --term-fg: #d8dce1;
+  --term-dim: #7f868e;
+  --t-green: #7fc77f;
+  --t-cyan: #6cc5d6;
+  --t-yellow: #e2c06f;
+  --t-red: #e5737b;
+  --shadow: 0 18px 50px -24px rgba(20, 22, 26, .45);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1113;
+    --fg: #e7e9ec;
+    --muted: #9aa1a9;
+    --line: #23272c;
+    --card: #15181b;
+    --accent: #7fc77f;
+    --accent-2: #6cc5d6;
+    --code-bg: #1a1d21;
+    --shadow: 0 18px 50px -24px rgba(0, 0, 0, .8);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+}
+a { color: var(--accent-2); }
+code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 5px; font-size: .9em; }
+
+/* Sprache: alles gibt es zweimal, gezeigt wird eine Fassung. */
+html[data-lang="en"] [data-l="de"], html[data-lang="de"] [data-l="en"] { display: none !important; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+header.top { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--fg); text-decoration: none; }
+.brand img { width: 30px; height: 30px; }
+nav.top { display: flex; align-items: center; gap: 18px; font-size: 15px; }
+nav.top a { color: var(--muted); text-decoration: none; }
+nav.top a:hover { color: var(--fg); }
+.lang {
+  border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  font: inherit; font-size: 14px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+}
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: center; padding: 48px 0 72px; }
+.eyebrow { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 650; margin: 0 0 12px; }
+h1 { font-size: clamp(36px, 5.2vw, 58px); line-height: 1.05; letter-spacing: -.02em; margin: 0 0 20px; }
+.lead { font-size: 19px; color: var(--muted); margin: 0 0 28px; }
+.lead strong { color: var(--fg); font-weight: 600; }
+.install-line {
+  display: flex; align-items: center; gap: 8px; background: var(--term-bg); color: var(--term-fg);
+  border-radius: 10px; padding: 10px 10px 10px 14px; font-size: 14px; max-width: 100%;
+}
+.install-line code { background: none; padding: 0; color: inherit; font-size: 14px; overflow-x: auto; white-space: nowrap; flex: 1; min-width: 0; scrollbar-width: none; }
+.install-line .p { color: var(--t-green); }
+.copy {
+  flex: none; border: 1px solid var(--term-line); background: var(--term-bar); color: var(--term-fg);
+  font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+}
+.copy:hover { border-color: var(--term-dim); }
+.hero .more { margin-top: 14px; font-size: 15px; color: var(--muted); }
+
+/* Ein Terminalfenster – immer dunkel, wie das Original. */
+.term {
+  margin: 0; background: var(--term-bg); border-radius: 12px; box-shadow: var(--shadow);
+  border: 1px solid var(--term-line); overflow: hidden; min-width: 0;
+}
+.term .bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; background: var(--term-bar); border-bottom: 1px solid var(--term-line); }
+.term .bar i { width: 11px; height: 11px; border-radius: 50%; background: #3a3f46; display: block; }
+.term .bar span { margin-left: 8px; font: 12px ui-monospace, Menlo, monospace; color: var(--term-dim); }
+.term pre {
+  margin: 0; padding: 14px 16px 16px; color: var(--term-fg); overflow-x: auto;
+  font-size: clamp(10px, 1.02vw, 12.8px); line-height: 1.5; tab-size: 8;
+}
+.term .cmd { color: var(--term-fg); }
+.term .cmd b { color: var(--t-green); font-weight: 400; }
+.term .b { font-weight: 700; color: #f1f3f5; }
+.term .d { color: var(--term-dim); }
+.term .green { color: var(--t-green); }
+.term .cyan { color: var(--t-cyan); }
+.term .yellow { color: var(--t-yellow); }
+.term .red { color: var(--t-red); }
+
+section { padding: 64px 0; border-top: 1px solid var(--line); }
+h2 { font-size: clamp(26px, 3.2vw, 36px); letter-spacing: -.015em; margin: 0 0 14px; line-height: 1.15; }
+.sub { color: var(--muted); max-width: 640px; margin: 0 0 36px; font-size: 18px; }
+
+.ideas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.idea { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.idea .n { font: 600 13px ui-monospace, Menlo, monospace; color: var(--accent); }
+.idea h3 { margin: 6px 0 8px; font-size: 19px; }
+.idea p { margin: 0; color: var(--muted); font-size: 16px; }
+
+.case { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 44px; align-items: center; padding: 34px 0; }
+.case:nth-of-type(even) { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
+.case:nth-of-type(even) > .text { order: 2; }
+.case h3 { font-size: 23px; margin: 0 0 10px; letter-spacing: -.01em; }
+.case p { margin: 0 0 12px; color: var(--muted); }
+.case .kbd { font: 14px ui-monospace, Menlo, monospace; color: var(--fg); background: var(--code-bg); padding: 3px 8px; border-radius: 6px; display: inline-block; }
+
+.shot { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--card); }
+.shot img { display: block; width: 100%; height: auto; }
+
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.fact { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.fact h3 { margin: 0 0 8px; font-size: 18px; }
+.fact p, .fact ul { margin: 0; color: var(--muted); font-size: 16px; }
+.fact ul { padding-left: 18px; }
+
+.steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 760px; }
+.step { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.step .label { font-size: 15px; color: var(--muted); }
+.step .install-line { font-size: 13.5px; }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (max-width: 880px) {
+  .hero, .case, .case:nth-of-type(even) { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .case:nth-of-type(even) > .text { order: 0; }
+  .hero { padding-top: 24px; }
+  .ideas, .facts { grid-template-columns: minmax(0, 1fr); }
+  nav.top a.hide-s { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='14' fill='%2315171a'/%3E %3Crect x='2' y='2' width='60' height='60' rx='12' fill='none' stroke='%232a2e34' stroke-width='2'/%3E %3Cpath d='M15 20 L29 32 L15 44' fill='none' stroke='%237fc77f' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E %3Crect x='33' y='41' width='17' height='6' rx='2' fill='%237fc77f'/%3E %3Ccircle cx='49' cy='17' r='4' fill='%236cc5d6'/%3E %3C/svg%3E" alt="">Focus</a>
+    <nav class="top">
+      <a class="hide-s" href="#day"><span data-l="en">A day with Focus</span><span data-l="de">Ein Tag mit Focus</span></a>
+      <a class="hide-s" href="#install"><span data-l="en">Install</span><span data-l="de">Installieren</span></a>
+      <a href="https://github.com/kleineLoesungen/cli-focus">GitHub</a>
+      <button class="lang" type="button" id="lang"><span data-l="en">Deutsch</span><span data-l="de">English</span></button>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow"><span data-l="en">For the terminal · macOS and Linux</span><span data-l="de">Fürs Terminal · macOS und Linux</span></p>
+      <h1><span data-l="en">Less list,<br>more done.</span><span data-l="de">Weniger Liste,<br>mehr erledigt.</span></h1>
+      <p class="lead" data-l="en">Focus answers one question every morning: <strong>what's on for today?</strong> You write tasks down in one sentence. Focus works out what's urgent and what's important – and keeps today to three.</p>
+      <p class="lead" data-l="de">Focus beantwortet jeden Morgen eine Frage: <strong>Was ist heute dran?</strong> Du schreibst Aufgaben in einem Satz auf. Focus erkennt, was dringend und was wichtig ist – und hält den Tag bei drei.</p>
+      <div class="install-line"><code><span class="p">$</span> brew install kleineLoesungen/tap/focus</code><button class="copy" type="button" data-copy="brew install kleineLoesungen/tap/focus"><span data-l="en">Copy</span><span data-l="de">Kopieren</span></button></div>
+      <p class="more"><span data-l="en">No Homebrew? <a href="#install">Other ways to install</a> · free and open source</span><span data-l="de">Kein Homebrew? <a href="#install">Andere Wege</a> · kostenlos und quelloffen</span></p>
+    </div>
+    <div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus</span></div><pre><span class="cmd"><b>$</b> focus</span>
+
+ <span class="b">Thursday, November 26</span>                                    <span class="d">1 of 3 done</span>
+ <span class="d">────────────────────────────────────────────────────────────────────</span>
+
+ <span class="b">TODAY</span>
+<span class="d">     ✓ send offer to client                                    #work</span>
+ <span class="d">  2</span> <span class="cyan">▶</span> prepare presentation                      <span class="yellow">due tomorrow</span>  <span class="d">#work</span>
+ <span class="d">  4</span> <span class="d">·</span> buy running shoes                                       <span class="d">#health</span>
+
+ <span class="b">URGENT, BUT NOT IMPORTANT</span>   <span class="d">→ do it quickly or delegate</span>
+ <span class="d">  6</span> <span class="d">·</span> file travel expenses                      <span class="yellow">due tomorrow</span>  <span class="d">#home</span>
+
+ <span class="d">5 more open · 2 waiting on others</span>
+ <span class="d">2 have been sitting for a while → focus review</span></pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus</span></div><pre><span class="cmd"><b>$</b> focus</span>
+
+ <span class="b">Donnerstag, 26. November</span>                            <span class="d">1 von 3 erledigt</span>
+ <span class="d">────────────────────────────────────────────────────────────────────</span>
+
+ <span class="b">HEUTE</span>
+<span class="d">     ✓ Angebot an Kunden schicken                          #arbeit</span>
+ <span class="d">  2</span> <span class="cyan">▶</span> Präsentation vorbereiten             <span class="yellow">fällig morgen</span>  <span class="d">#arbeit</span>
+ <span class="d">  4</span> <span class="d">·</span> Laufschuhe kaufen                                   <span class="d">#gesundheit</span>
+
+ <span class="b">DRINGEND, ABER NICHT WICHTIG</span>   <span class="d">→ schnell erledigen oder abgeben</span>
+ <span class="d">  6</span> <span class="d">·</span> Reisekosten abrechnen                <span class="yellow">fällig morgen</span>  <span class="d">#haus</span>
+
+ <span class="d">5 weitere offen · 2 warten auf andere</span>
+ <span class="d">2 liegen schon lange → focus aufräumen</span></pre></figure>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2><span data-l="en">The idea</span><span data-l="de">Die Idee</span></h2>
+    <p class="sub"><span data-l="en">No priorities to set, no hours to estimate. Two simple rules do the sorting.</span><span data-l="de">Keine Prioritäten vergeben, keine Stunden schätzen. Zwei einfache Regeln sortieren.</span></p>
+    <div class="ideas">
+      <div class="idea">
+        <div class="n">01</div>
+        <h3><span data-l="en">Find your focus.</span><span data-l="de">Fokus finden.</span></h3>
+        <p data-l="en">Write tasks down in one sentence, with a <code>#topic</code>, an <code>@person</code> or a date if you like. Focus sorts: <strong>urgent</strong> is due within two days, <strong>important</strong> belongs to one of your top three topics.</p>
+        <p data-l="de">Schreib Aufgaben in einem Satz auf, mit <code>#thema</code>, <code>@person</code> oder Termin, wenn du magst. Focus sortiert: <strong>dringend</strong> ist, was in spätestens zwei Tagen fällig ist, <strong>wichtig</strong>, was zu deinen drei wichtigsten Themen gehört.</p>
+      </div>
+      <div class="idea">
+        <div class="n">02</div>
+        <h3><span data-l="en">Keep your focus.</span><span data-l="de">Fokus halten.</span></h3>
+        <p data-l="en">At most three open tasks today, at most three important topics – choosing stays necessary. <code>focus now</code> hides everything but one task and starts a clock.</p>
+        <p data-l="de">Höchstens drei offene Aufgaben für heute, höchstens drei wichtige Themen – wählen bleibt nötig. <code>focus jetzt</code> blendet alles aus bis auf eine Aufgabe und startet eine Uhr.</p>
+      </div>
+      <div class="idea">
+        <div class="n">03</div>
+        <h3><span data-l="en">Get it done.</span><span data-l="de">Fertig werden.</span></h3>
+        <p data-l="en"><code>focus done 2</code> checks it off and frees a spot for the next one. Once a week, <code>focus review</code> clears out whatever got stuck.</p>
+        <p data-l="de"><code>focus fertig 2</code> hakt ab und macht Platz für die nächste. Einmal pro Woche räumt <code>focus aufräumen</code> weg, was liegen geblieben ist.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="day">
+  <div class="wrap">
+    <h2><span data-l="en">A day with Focus</span><span data-l="de">Ein Tag mit Focus</span></h2>
+    <p class="sub"><span data-l="en">Real output from Focus, nothing staged. Every view is one short command away.</span><span data-l="de">Echte Ausgaben von Focus, nichts nachgestellt. Jede Ansicht ist einen kurzen Befehl entfernt.</span></p>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">Something comes to mind</span><span data-l="de">Dir fällt etwas ein</span></h3>
+        <p data-l="en">Type it the way you'd say it. Focus confirms what it understood, and a task due today goes straight onto today's list.</p>
+        <p data-l="de">Tipp es, wie du es sagen würdest. Focus bestätigt, was es verstanden hat, und was heute fällig ist, kommt gleich auf die Liste für heute.</p>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus + prepare slides #work friday</span></div><pre><span class="cmd"><b>$</b> focus + prepare slides #work friday</span>
+
+ <span class="green">✓</span> Task 12: prepare slides · #work · due tomorrow (Friday, Nov 27)</pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus + Folien vorbereiten #arbeit freitag</span></div><pre><span class="cmd"><b>$</b> focus + Folien vorbereiten #arbeit freitag</span>
+
+ <span class="green">✓</span> Aufgabe 12: Folien vorbereiten · #arbeit · fällig morgen (Freitag 27.11.)</pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">Everything at a glance</span><span data-l="de">Alles auf einen Blick</span></h3>
+        <p data-l="en">Four quadrants: do, plan, quick or delegate, drop. <em>Plan</em> is the most valuable corner – it never nags, so it's the easiest to lose.</p>
+        <p data-l="de">Vier Felder: tun, planen, schnell oder abgeben, streichen. <em>Planen</em> ist die wertvollste Ecke – sie drängelt nie und geht darum am leichtesten unter.</p>
+        <span class="kbd"><span data-l="en">focus all</span><span data-l="de">focus alles</span></span>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus all</span></div><pre><span class="cmd"><b>$</b> focus all</span>
+
+            <span class="b">           URGENT           </span> <span class="b">         NOT URGENT</span>
+           <span class="d">┌</span><span class="d">────────────────────────────</span><span class="d">┬</span><span class="d">────────────────────────────</span><span class="d">┐</span>
+<span class="b"> IMPORTANT </span><span class="d">│</span> <span class="d"> 2</span> <span class="cyan">▶</span> prepare pre… <span class="yellow">tomorrow</span> <span class="d">│</span> <span class="d">11</span> <span class="d"> </span> weekly plan    <span class="d">Monday</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 5</span> <span class="d"> </span> website copy   <span class="d">Dec 12</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 3</span> <span class="d"> </span> plan vacation… <span class="d">      </span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 4</span> <span class="cyan">▶</span> buy running s… <span class="d">      </span> <span class="d">│</span>
+           <span class="d">│</span><span class="d">                         DO </span><span class="d">│</span><span class="d">                       PLAN </span><span class="d">│</span>
+           <span class="d">├</span><span class="d">────────────────────────────</span><span class="d">┼</span><span class="d">────────────────────────────</span><span class="d">┤</span>
+<span class="b">     MINOR </span><span class="d">│</span> <span class="d"> 6</span> <span class="d"> </span> file travel… <span class="yellow">tomorrow</span> <span class="d">│</span> <span class="d"> 7</span> <span class="d"> </span> clear out ba… <span class="d">18 days</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d">10</span> <span class="d"> </span> call mom back <span class="d">       </span> <span class="d">│</span>
+           <span class="d">│</span><span class="d">          QUICK OR DELEGATE </span><span class="d">│</span><span class="d">                      DROP? </span><span class="d">│</span>
+           <span class="d">└</span><span class="d">────────────────────────────</span><span class="d">┴</span><span class="d">────────────────────────────</span><span class="d">┘</span>
+ <span class="d">▶ is on today · no topic counts as not important</span>
+ <span class="d">2 with others: focus people</span></pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus alles</span></div><pre><span class="cmd"><b>$</b> focus alles</span>
+
+            <span class="b">          DRINGEND          </span> <span class="b">       NICHT DRINGEND</span>
+           <span class="d">┌</span><span class="d">────────────────────────────</span><span class="d">┬</span><span class="d">────────────────────────────</span><span class="d">┐</span>
+<span class="b">   WICHTIG </span><span class="d">│</span> <span class="d"> 2</span> <span class="cyan">▶</span> Präsentation … <span class="yellow">morgen</span> <span class="d">│</span> <span class="d">11</span> <span class="d"> </span> Wochenplan     <span class="d">Montag</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 5</span> <span class="d"> </span> Website-Texte  <span class="d">12.12.</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 3</span> <span class="d"> </span> Urlaub abstim… <span class="d">      </span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d"> 4</span> <span class="cyan">▶</span> Laufschuhe ka… <span class="d">      </span> <span class="d">│</span>
+           <span class="d">│</span><span class="d">                        TUN </span><span class="d">│</span><span class="d">                     PLANEN </span><span class="d">│</span>
+           <span class="d">├</span><span class="d">────────────────────────────</span><span class="d">┼</span><span class="d">────────────────────────────</span><span class="d">┤</span>
+<span class="b"> UNWICHTIG </span><span class="d">│</span> <span class="d"> 6</span> <span class="d"> </span> Reisekosten a… <span class="yellow">morgen</span> <span class="d">│</span> <span class="d"> 7</span> <span class="d"> </span> Keller ausmi… <span class="d">18 Tage</span> <span class="d">│</span>
+           <span class="d">│</span>                            <span class="d">│</span> <span class="d">10</span> <span class="d"> </span> Mama zurückr… <span class="d">       </span> <span class="d">│</span>
+           <span class="d">│</span><span class="d">       SCHNELL ODER ABGEBEN </span><span class="d">│</span><span class="d">                 STREICHEN? </span><span class="d">│</span>
+           <span class="d">└</span><span class="d">────────────────────────────</span><span class="d">┴</span><span class="d">────────────────────────────</span><span class="d">┘</span>
+ <span class="d">▶ steht auf heute · ohne Thema zählt als nicht wichtig</span>
+ <span class="d">2 liegen bei anderen: focus personen</span></pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">Where am I stuck in a topic?</span><span data-l="de">Woran hänge ich in einem Thema?</span></h3>
+        <p data-l="en">What's open, what others are holding, what you finished this week. Recurring tasks carry a ↻.</p>
+        <p data-l="de">Was offen ist, was bei anderen liegt, was du diese Woche geschafft hast. Wiederkehrendes trägt ein ↻.</p>
+        <span class="kbd"><span data-l="en">focus #work</span><span data-l="de">focus #arbeit</span></span>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus #work</span></div><pre><span class="cmd"><b>$</b> focus #work</span>
+
+ <span class="b">#work</span>   <span class="d">important</span>
+ <span class="d">  2</span> <span class="cyan">▶</span> prepare presentation                  <span class="yellow">due tomorrow</span>
+ <span class="d"> 11</span> <span class="d">·</span> weekly plan                           <span class="d">↻ due Monday</span>
+ <span class="d">  5</span> <span class="d">·</span> website copy                          <span class="d">  due Dec 12</span>
+
+ <span class="b">WITH OTHERS</span>
+ <span class="d">  8</span> <span class="d">·</span> review contract                          with @tom  <span class="yellow">for 12 days</span>
+
+ <span class="d">Done in the last 7 days: send offer to client</span>
+ <span class="d">▶ is on today</span></pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus #arbeit</span></div><pre><span class="cmd"><b>$</b> focus #arbeit</span>
+
+ <span class="b">#arbeit</span>   <span class="d">wichtig</span>
+ <span class="d">  2</span> <span class="cyan">▶</span> Präsentation vorbereiten         <span class="yellow">  fällig morgen</span>
+ <span class="d"> 11</span> <span class="d">·</span> Wochenplan                       <span class="d">↻ fällig Montag</span>
+ <span class="d">  5</span> <span class="d">·</span> Website-Texte                    <span class="d">  fällig 12.12.</span>
+
+ <span class="b">LIEGT BEI ANDEREN</span>
+ <span class="d">  8</span> <span class="d">·</span> Vertrag prüfen                          bei @tom  <span class="yellow">seit 12 Tagen</span>
+
+ <span class="d">In den letzten 7 Tagen erledigt: Angebot an Kunden schicken</span>
+ <span class="d">▶ steht auf heute</span></pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">What am I still waiting for?</span><span data-l="de">Worauf warte ich noch?</span></h3>
+        <p data-l="en">Hand things off with <code>focus delegate 4 @tom</code>. The longest wait is on top – that's where following up pays off.</p>
+        <p data-l="de">Gib Dinge ab mit <code>focus abgeben 4 @tom</code>. Das am längsten Liegende steht oben – dort lohnt sich Nachhaken am meisten.</p>
+        <span class="kbd"><span data-l="en">focus waiting</span><span data-l="de">focus warten</span></span>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus waiting</span></div><pre><span class="cmd"><b>$</b> focus waiting</span>
+
+ <span class="b">WAITING FOR</span>   <span class="d">→ follow up: focus review</span>
+ <span class="d">  8</span> <span class="d">·</span> review contract                          with @tom  <span class="yellow">for 12 days</span>
+ <span class="d">  9</span> <span class="d">·</span> send weekend photos                     with @anna  <span class="d">for 5 days</span>
+
+ <span class="d">Back to you: focus today &lt;no&gt; · came back done: focus done &lt;no&gt;</span></pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus warten</span></div><pre><span class="cmd"><b>$</b> focus warten</span>
+
+ <span class="b">WARTE AUF</span>   <span class="d">→ nachhaken: focus aufräumen</span>
+ <span class="d">  8</span> <span class="d">·</span> Vertrag prüfen                          bei @tom  <span class="yellow">seit 12 Tagen</span>
+ <span class="d">  9</span> <span class="d">·</span> Fotos vom Wochenende schicken          bei @anna  <span class="d">seit 5 Tagen</span>
+
+ <span class="d">Zurück zu dir: focus heute &lt;Nr&gt; · kam erledigt zurück: focus fertig &lt;Nr&gt;</span></pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">Just one thing</span><span data-l="de">Nur eine Sache</span></h3>
+        <p data-l="en">The window clears except for the task with ▶ and a 25-minute clock. When you check it off, Focus offers the next one.</p>
+        <p data-l="de">Das Fenster wird leer, bis auf die Aufgabe mit ▶ und eine 25-Minuten-Uhr. Hakst du sie ab, bietet Focus die nächste an.</p>
+        <span class="kbd"><span data-l="en">focus now</span><span data-l="de">focus jetzt</span></span>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>focus now</span></div><pre><span class="cmd"><b>$</b> focus now</span>
+
+<span class="d">╭──────────────────────────────────────────────────────╮</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="b">prepare presentation</span>                              <span class="d">│</span>
+<span class="d">│</span>    <span class="d">#work · due tomorrow</span>                              <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="cyan">━━━━━━━━━</span><span class="d">░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>    18:42     <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="d">[d] done   [p] pause   [l] later   [q] back</span>       <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">╰──────────────────────────────────────────────────────╯</span></pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>focus jetzt</span></div><pre><span class="cmd"><b>$</b> focus jetzt</span>
+
+<span class="d">╭──────────────────────────────────────────────────────╮</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="b">Präsentation vorbereiten</span>                          <span class="d">│</span>
+<span class="d">│</span>    <span class="d">#arbeit · fällig morgen</span>                           <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="cyan">━━━━━━━━━</span><span class="d">░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>    18:42     <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">│</span>    <span class="d">[f] fertig   [p] Pause   [s] später   [q] zurück</span>  <span class="d">│</span>
+<span class="d">│</span>                                                      <span class="d">│</span>
+<span class="d">╰──────────────────────────────────────────────────────╯</span></pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">The Tab key knows your tasks</span><span data-l="de">Die Tab-Taste kennt deine Aufgaben</span></h3>
+        <p data-l="en">Press Tab twice: numbers with their text, grouped by today, urgent, topic and who's holding them. Topics, people and dates complete too.</p>
+        <p data-l="de">Zweimal Tab: Nummern mit Text, geordnet nach heute, dringend, Thema und wer sie gerade hat. Themen, Personen und Termine ergänzt sie auch.</p>
+      </div>
+      <figure class="term" data-l="en"><div class="bar"><i></i><i></i><i></i><span>zsh</span></div><pre><span class="cmd"><b>$</b> focus done ⇥⇥</span>
+
+<span class="b">Today</span>
+2   prepare presentation  · tomorrow
+4   buy running shoes
+<span class="b">Urgent</span>
+6   file travel expenses  · tomorrow
+<span class="b">#work · important</span>
+11  weekly plan  · Monday
+5   website copy  · Dec 12
+<span class="b">#family · important</span>
+3   plan vacation @anna
+<span class="b">#home</span>
+7   clear out basement
+<span class="b">No topic</span>
+10  call mom back
+<span class="b">With others</span>
+8   review contract  · with @tom
+9   send weekend photos  · with @anna</pre></figure>
+<figure class="term" data-l="de"><div class="bar"><i></i><i></i><i></i><span>zsh</span></div><pre><span class="cmd"><b>$</b> focus fertig ⇥⇥</span>
+
+<span class="b">Heute</span>
+2   Präsentation vorbereiten  · morgen
+4   Laufschuhe kaufen
+<span class="b">Dringend</span>
+6   Reisekosten abrechnen  · morgen
+<span class="b">#arbeit · wichtig</span>
+11  Wochenplan  · Montag
+5   Website-Texte  · 12.12.
+<span class="b">#familie · wichtig</span>
+3   Urlaub abstimmen @anna
+<span class="b">#haus</span>
+7   Keller ausmisten
+<span class="b">Ohne Thema</span>
+10  Mama zurückrufen
+<span class="b">Bei anderen</span>
+8   Vertrag prüfen  · bei @tom
+9   Fotos vom Wochenende schicken  · bei @anna</pre></figure>
+    </div>
+
+    <div class="case">
+      <div class="text">
+        <h3><span data-l="en">In the browser, too</span><span data-l="de">Auch im Browser</span></h3>
+        <p data-l="en"><code>focus web</code> opens the same Focus in a browser tab: numbers, <code>#topics</code> and <code>@people</code> are clickable, Tab and ↑ work like in the shell. It only listens on your own computer.</p>
+        <p data-l="de"><code>focus web</code> öffnet dasselbe Focus im Browser-Tab: Nummern, <code>#themen</code> und <code>@personen</code> sind anklickbar, Tab und ↑ funktionieren wie in der Shell. Erreichbar ist es nur auf deinem Computer.</p>
+      </div>
+      <figure class="shot" data-l="en"><picture><source srcset="img/web-en-dark.png" media="(prefers-color-scheme: dark)"><img src="img/web-en-light.png" width="1100" height="680" alt="Focus in a browser tab: today's list on top, below it the topic #work" loading="lazy"></picture></figure>
+      <figure class="shot" data-l="de"><picture><source srcset="img/web-de-dark.png" media="(prefers-color-scheme: dark)"><img src="img/web-de-light.png" width="1100" height="680" alt="Focus im Browser-Tab: oben die Liste für heute, darunter das Thema #arbeit" loading="lazy"></picture></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span data-l="en">Small on purpose</span><span data-l="de">Absichtlich klein</span></h2>
+    <div class="facts">
+      <div class="fact">
+        <h3><span data-l="en">Your data is a text file</span><span data-l="de">Deine Daten sind eine Textdatei</span></h3>
+        <p data-l="en">Everything lives in one Markdown file you can open in any editor. No account, no cloud, no subscription. Done and dropped tasks disappear after 14 days.</p>
+        <p data-l="de">Alles steht in einer Markdown-Datei, die du mit jedem Editor öffnen kannst. Kein Konto, keine Cloud, kein Abo. Erledigtes und Gestrichenes verschwindet nach 14 Tagen.</p>
+      </div>
+      <div class="fact">
+        <h3><span data-l="en">What it does have</span><span data-l="de">Was es kann</span></h3>
+        <ul data-l="en"><li>recurring tasks: <code>every monday</code>, <code>every 2 weeks friday</code></li><li>notes and links, search, an archive with undo</li><li>a file for your phone to look things up and jot down</li><li>English and German</li></ul>
+        <ul data-l="de"><li>Wiederholungen: <code>jeden montag</code>, <code>alle 2 wochen freitag</code></li><li>Notizen und Links, Suche, ein Archiv zum Zurückholen</li><li>eine Datei fürs Handy zum Nachsehen und Notieren</li><li>Deutsch und Englisch</li></ul>
+      </div>
+      <div class="fact">
+        <h3><span data-l="en">What it deliberately can't</span><span data-l="de">Was es absichtlich nicht kann</span></h3>
+        <p data-l="en">No priority levels, no subtasks, no address book, no notifications, no sharing – and no fourth important topic. Each would be one more thing to look after.</p>
+        <p data-l="de">Keine Prioritätsstufen, keine Unteraufgaben, kein Adressbuch, keine Mitteilungen, kein Teilen – und kein viertes wichtiges Thema. Alles davon wäre noch etwas, das gepflegt werden will.</p>
+      </div>
+      <div class="fact">
+        <h3><span data-l="en">Once a week: review</span><span data-l="de">Einmal pro Woche: aufräumen</span></h3>
+        <p data-l="en"><code>focus review</code> walks you through what's overdue or has been sitting for two weeks. One key per task: today, new date, keep, done or drop.</p>
+        <p data-l="de"><code>focus aufräumen</code> geht mit dir durch, was überfällig ist oder seit zwei Wochen liegt. Eine Taste je Aufgabe: heute, neuer Termin, behalten, erledigt oder streichen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2><span data-l="en">Install</span><span data-l="de">Installieren</span></h2>
+    <p class="sub"><span data-l="en">macOS (Apple Silicon and Intel) and Linux. Pick one way, then run setup once.</span><span data-l="de">macOS (Apple Silicon und Intel) und Linux. Einen Weg wählen, dann einmal einrichten.</span></p>
+    <div class="steps">
+      <div class="step">
+        <div class="label"><span data-l="en">With Homebrew</span><span data-l="de">Mit Homebrew</span></div>
+        <div class="install-line"><code><span class="p">$</span> brew install kleineLoesungen/tap/focus</code><button class="copy" type="button" data-copy="brew install kleineLoesungen/tap/focus"><span data-l="en">Copy</span><span data-l="de">Kopieren</span></button></div>
+      </div>
+      <div class="step">
+        <div class="label"><span data-l="en">Without Homebrew – a script fetches the right program from GitHub</span><span data-l="de">Ohne Homebrew – ein Skript holt das passende Programm von GitHub</span></div>
+        <div class="install-line"><code><span class="p">$</span> curl --proto '=https' --tlsv1.2 -LsSf https://github.com/kleineLoesungen/cli-focus/releases/latest/download/focus-installer.sh | sh</code><button class="copy" type="button" data-copy="curl --proto '=https' --tlsv1.2 -LsSf https://github.com/kleineLoesungen/cli-focus/releases/latest/download/focus-installer.sh | sh"><span data-l="en">Copy</span><span data-l="de">Kopieren</span></button></div>
+      </div>
+      <div class="step">
+        <div class="label"><span data-l="en">Then once: language, where your tasks live, the shortcut <code>f</code> and the Tab key</span><span data-l="de">Dann einmal: Sprache, Ort der Aufgaben, Kurzbefehl <code>f</code> und Tab-Taste</span></div>
+        <div class="install-line"><code><span class="p">$</span> focus setup</code><button class="copy" type="button" data-copy="focus setup"><span data-l="en">Copy</span><span data-l="de">Kopieren</span></button></div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:28px"><span data-l="en">Everything else is in the <a href="https://github.com/kleineLoesungen/cli-focus#readme">manual</a> – or in the terminal: <code>focus manual</code>.</span><span data-l="de">Alles Weitere steht in der <a href="https://github.com/kleineLoesungen/cli-focus/blob/main/README.de.md">Anleitung</a> – oder im Terminal: <code>focus anleitung</code>.</span></p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span data-l="en">Focus is free software under the GPL-3.0.</span><span data-l="de">Focus ist freie Software unter der GPL-3.0.</span>
+    <span><a href="https://github.com/kleineLoesungen/cli-focus">GitHub</a> · <a href="https://github.com/kleineLoesungen/cli-focus/releases">Releases</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  function set(lang) {
+    root.dataset.lang = lang;
+    root.lang = lang;
+    document.title = lang === 'de' ? 'Focus – weniger Liste, mehr erledigt' : 'Focus – less list, more done';
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('focus-page-lang'); } catch (e) {}
+  set(saved === 'de' || saved === 'en' ? saved : ((navigator.language || '').toLowerCase().indexOf('de') === 0 ? 'de' : 'en'));
+  document.getElementById('lang').addEventListener('click', function () {
+    var next = root.dataset.lang === 'de' ? 'en' : 'de';
+    set(next);
+    try { localStorage.setItem('focus-page-lang', next); } catch (e) {}
+  });
+  document.querySelectorAll('.copy').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var text = b.getAttribute('data-copy');
+      var done = function () {
+        var old = b.innerHTML;
+        b.textContent = root.dataset.lang === 'de' ? 'Kopiert ✓' : 'Copied ✓';
+        setTimeout(function () { b.innerHTML = old; }, 1400);
+      };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+})();
+</script>
+</body>
+</html>
