@@ -434,8 +434,9 @@ _fokus() {{
   fi
   return ret
 }}
+# -i: Ordner mit lockeren Rechten still überspringen, statt beim Start nachzufragen.
 if ! (( $+functions[compdef] )); then
-  autoload -Uz compinit && compinit
+  autoload -Uz compinit && compinit -i
 fi
 compdef _fokus fokus f
 "#
