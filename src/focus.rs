@@ -1,4 +1,4 @@
-//! `fokus jetzt`: der Bildschirm wird leer, bis auf eine Aufgabe und eine Uhr.
+//! `focus jetzt`: der Bildschirm wird leer, bis auf eine Aufgabe und eine Uhr.
 
 use std::io::{self, Write, stdout};
 use std::time::{Duration, Instant};
@@ -45,10 +45,10 @@ pub fn run(store: &mut Store, nr: Option<u32>) -> Result<(), String> {
             n
         }
         None => first_today(store)
-            .ok_or("Für heute steht nichts an. Leg eine Aufgabe fest: fokus heute <Nr>")?,
+            .ok_or("Für heute steht nichts an. Leg eine Aufgabe fest: focus heute <Nr>")?,
     };
     if !term::is_interactive() {
-        return Err("Der Fokusmodus braucht ein Terminalfenster.".into());
+        return Err("Der Focus-Modus braucht ein Terminalfenster.".into());
     }
 
     let mut report = Vec::new();

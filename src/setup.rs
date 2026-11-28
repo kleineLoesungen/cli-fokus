@@ -1,5 +1,5 @@
-//! `fokus einrichten`: Kurzbefehl `f` und, wer mag, die Liste in jedem neuen Terminalfenster.
-//! `fokus deinstallieren`: alles davon wieder weg, und auf Wunsch auch das Programm.
+//! `focus einrichten`: Kurzbefehl `f` und, wer mag, die Liste in jedem neuen Terminalfenster.
+//! `focus deinstallieren`: alles davon wieder weg, und auf Wunsch auch das Programm.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,8 +8,19 @@ use std::process::Command;
 use crate::store::{self, Store};
 use crate::{away, config, date, term};
 
-const BEGIN: &str = "# >>> fokus >>>";
-const END: &str = "# <<< fokus <<<";
+const BEGIN: &str = "# >>> focus >>>";
+const END: &str = "# <<< focus <<<";
+/// So hieß der Block, als Focus noch „fokus“ hieß. Er wird ersetzt.
+const OLD_BEGIN: &str = "# >>> fokus >>>";
+const OLD_END: &str = "# <<< fokus <<<";
+
+fn is_begin(line: &str) -> bool {
+    matches!(line.trim(), BEGIN | OLD_BEGIN)
+}
+
+fn is_end(line: &str) -> bool {
+    matches!(line.trim(), END | OLD_END)
+}
 
 pub fn run() -> Result<(), String> {
     if !term::is_interactive() {
@@ -30,7 +41,7 @@ pub fn run() -> Result<(), String> {
     };
     let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
 
-    println!("\n {}\n", term::bold("Fokus einrichten"));
+    println!("\n {}\n", term::bold("Focus einrichten"));
     println!(
         " {}\n",
         term::dim(&format!(
@@ -43,14 +54,14 @@ pub fn run() -> Result<(), String> {
         println!(
             " {}\n",
             term::yellow(
-                "Hinweis: Du startest Fokus aus dem Bauordner. Installiere es lieber erst (siehe README)."
+                "Hinweis: Du startest Focus aus dem Bauordner. Installiere es lieber erst (siehe README)."
             )
         );
     }
 
     ask_places()?;
 
-    let alias = term::ask_yes(" Soll „f“ als Kurzbefehl für „fokus“ funktionieren? [J/n] ")
+    let alias = term::ask_yes(" Soll „f“ als Kurzbefehl für „focus“ funktionieren? [J/n] ")
         .map_err(term::io_err)?;
     let start =
         term::ask_yes(" Soll jedes neue Terminalfenster die Liste für heute zeigen? [J/n] ")
@@ -84,7 +95,7 @@ pub fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// `fokus deinstallieren`: erst alles zeigen, dann einmal fragen, dann tun.
+/// `focus deinstallieren`: erst alles zeigen, dann einmal fragen, dann tun.
 /// Die Aufgabendatei bleibt, außer du willst es ausdrücklich; dann kommt sie in
 /// den Papierkorb, nicht ins Nichts.
 pub fn uninstall() -> Result<(), String> {
@@ -97,7 +108,7 @@ pub fn uninstall() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("Ich finde mich selbst nicht: {e}"))?;
     let rcs: Vec<PathBuf> = shell_files(&home)
         .into_iter()
-        .filter(|p| fs::read_to_string(p).is_ok_and(|s| s.lines().any(|l| l.trim() == BEGIN)))
+        .filter(|p| fs::read_to_string(p).is_ok_and(|s| s.lines().any(is_begin)))
         .collect();
     let program = Program::of(&exe, &home);
     let data = store::file_path();
@@ -105,10 +116,10 @@ pub fn uninstall() -> Result<(), String> {
     let settings = config::path();
     let has_settings = store::play_file().is_none() && settings.exists();
 
-    println!("\n {}\n", term::bold("Fokus deinstallieren"));
+    println!("\n {}\n", term::bold("Focus deinstallieren"));
     println!(" Das würde ich tun:");
     for rc in &rcs {
-        println!("   · den Fokus-Block aus {} entfernen", rc.display());
+        println!("   · den Focus-Block aus {} entfernen", rc.display());
     }
     match &program {
         Program::Cargo(p) | Program::File(p) => {
@@ -211,7 +222,7 @@ pub fn uninstall() -> Result<(), String> {
     match &program {
         Program::Cargo(p) => {
             let ok = Command::new("cargo")
-                .args(["uninstall", "fokus"])
+                .args(["uninstall", "focus"])
                 .status()
                 .is_ok_and(|s| s.success());
             if ok || fs::remove_file(p).is_ok() {
@@ -241,17 +252,17 @@ pub fn uninstall() -> Result<(), String> {
     Ok(())
 }
 
-/// `fokus datei verschieben <ort>`: Die Aufgabendatei zieht um, und Fokus merkt
-/// sich den Ort. Eine Datei, die dort schon liegt, überschreibt Fokus nie.
+/// `focus datei verschieben <ort>`: Die Aufgabendatei zieht um, und Focus merkt
+/// sich den Ort. Eine Datei, die dort schon liegt, überschreibt Focus nie.
 pub fn move_data(input: &str) -> Result<String, String> {
     if let Some(p) = store::play_file() {
         return Err(format!(
-            "Gerade gilt die Spieldatei FOKUS_DATEI={}. Ohne FOKUS_DATEI noch einmal versuchen.",
+            "Gerade gilt die Spieldatei FOCUS_DATEI={}. Ohne FOCUS_DATEI noch einmal versuchen.",
             p.display()
         ));
     }
     let typed = config::typed_path(input)
-        .ok_or("Wohin? Zum Beispiel: fokus datei verschieben ~/Dokumente/Planung")?;
+        .ok_or("Wohin? Zum Beispiel: focus datei verschieben ~/Dokumente/Planung")?;
     let target = data_file_in(typed);
     let current = store::file_path();
     if away::same_file(&target, &current) {
@@ -275,7 +286,7 @@ pub fn move_data(input: &str) -> Result<String, String> {
         if !current.exists() {
             remember(&target)?;
             return Ok(format!(
-                " {} Fokus nimmt jetzt die Aufgaben aus {}",
+                " {} Focus nimmt jetzt die Aufgaben aus {}",
                 term::green("✓"),
                 target.display()
             ));
@@ -294,7 +305,7 @@ pub fn move_data(input: &str) -> Result<String, String> {
             target.display()
         );
         let take = term::ask_no(&format!(
-            " Soll Fokus ab jetzt die nehmen? Deine bisherige bleibt unverändert in {}. [j/N] ",
+            " Soll Focus ab jetzt die nehmen? Deine bisherige bleibt unverändert in {}. [j/N] ",
             current.display()
         ))
         .map_err(term::io_err)?;
@@ -303,7 +314,7 @@ pub fn move_data(input: &str) -> Result<String, String> {
         }
         remember(&target)?;
         return Ok(format!(
-            " {} Fokus nimmt jetzt die Aufgaben aus {}",
+            " {} Focus nimmt jetzt die Aufgaben aus {}",
             term::green("✓"),
             target.display()
         ));
@@ -333,13 +344,13 @@ pub fn move_data(input: &str) -> Result<String, String> {
     ))
 }
 
-/// Ein Ordner bekommt `Fokus.md`, eine `.md`-Datei bleibt, wie sie ist.
+/// Ein Ordner bekommt `Focus.md`, eine `.md`-Datei bleibt, wie sie ist.
 fn data_file_in(p: PathBuf) -> PathBuf {
     let is_md = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("md"));
     if is_md && !p.is_dir() {
         p
     } else {
-        p.join("Fokus.md")
+        p.join("Focus.md")
     }
 }
 
@@ -358,20 +369,20 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     fs::remove_file(from)
 }
 
-/// Die beiden Fragen nach den Orten in `fokus einrichten`.
-/// Fenster leeren vor jeder Ausgabe: gut, wenn ein Terminalfenster nur für Fokus da ist.
+/// Die beiden Fragen nach den Orten in `focus einrichten`.
+/// Fenster leeren vor jeder Ausgabe: gut, wenn ein Terminalfenster nur für Focus da ist.
 fn ask_clear() -> Result<(), String> {
     println!(
         " {}",
         term::dim(
-            "Nutzt du ein Fenster nur für Fokus? Dann kann Fokus es vor jedem Befehl leeren; oben steht der Befehl, Hochscrollen zeigt das Alte."
+            "Nutzt du ein Fenster nur für Focus? Dann kann Focus es vor jedem Befehl leeren; oben steht der Befehl, Hochscrollen zeigt das Alte."
         )
     );
     let before = config::flag(config::CLEAR_KEY);
     let on = if before {
-        term::ask_yes(" Soll Fokus das Fenster vor jeder Ausgabe leeren? [J/n] ")
+        term::ask_yes(" Soll Focus das Fenster vor jeder Ausgabe leeren? [J/n] ")
     } else {
-        term::ask_no(" Soll Fokus das Fenster vor jeder Ausgabe leeren? [j/N] ")
+        term::ask_no(" Soll Focus das Fenster vor jeder Ausgabe leeren? [j/N] ")
     }
     .map_err(term::io_err)?;
     if on != before {
@@ -385,7 +396,7 @@ fn ask_places() -> Result<(), String> {
         println!(
             " {}\n",
             term::dim(&format!(
-                "Gerade gilt die Spieldatei FOKUS_DATEI={}; die Orte lasse ich deshalb, wie sie sind.",
+                "Gerade gilt die Spieldatei FOCUS_DATEI={}; die Orte lasse ich deshalb, wie sie sind.",
                 p.display()
             ))
         );
@@ -420,7 +431,7 @@ fn ask_places() -> Result<(), String> {
         }
         None => {
             let want = term::ask_no(
-                " Soll Fokus eine Unterwegs-Datei schreiben, die du am Handy liest und ergänzt? [j/N] ",
+                " Soll Focus eine Unterwegs-Datei schreiben, die du am Handy liest und ergänzt? [j/N] ",
             )
             .map_err(term::io_err)?;
             if want {
@@ -476,7 +487,7 @@ impl Program {
     }
 }
 
-/// Die Dateien, in die `fokus einrichten` geschrieben haben könnte.
+/// Die Dateien, in die `focus einrichten` geschrieben haben könnte.
 fn shell_files(home: &Path) -> Vec<PathBuf> {
     let zdot = std::env::var_os("ZDOTDIR")
         .map(PathBuf::from)
@@ -522,7 +533,7 @@ fn move_to_trash(file: &Path, home: &Path) -> std::io::Result<PathBuf> {
     let name = to
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("Fokus.md");
+        .unwrap_or("Focus.md");
     let from = fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
     fs::write(
         info.join(format!("{name}.trashinfo")),
@@ -537,7 +548,7 @@ fn move_to_trash(file: &Path, home: &Path) -> std::io::Result<PathBuf> {
 }
 
 fn free_name(dir: &Path, file: &Path) -> PathBuf {
-    let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("Fokus");
+    let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("Focus");
     let ext = file.extension().and_then(|s| s.to_str()).unwrap_or("md");
     let mut candidate = dir.join(format!("{stem}.{ext}"));
     let mut n = 2;
@@ -561,7 +572,7 @@ struct Wishes {
     alias: bool,
     start: bool,
     complete: bool,
-    /// zsh bricht bei `?`/`*` ohne Treffer ab, bevor Fokus startet (z. B. bei
+    /// zsh bricht bei `?`/`*` ohne Treffer ab, bevor Focus startet (z. B. bei
     /// Links mit `?msg=…`). `noglob` im Alias reicht die Wörter unverändert durch.
     zsh: bool,
 }
@@ -572,16 +583,16 @@ fn block(exe: &Path, w: &Wishes, found: bool) -> String {
     let mut lines = Vec::new();
     if w.zsh {
         // Eine Funktion statt des Pfads im Alias: Die Tab-Taste sieht dann den
-        // Befehl „fokus“ und nicht einen Pfad samt Anführungszeichen. `function`
+        // Befehl „focus“ und nicht einen Pfad samt Anführungszeichen. `function`
         // davor, damit ein schon gesetzter Alias beim erneuten Laden nicht stört.
-        lines.push(format!("function fokus {{ {exe} \"$@\"; }}"));
-        lines.push("alias fokus='noglob fokus'".to_string());
+        lines.push(format!("function focus {{ {exe} \"$@\"; }}"));
+        lines.push("alias focus='noglob focus'".to_string());
         if w.alias {
-            lines.push("alias f='noglob fokus'".to_string());
+            lines.push("alias f='noglob focus'".to_string());
         }
     } else {
         if !found {
-            lines.push(format!("alias fokus={exe}"));
+            lines.push(format!("alias focus={exe}"));
         }
         if w.alias {
             lines.push(format!("alias f={exe}"));
@@ -604,16 +615,16 @@ fn sq(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
 }
 
-/// Ersetzt einen vorhandenen Fokus-Block oder hängt ihn an.
+/// Ersetzt einen vorhandenen Focus-Block oder hängt ihn an.
 fn with_block(existing: &str, block: &str) -> String {
     let mut kept: Vec<&str> = Vec::new();
     let mut inside = false;
     for line in existing.lines() {
-        if line.trim() == BEGIN {
+        if is_begin(line) {
             inside = true;
             continue;
         }
-        if line.trim() == END {
+        if is_end(line) {
             inside = false;
             continue;
         }
@@ -639,7 +650,7 @@ mod tests {
 
     #[test]
     fn der_block_wird_ersetzt_nicht_verdoppelt() {
-        let exe = Path::new("/usr/local/bin/fokus");
+        let exe = Path::new("/usr/local/bin/focus");
         let alle = Wishes {
             alias: true,
             start: true,
@@ -652,21 +663,25 @@ mod tests {
         assert_eq!(einmal, zweimal);
         assert_eq!(
             einmal,
-            "export X=1\n\n# >>> fokus >>>\nalias f='/usr/local/bin/fokus'\n'/usr/local/bin/fokus'\n# <<< fokus <<<\n"
+            "export X=1\n\n# >>> focus >>>\nalias f='/usr/local/bin/focus'\n'/usr/local/bin/focus'\n# <<< focus <<<\n"
         );
-        // In bash gibt es keine Tab-Ergänzung von Fokus: das zsh-Skript bliebe dort nur ein Fehler.
+        // In bash gibt es keine Tab-Ergänzung von Focus: das zsh-Skript bliebe dort nur ein Fehler.
         assert!(!b.contains("_zsh"));
         assert_eq!(with_block(&einmal, ""), "export X=1\n");
+        // Der Block aus der Zeit, als Focus „fokus“ hieß, wird ersetzt, nicht verdoppelt.
+        let alt =
+            "export X=1\n\n# >>> fokus >>>\nalias f='/usr/local/bin/fokus'\n# <<< fokus <<<\n";
+        assert_eq!(with_block(alt, &b), einmal);
     }
 
     #[test]
     fn im_papierkorb_wird_nichts_ueberschrieben() {
-        let dir = std::env::temp_dir().join(format!("fokus-papierkorb-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("focus-papierkorb-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let datei = Path::new("/irgendwo/Fokus.md");
-        assert_eq!(free_name(&dir, datei), dir.join("Fokus.md"));
-        fs::write(dir.join("Fokus.md"), "alt").unwrap();
-        assert_eq!(free_name(&dir, datei), dir.join("Fokus 2.md"));
+        let datei = Path::new("/irgendwo/Focus.md");
+        assert_eq!(free_name(&dir, datei), dir.join("Focus.md"));
+        fs::write(dir.join("Focus.md"), "alt").unwrap();
+        assert_eq!(free_name(&dir, datei), dir.join("Focus 2.md"));
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -674,25 +689,25 @@ mod tests {
     fn programm_im_bauordner_wird_nicht_geloescht() {
         let home = Path::new("/Users/x");
         assert!(matches!(
-            Program::of(Path::new("/p/target/release/fokus"), home),
+            Program::of(Path::new("/p/target/release/focus"), home),
             Program::DevBuild(_)
         ));
         assert!(matches!(
-            Program::of(Path::new("/usr/local/bin/fokus"), home),
+            Program::of(Path::new("/usr/local/bin/focus"), home),
             Program::File(_)
         ));
     }
 
     #[test]
-    fn ohne_pfad_gibt_es_auch_fokus_als_alias() {
+    fn ohne_pfad_gibt_es_auch_focus_als_alias() {
         let nichts = Wishes {
             alias: false,
             start: false,
             complete: false,
             zsh: false,
         };
-        let b = block(Path::new("/a/fokus"), &nichts, false);
-        assert!(b.contains("alias fokus='/a/fokus'"));
+        let b = block(Path::new("/a/focus"), &nichts, false);
+        assert!(b.contains("alias focus='/a/focus'"));
     }
 
     #[test]
@@ -703,9 +718,9 @@ mod tests {
             complete: false,
             zsh: true,
         };
-        let b = block(Path::new("/Users/x y/fokus"), &w, true);
-        assert!(b.contains(r#"function fokus { '/Users/x y/fokus' "$@"; }"#));
-        assert!(b.contains("alias fokus='noglob fokus'"));
-        assert!(b.contains("alias f='noglob fokus'"));
+        let b = block(Path::new("/Users/x y/focus"), &w, true);
+        assert!(b.contains(r#"function focus { '/Users/x y/focus' "$@"; }"#));
+        assert!(b.contains("alias focus='noglob focus'"));
+        assert!(b.contains("alias f='noglob focus'"));
     }
 }

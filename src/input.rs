@@ -18,7 +18,7 @@ pub fn parse_new(input: &str, today: NaiveDate) -> Parsed {
     parse(input, today, 1)
 }
 
-/// Wie `parse_new`, aber der Termin darf allein stehen: `fokus ändern 4 morgen`.
+/// Wie `parse_new`, aber der Termin darf allein stehen: `focus ändern 4 morgen`.
 pub fn parse_change(input: &str, today: NaiveDate) -> Parsed {
     parse(input, today, 0)
 }

@@ -1,4 +1,4 @@
-//! `fokus aufräumen`: eine Taste je Aufgabe, die überfällig ist oder lange liegt.
+//! `focus aufräumen`: eine Taste je Aufgabe, die überfällig ist oder lange liegt.
 
 use crate::store::{STALE_OPEN_DAYS, Status, Store};
 use crate::{date, input, ops, tags, term};
@@ -70,7 +70,7 @@ pub fn run(store: &mut Store) -> Result<(), String> {
             let i = store.find(*nr).unwrap();
             println!("   {:>3}  {}", nr, describe(store, i));
         }
-        println!("\n Zum Durchgehen: fokus aufräumen in einem Terminalfenster.");
+        println!("\n Zum Durchgehen: focus aufräumen in einem Terminalfenster.");
         return Ok(());
     }
 

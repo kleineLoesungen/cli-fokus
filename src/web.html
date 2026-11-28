@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fokus</title>
+<title>Focus</title>
 <!-- Ein Prompt mit Cursor: › _ und der Punkt von „steht auf heute“. -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='14' fill='%2315171a'/%3E %3Crect x='2' y='2' width='60' height='60' rx='12' fill='none' stroke='%232a2e34' stroke-width='2'/%3E %3Cpath d='M15 20 L29 32 L15 44' fill='none' stroke='%237fc77f' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E %3Crect x='33' y='41' width='17' height='6' rx='2' fill='%237fc77f'/%3E %3Ccircle cx='49' cy='17' r='4' fill='%236cc5d6'/%3E %3C/svg%3E">
 <script>
   // Gewähltes Hell/Dunkel sofort setzen, damit nichts aufblitzt.
-  try { const t = localStorage.getItem('fokus-thema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  try { const t = localStorage.getItem('focus-thema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 <style>
   :root {
@@ -78,7 +78,7 @@
   <div id="griff" title="Ziehen ändert die Höhe, Doppelklick klappt ein"></div>
   <pre id="antwort"></pre>
   <form id="zeile" autocomplete="off">
-    <span>› fokus</span>
+    <span>› focus</span>
     <input id="eingabe" autofocus spellcheck="false" placeholder="+ Text #thema @person termin · hilfe">
   </form>
 </main>
@@ -89,7 +89,7 @@ const liste = document.getElementById('liste');
 const antwort = document.getElementById('antwort');
 const eingabe = document.getElementById('eingabe');
 
-// Wie viele Zeichen passen in eine Zeile? Fokus richtet seine Spalten danach aus.
+// Wie viele Zeichen passen in eine Zeile? Focus richtet seine Spalten danach aus.
 function cols() {
   const w = document.getElementById('mass').getBoundingClientRect().width / 10;
   return Math.max(40, Math.min(140, Math.floor(antwort.clientWidth / w) - 1));
@@ -98,7 +98,7 @@ function cols() {
 async function post(path, line) {
   const r = await fetch(path, {
     method: 'POST',
-    headers: { 'X-Fokus': '1', 'Content-Type': 'text/plain' },
+    headers: { 'X-Focus': '1', 'Content-Type': 'text/plain' },
     body: cols() + '\n' + line,
   });
   if (!r.ok) throw new Error(await r.text());
@@ -111,33 +111,33 @@ function escape(s) {
 
 async function refresh() {
   try { liste.innerHTML = await post('/befehl', ''); }
-  catch (e) { liste.textContent = ' Fokus antwortet nicht. Läuft „fokus web“ noch?'; }
+  catch (e) { liste.textContent = ' Focus antwortet nicht. Läuft „focus web“ noch?'; }
 }
 
 async function run(cmd) {
-  cmd = cmd.trim().replace(/^(fokus|f)(\s+|$)/, '');
-  const head = '<span class="d"> › ' + escape(('fokus ' + cmd).trim()) + '</span>\n\n';
-  // „fokus“ und „fokus heute“ zeigen dasselbe wie die Übersicht. Ist sie offen,
+  cmd = cmd.trim().replace(/^(focus|f)(\s+|$)/, '');
+  const head = '<span class="d"> › ' + escape(('focus ' + cmd).trim()) + '</span>\n\n';
+  // „focus“ und „focus heute“ zeigen dasselbe wie die Übersicht. Ist sie offen,
   // genügt es, sie aufzufrischen; ist sie eingeklappt, kommt die Liste als Antwort.
   if ((cmd === '' || cmd === 'heute') && !document.querySelector('main').classList.contains('zu')) {
     antwort.innerHTML = '';
     return refresh();
   }
   try { antwort.innerHTML = head + await post('/befehl', cmd); }
-  catch (e) { antwort.innerHTML = head + '<span class="red"> Fokus antwortet nicht. Läuft „fokus web“ noch?</span>'; }
+  catch (e) { antwort.innerHTML = head + '<span class="red"> Focus antwortet nicht. Läuft „focus web“ noch?</span>'; }
   antwort.scrollTop = 0;
   refresh();
 }
 
 // Frühere Befehle mit ↑ und ↓, wie in der Shell.
 let verlauf = [];
-try { verlauf = JSON.parse(localStorage.getItem('fokus-verlauf') || '[]'); } catch (e) {}
+try { verlauf = JSON.parse(localStorage.getItem('focus-verlauf') || '[]'); } catch (e) {}
 let pos = verlauf.length;
 function merken(cmd) {
   if (!cmd || verlauf[verlauf.length - 1] === cmd) return;
   verlauf.push(cmd);
   verlauf = verlauf.slice(-200);
-  try { localStorage.setItem('fokus-verlauf', JSON.stringify(verlauf)); } catch (e) {}
+  try { localStorage.setItem('focus-verlauf', JSON.stringify(verlauf)); } catch (e) {}
 }
 
 document.getElementById('zeile').addEventListener('submit', (e) => {
@@ -165,12 +165,12 @@ eingabe.addEventListener('keydown', async (e) => {
   }
 });
 
-// Die Tab-Taste fragt Fokus nach Vorschlägen für das letzte Wort.
+// Die Tab-Taste fragt Focus nach Vorschlägen für das letzte Wort.
 async function ergaenzen() {
-  const line = eingabe.value.replace(/^(fokus|f)\s+/, '');
+  const line = eingabe.value.replace(/^(focus|f)\s+/, '');
   let text;
   try { text = await post('/ergaenzen', line); } catch (e) { return; }
-  // Fokus liefert alles, was an der Stelle passt; das Filtern nach dem
+  // Focus liefert alles, was an der Stelle passt; das Filtern nach dem
   // Angefangenen macht sonst die Shell.
   const start = line.lastIndexOf(' ') + 1;
   const word = line.slice(start).toLowerCase();
@@ -216,14 +216,14 @@ const griff = document.getElementById('griff');
 function klappen(zu) {
   main.classList.toggle('zu', zu);
   klappe.textContent = (zu ? '▸' : '▾') + ' Übersicht';
-  merk('fokus-uebersicht', zu ? 'zu' : 'auf');
+  merk('focus-uebersicht', zu ? 'zu' : 'auf');
 }
 function hoehe(px) {
   if (px) main.style.setProperty('--liste-hoehe', px + 'px');
   else main.style.removeProperty('--liste-hoehe');
 }
-klappen(lies('fokus-uebersicht', 'auf') === 'zu');
-hoehe(parseInt(lies('fokus-hoehe', ''), 10) || 0);
+klappen(lies('focus-uebersicht', 'auf') === 'zu');
+hoehe(parseInt(lies('focus-hoehe', ''), 10) || 0);
 klappe.addEventListener('click', () => { klappen(!main.classList.contains('zu')); eingabe.focus(); });
 griff.addEventListener('dblclick', () => klappen(!main.classList.contains('zu')));
 griff.addEventListener('pointerdown', (e) => {
@@ -236,7 +236,7 @@ griff.addEventListener('pointerdown', (e) => {
   const los = () => {
     griff.classList.remove('zieht');
     griff.removeEventListener('pointermove', zieh);
-    merk('fokus-hoehe', Math.round(liste.getBoundingClientRect().height));
+    merk('focus-hoehe', Math.round(liste.getBoundingClientRect().height));
     eingabe.focus();
   };
   griff.addEventListener('pointermove', zieh);
@@ -250,12 +250,12 @@ function thema(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
   themaKnopf.textContent = themen[t];
-  merk('fokus-thema', t);
+  merk('focus-thema', t);
 }
-thema(lies('fokus-thema', 'auto') in themen ? lies('fokus-thema', 'auto') : 'auto');
+thema(lies('focus-thema', 'auto') in themen ? lies('focus-thema', 'auto') : 'auto');
 themaKnopf.addEventListener('click', () => {
   const reihe = Object.keys(themen);
-  thema(reihe[(reihe.indexOf(lies('fokus-thema', 'auto')) + 1) % reihe.length] || 'auto');
+  thema(reihe[(reihe.indexOf(lies('focus-thema', 'auto')) + 1) % reihe.length] || 'auto');
   eingabe.focus();
 });
 
@@ -268,7 +268,7 @@ const regen = (() => {
   const zeichen = '0123456789·✓▶↗#@+×'.split('');
   const groesse = 15, schritt = 1000 / 12;
   let spalten = [], an = true, letzte = 0;
-  try { an = localStorage.getItem('fokus-regen') !== 'aus'; } catch (e) {}
+  try { an = localStorage.getItem('focus-regen') !== 'aus'; } catch (e) {}
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) an = false;
 
   function neu() {
@@ -316,7 +316,7 @@ const regen = (() => {
   return {
     umschalten() {
       an = !an;
-      try { localStorage.setItem('fokus-regen', an ? 'an' : 'aus'); } catch (e) {}
+      try { localStorage.setItem('focus-regen', an ? 'an' : 'aus'); } catch (e) {}
       start();
     },
   };

@@ -15,6 +15,6 @@ targets = [
     "aarch64-unknown-linux-gnu",
     "x86_64-unknown-linux-gnu",
 ]
-# Das Skript installiert nach ~/.cargo/bin, wo Fokus auch mit cargo landet.
+# Das Skript installiert nach ~/.cargo/bin, wo Focus auch mit cargo landet.
 install-path = "CARGO_HOME"
 install-updater = false

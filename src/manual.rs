@@ -1,4 +1,4 @@
-//! `fokus anleitung`: das README, ins Programm eingebaut. So passt die
+//! `focus anleitung`: das README, ins Programm eingebaut. So passt die
 //! Anleitung immer zur installierten Version und geht auch ohne Netz.
 
 use std::io::Write;
@@ -8,7 +8,7 @@ use crate::term;
 
 const README: &str = include_str!("../README.md");
 
-/// `fokus anleitung` zeigt alles, `fokus anleitung unterwegs` nur, was passt.
+/// `focus anleitung` zeigt alles, `focus anleitung unterwegs` nur, was passt.
 pub fn run(args: &[String]) -> Result<(), String> {
     let query = args.join(" ");
     let query = query.trim();
@@ -26,7 +26,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             }
             msg.push_str(&format!(
                 "\n {}\n",
-                term::dim("Alles lesen: fokus anleitung")
+                term::dim("Alles lesen: focus anleitung")
             ));
             print!("{msg}");
             return Ok(());
@@ -312,7 +312,7 @@ fn inline(s: &str) -> String {
 mod tests {
     use super::*;
 
-    const MD: &str = "# Fokus\n\nKurz.\n\n## Typische Situationen\n\n### Morgens\n\n```\nfokus\n## Neu\n```\n\nText mit `fokus heute`.\n\n### Einmal pro Woche: aufräumen\n\nGeht mit **Ruhe**.\n\n## Alle Befehle\n\n| Befehl | |\n|---|---|\n| `fokus` | was dran ist |\n| `fokus alles` | vier Felder |\n";
+    const MD: &str = "# Focus\n\nKurz.\n\n## Typische Situationen\n\n### Morgens\n\n```\nfocus\n## Neu\n```\n\nText mit `focus heute`.\n\n### Einmal pro Woche: aufräumen\n\nGeht mit **Ruhe**.\n\n## Alle Befehle\n\n| Befehl | |\n|---|---|\n| `focus` | was dran ist |\n| `focus alles` | vier Felder |\n";
 
     #[test]
     fn ueberschriften_in_codebloecken_zaehlen_nicht() {
@@ -338,14 +338,14 @@ mod tests {
         let found = find(MD, "situationen");
         assert!(found[0].contains("### Morgens") && found[0].contains("Ruhe"));
         // Steht es nur im Text, kommt der Abschnitt drumherum.
-        let found = find(MD, "fokus heute");
+        let found = find(MD, "focus heute");
         assert!(found[0].starts_with("### Morgens"));
         assert!(find(MD, "gibtsnicht").is_empty());
     }
 
     #[test]
     fn markdown_wird_lesbar() {
-        assert_eq!(inline("mit `fokus` und **fett**"), "mit fokus und fett");
+        assert_eq!(inline("mit `focus` und **fett**"), "mit focus und fett");
         assert_eq!(inline("*Was ist dran?*"), "Was ist dran?");
         assert_eq!(
             inline("[Rust](https://rustup.rs) und [LICENSE](LICENSE)"),
@@ -354,8 +354,8 @@ mod tests {
         let t = render(MD);
         assert!(t.contains(" TYPISCHE SITUATIONEN\n"));
         assert!(t.contains("     ## Neu\n"));
-        assert!(t.contains("   fokus        was dran ist\n"), "{t}");
-        assert!(t.contains("   fokus alles  vier Felder\n"));
+        assert!(t.contains("   focus        was dran ist\n"), "{t}");
+        assert!(t.contains("   focus alles  vier Felder\n"));
         assert!(!t.contains("Befehl"));
         assert!(!t.contains("|---"));
         assert!(!t.contains("```"));

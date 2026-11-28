@@ -1,7 +1,7 @@
-//! `fokus web`: dasselbe Fokus im Browser-Tab, im Look des Terminals.
+//! `focus web`: dasselbe Focus im Browser-Tab, im Look des Terminals.
 //!
 //! Ein kleiner Server nur auf 127.0.0.1, ohne weitere Abhängigkeiten. Jeder
-//! Befehl läuft als eigener `fokus`-Aufruf, genau wie im Terminal; die Seite
+//! Befehl läuft als eigener `focus`-Aufruf, genau wie im Terminal; die Seite
 //! zeigt die Antwort und oben immer die Liste für heute. Dazu: Links und
 //! Aufgabennummern zum Anklicken, Tab-Taste, frühere Befehle mit ↑.
 
@@ -20,15 +20,15 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let port = match args.first() {
         Some(p) => p
             .parse::<u16>()
-            .map_err(|_| format!("„{p}“ ist keine Portnummer. Zum Beispiel: fokus web 4712"))?,
+            .map_err(|_| format!("„{p}“ ist keine Portnummer. Zum Beispiel: focus web 4712"))?,
         None => DEFAULT_PORT,
     };
     let listener = TcpListener::bind(("127.0.0.1", port)).map_err(|e| {
-        format!("Port {port} ist nicht frei ({e}). Läuft Fokus schon? Sonst: fokus web 4712")
+        format!("Port {port} ist nicht frei ({e}). Läuft Focus schon? Sonst: focus web 4712")
     })?;
     let url = format!("http://127.0.0.1:{port}");
     println!(
-        " {} Fokus im Browser: {url}\n {}",
+        " {} Focus im Browser: {url}\n {}",
         term::green("✓"),
         term::dim("Nur auf diesem Mac erreichbar. Strg+C beendet.")
     );
@@ -52,7 +52,7 @@ struct Request {
     path: String,
     host: String,
     origin: Option<String>,
-    fokus_header: bool,
+    focus_header: bool,
     body: String,
 }
 
@@ -63,7 +63,7 @@ fn read_request(stream: &TcpStream) -> std::io::Result<Request> {
     let mut parts = line.split_whitespace();
     let method = parts.next().unwrap_or("").to_string();
     let path = parts.next().unwrap_or("").to_string();
-    let (mut host, mut origin, mut fokus_header, mut len) = (String::new(), None, false, 0usize);
+    let (mut host, mut origin, mut focus_header, mut len) = (String::new(), None, false, 0usize);
     loop {
         let mut h = String::new();
         if reader.read_line(&mut h)? == 0 || h.trim().is_empty() {
@@ -76,7 +76,7 @@ fn read_request(stream: &TcpStream) -> std::io::Result<Request> {
         match k.trim().to_lowercase().as_str() {
             "host" => host = v,
             "origin" => origin = Some(v),
-            "x-fokus" => fokus_header = true,
+            "x-focus" => focus_header = true,
             "content-length" => len = v.parse().unwrap_or(0).min(64 * 1024),
             _ => {}
         }
@@ -88,7 +88,7 @@ fn read_request(stream: &TcpStream) -> std::io::Result<Request> {
         path,
         host,
         origin,
-        fokus_header,
+        focus_header,
         body: String::from_utf8_lossy(&body).into_owned(),
     })
 }
@@ -113,7 +113,7 @@ fn handle(
             }
             let out = {
                 let exe = lock.lock().unwrap_or_else(|e| e.into_inner());
-                fokus(&exe, &words, cols)
+                focus(&exe, &words, cols)
             };
             respond(
                 &mut stream,
@@ -130,7 +130,7 @@ fn handle(
                 args.push(String::new());
             }
             let exe = lock.lock().unwrap_or_else(|e| e.into_inner());
-            let out = fokus(&exe, &args, 80);
+            let out = focus(&exe, &args, 80);
             respond(&mut stream, "200 OK", "text/plain; charset=utf-8", &out)
         }
         _ => respond(&mut stream, "404 Not Found", "text/plain", "Gibt es nicht."),
@@ -139,8 +139,8 @@ fn handle(
 
 /// Nur die eigene Seite darf Befehle schicken. Der Host-Kopf schützt vor
 /// fremden Seiten, die sich als 127.0.0.1 ausgeben (DNS-Rebinding); der eigene
-/// Kopf `X-Fokus` kann von fremden Seiten nicht ohne Rückfrage gesetzt werden,
-/// und diese Rückfrage (OPTIONS) beantwortet Fokus nicht.
+/// Kopf `X-Focus` kann von fremden Seiten nicht ohne Rückfrage gesetzt werden,
+/// und diese Rückfrage (OPTIONS) beantwortet Focus nicht.
 fn allowed(req: &Request, port: u16) -> bool {
     let hosts = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
     if !hosts.contains(&req.host) {
@@ -149,7 +149,7 @@ fn allowed(req: &Request, port: u16) -> bool {
     if req.method == "GET" {
         return true;
     }
-    req.fokus_header
+    req.focus_header
         && req
             .origin
             .as_ref()
@@ -167,20 +167,20 @@ fn split_body(body: &str) -> (usize, &str) {
     }
 }
 
-/// Die Wörter des Befehls; ein „fokus“ oder „f“ vorne darf mitgetippt werden.
+/// Die Wörter des Befehls; ein „focus“ oder „f“ vorne darf mitgetippt werden.
 fn words(line: &str) -> Vec<String> {
     let mut w: Vec<String> = line.split_whitespace().map(String::from).collect();
-    if w.first().is_some_and(|f| f == "fokus" || f == "f") {
+    if w.first().is_some_and(|f| f == "focus" || f == "f") {
         w.remove(0);
     }
     w
 }
 
-fn fokus(exe: &std::path::Path, args: &[String], cols: usize) -> String {
+fn focus(exe: &std::path::Path, args: &[String], cols: usize) -> String {
     let out = Command::new(exe)
         .args(args)
-        .env("FOKUS_FARBE", "1")
-        .env("FOKUS_WEB", "1")
+        .env("FOCUS_FARBE", "1")
+        .env("FOCUS_WEB", "1")
         .env("COLUMNS", cols.to_string())
         .stdin(Stdio::null())
         .output();
@@ -190,7 +190,7 @@ fn fokus(exe: &std::path::Path, args: &[String], cols: usize) -> String {
             s.push_str(&String::from_utf8_lossy(&o.stderr));
             s
         }
-        Err(e) => format!(" Fokus ließ sich nicht starten: {e}"),
+        Err(e) => format!(" Focus ließ sich nicht starten: {e}"),
     }
 }
 
@@ -405,7 +405,7 @@ mod tests {
         assert!(!to_html(" Retro @michael…").contains("data-cmd"));
         let h = to_html(" Neues Thema #haus, über der Linie.");
         assert!(h.contains(">#haus</a>,"), "{h}");
-        assert!(!to_html(" Alles zu einer Person: fokus @name").contains("data-cmd"));
+        assert!(!to_html(" Alles zu einer Person: focus @name").contains("data-cmd"));
         assert!(!to_html(" C#-Kurs").contains("data-cmd"));
         let h = to_html(" https://x.de/a#teil");
         assert_eq!(h.matches("<a ").count(), 1, "{h}");
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn gewoehnliche_zahlen_bleiben_text() {
-        assert!(!to_html(" 1 wartet auf andere → fokus alles").contains("data-cmd"));
+        assert!(!to_html(" 1 wartet auf andere → focus alles").contains("data-cmd"));
         assert!(!to_html(" Samstag, 28. November   0 von 1 erledigt").contains("data-cmd"));
     }
 
@@ -424,7 +424,7 @@ mod tests {
             path: "/befehl".into(),
             host: host.into(),
             origin: origin.map(String::from),
-            fokus_header: header,
+            focus_header: header,
             body: String::new(),
         };
         assert!(allowed(
@@ -443,9 +443,9 @@ mod tests {
     }
 
     #[test]
-    fn fokus_vorne_darf_mitgetippt_werden() {
+    fn focus_vorne_darf_mitgetippt_werden() {
         assert_eq!(words("f + Brot"), ["+", "Brot"]);
-        assert_eq!(words("fokus fertig 2"), ["fertig", "2"]);
+        assert_eq!(words("focus fertig 2"), ["fertig", "2"]);
         assert_eq!(split_body("90\nheute 3"), (90, "heute 3"));
     }
 }

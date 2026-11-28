@@ -19,17 +19,17 @@ pub const TODAY_LIMIT: usize = 3;
 pub const IMPORTANT_LIMIT: usize = 3;
 /// Dringend ist, was in so vielen Tagen fällig ist (oder schon überfällig).
 pub const URGENT_DAYS: i64 = 2;
-/// Ab so vielen Tagen ohne Bewegung fragt `fokus aufräumen` nach.
+/// Ab so vielen Tagen ohne Bewegung fragt `focus aufräumen` nach.
 pub const STALE_OPEN_DAYS: i64 = 14;
 pub const STALE_WAITING_DAYS: i64 = 7;
 /// Unwichtiges ohne Termin wandert nach so vielen Tagen ins Archiv.
 pub const ARCHIVE_DAYS: i64 = 30;
-/// So lange stehen Erledigtes und Gestrichenes im Archiv; danach löscht Fokus sie.
+/// So lange stehen Erledigtes und Gestrichenes im Archiv; danach löscht Focus sie.
 pub const KEEP_DAYS: i64 = 14;
 
-const HEADER: &str = "# Fokus\n\n\
+const HEADER: &str = "# Focus\n\n\
 Deine Aufgaben. Du darfst diese Datei mit jedem Texteditor ändern;\n\
-Fokus bringt sie beim nächsten Aufruf wieder in Ordnung.\n\n";
+Focus bringt sie beim nächsten Aufruf wieder in Ordnung.\n\n";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -92,7 +92,7 @@ impl Task {
         }
     }
 
-    /// Steht im Archiv und lässt sich mit `fokus zurück` holen.
+    /// Steht im Archiv und lässt sich mit `focus zurück` holen.
     pub fn is_restorable(&self, today: NaiveDate) -> bool {
         self.inactive_age(today).is_some_and(|a| a <= KEEP_DAYS)
     }
@@ -172,10 +172,10 @@ pub struct Store {
     /// Themen unter der Linie.
     pub other: Vec<String>,
     pub today: NaiveDate,
-    /// Die Liste für heute ist noch Fokus' Vorschlag.
+    /// Die Liste für heute ist noch Focus' Vorschlag.
     pub suggested: bool,
     pub tasks: Vec<Task>,
-    /// Zeilen, die Fokus nicht versteht. Sie bleiben unter „Notizen“ erhalten.
+    /// Zeilen, die Focus nicht versteht. Sie bleiben unter „Notizen“ erhalten.
     pub notes: Vec<String>,
     /// Notizen zu Themen, nach `tags::key` des Themas.
     pub topic_notes: HashMap<String, Vec<String>>,
@@ -184,8 +184,8 @@ pub struct Store {
     original: String,
 }
 
-/// Was in `FOKUS_DATEI` steht, sonst der Ort aus den Einstellungen, sonst
-/// `~/Documents/Fokus.md`.
+/// Was in `FOCUS_DATEI` steht, sonst der Ort aus den Einstellungen, sonst
+/// `~/Documents/Focus.md`.
 pub fn file_path() -> PathBuf {
     if let Some(p) = play_file() {
         return p;
@@ -193,15 +193,24 @@ pub fn file_path() -> PathBuf {
     config::get(config::DATA_KEY).unwrap_or_else(default_path)
 }
 
-/// Die Spieldatei aus `FOKUS_DATEI`, wenn eine gesetzt ist.
+/// Die Spieldatei aus `FOCUS_DATEI`, wenn eine gesetzt ist.
 pub fn play_file() -> Option<PathBuf> {
-    std::env::var_os("FOKUS_DATEI")
+    std::env::var_os("FOCUS_DATEI")
         .filter(|s| !s.is_empty())
         .map(PathBuf::from)
 }
 
 pub fn default_path() -> PathBuf {
-    config::home().join("Documents").join("Fokus.md")
+    let docs = config::home().join("Documents");
+    let new = docs.join("Focus.md");
+    // Aus der Zeit, als Focus „fokus“ hieß: Die Datei behält ihren Namen, damit
+    // nichts verloren geht und auch ein altes Programm sie noch findet.
+    let old = docs.join("Fokus.md");
+    if !new.exists() && old.exists() {
+        old
+    } else {
+        new
+    }
 }
 
 impl Store {
@@ -390,11 +399,11 @@ impl Store {
         }
         if archived == 1 {
             self.messages.push(format!(
-                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv: fokus archiv"
+                " 1 unwichtige Aufgabe lag über {ARCHIVE_DAYS} Tage herum. Sie steht jetzt im Archiv: focus archiv"
             ));
         } else if archived > 1 {
             self.messages.push(format!(
-                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv: fokus archiv"
+                " {archived} unwichtige Aufgaben lagen über {ARCHIVE_DAYS} Tage herum. Sie stehen jetzt im Archiv: focus archiv"
             ));
         }
 
@@ -425,8 +434,8 @@ impl Store {
         }
     }
 
-    /// Fokus' Vorschlag für heute: dringend und wichtig, dann was gestern liegen
-    /// blieb, dann wichtig ohne Eile. Unwichtiges schlägt Fokus nie vor.
+    /// Focus' Vorschlag für heute: dringend und wichtig, dann was gestern liegen
+    /// blieb, dann wichtig ohne Eile. Unwichtiges schlägt Focus nie vor.
     pub fn suggestion(&self, leftovers: &[usize]) -> Vec<usize> {
         let open: Vec<usize> = (0..self.tasks.len())
             .filter(|&i| self.tasks[i].status == Status::Open)
@@ -479,8 +488,8 @@ impl Store {
     }
 
     /// Jede offene Aufgabe bekommt eine Nummer. Was im Archiv steht, behält seine
-    /// Nummer, solange es dort steht: So bleibt `fokus zurück 3` eindeutig, und wer
-    /// nach einer älteren Ansicht `fokus fertig 2` tippt, erwischt keine andere.
+    /// Nummer, solange es dort steht: So bleibt `focus zurück 3` eindeutig, und wer
+    /// nach einer älteren Ansicht `focus fertig 2` tippt, erwischt keine andere.
     fn assign_numbers(&mut self) {
         let today = self.today;
         let mut used = HashSet::new();
@@ -840,7 +849,7 @@ fn parse_meta(inner: &str) -> Option<Vec<Meta>> {
 }
 
 /// Trennt `Text  [Nr. 4 · seit 20.11.2026]` in Text und Daten. Eine Klammer, die
-/// nicht nach Fokus-Daten aussieht, gehört zum Text.
+/// nicht nach Focus-Daten aussieht, gehört zum Text.
 fn split_meta(s: &str) -> (&str, Vec<Meta>) {
     if s.ends_with(']')
         && let Some(i) = s.rfind('[')

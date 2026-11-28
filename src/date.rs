@@ -26,9 +26,9 @@ const MONTHS: [&str; 12] = [
     "Dezember",
 ];
 
-/// Heute. `FOKUS_HEUTE=2026-11-26` stellt den Tag fest ein (für Tests).
+/// Heute. `FOCUS_HEUTE=2026-11-26` stellt den Tag fest ein (für Tests).
 pub fn today() -> NaiveDate {
-    if let Ok(s) = std::env::var("FOKUS_HEUTE")
+    if let Ok(s) = std::env::var("FOCUS_HEUTE")
         && let Ok(d) = NaiveDate::parse_from_str(s.trim(), "%Y-%m-%d")
     {
         return d;

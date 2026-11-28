@@ -1,14 +1,14 @@
 //! Die Einstellungen: wo die Aufgabendatei liegt und wo die Unterwegs-Datei.
 //!
-//! Eine kleine Textdatei, `~/.config/fokus/einstellungen`, eine Zeile je Wert:
+//! Eine kleine Textdatei, `~/.config/focus/einstellungen`, eine Zeile je Wert:
 //!
 //! ```text
-//! datei = ~/Dokumente/Fokus.md
-//! unterwegs = ~/Library/Mobile Documents/com~apple~CloudDocs/Fokus/Fokus-unterwegs.md
+//! datei = ~/Dokumente/Focus.md
+//! unterwegs = ~/Library/Mobile Documents/com~apple~CloudDocs/Focus/Focus-unterwegs.md
 //! ```
 //!
-//! Sie steht nicht in der Aufgabendatei selbst: Fokus muss den Ort kennen, bevor
-//! es die Datei lesen kann. Zeilen, die Fokus nicht kennt, bleiben stehen.
+//! Sie steht nicht in der Aufgabendatei selbst: Focus muss den Ort kennen, bevor
+//! es die Datei lesen kann. Zeilen, die Focus nicht kennt, bleiben stehen.
 
 use std::fs;
 use std::io::ErrorKind;
@@ -19,18 +19,25 @@ pub const AWAY_KEY: &str = "unterwegs";
 /// `leeren = ja`: vor jeder Ausgabe den sichtbaren Bereich leeren, mit Kopfzeile.
 pub const CLEAR_KEY: &str = "leeren";
 
-const HEADER: &str = "# Fokus-Einstellungen. Ändern geht am einfachsten mit „fokus einrichten“.\n";
+const HEADER: &str = "# Focus-Einstellungen. Ändern geht am einfachsten mit „focus einrichten“.\n";
 
-/// `FOKUS_EINSTELLUNGEN`, sonst `$XDG_CONFIG_HOME/fokus/einstellungen`, sonst `~/.config/…`.
+/// `FOCUS_EINSTELLUNGEN`, sonst `$XDG_CONFIG_HOME/focus/einstellungen`, sonst `~/.config/…`.
 pub fn path() -> PathBuf {
-    if let Some(p) = std::env::var_os("FOKUS_EINSTELLUNGEN") {
+    if let Some(p) = std::env::var_os("FOCUS_EINSTELLUNGEN") {
         return PathBuf::from(p);
     }
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .filter(|s| !s.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| home().join(".config"));
-    base.join("fokus").join("einstellungen")
+    let new = base.join("focus").join("einstellungen");
+    // Aus der Zeit, als Focus „fokus“ hieß: Die Einstellungen bleiben, wo sie sind.
+    let old = base.join("fokus").join("einstellungen");
+    if !new.exists() && old.exists() {
+        old
+    } else {
+        new
+    }
 }
 
 pub fn home() -> PathBuf {
@@ -189,7 +196,7 @@ mod tests {
     #[test]
     fn eine_neue_datei_bekommt_eine_kopfzeile() {
         let neu = with_value("", "unterwegs", Some("/x/F.md"));
-        assert!(neu.starts_with("# Fokus-Einstellungen"));
+        assert!(neu.starts_with("# Focus-Einstellungen"));
         assert!(neu.ends_with("unterwegs = /x/F.md\n"));
         assert_eq!(with_value(&neu, "unterwegs", None), "");
     }
@@ -203,8 +210,8 @@ mod tests {
     #[test]
     fn aus_dem_finder_gezogene_pfade_werden_verstanden() {
         assert_eq!(
-            typed_path("/Users/s/Fokus\\ unterwegs "),
-            Some(PathBuf::from("/Users/s/Fokus unterwegs"))
+            typed_path("/Users/s/Focus\\ unterwegs "),
+            Some(PathBuf::from("/Users/s/Focus unterwegs"))
         );
         assert_eq!(
             typed_path("'/Users/s/Mein Ordner'"),
