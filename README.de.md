@@ -479,7 +479,9 @@ focus einrichten
 Installationen starten auf Englisch, bestehende mit deutscher Aufgabendatei
 bleiben Deutsch), dann, wo deine Aufgaben liegen sollen, ob es eine
 Unterwegs-Datei geben soll, wie viele Aufgaben auf heute und wie viele wichtige
-Themen es geben darf (1 bis 9, ohne Angabe 3), ob `f` als Kurzbefehl gehen soll, ob jedes neue
+Themen es geben darf (1 bis 9, ohne Angabe 3), ob Samstag und Sonntag bei
+„fällig in … Tagen“ mitzählen (ohne sie ist am Freitag eine Aufgabe für Montag
+schon dringend), ob `f` als Kurzbefehl gehen soll, ob jedes neue
 Terminalfenster die Liste für heute zeigt, ob die Tab-Taste ergänzen soll
 (zsh) und ob Focus das Fenster vor jedem Befehl leeren soll. Es schreibt dafür
 einen markierten Block in deine `.zshrc` und die Einstellungen in

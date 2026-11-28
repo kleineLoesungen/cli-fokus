@@ -1088,3 +1088,18 @@ fn wer_ohne_terminal_etwas_unwichtigeres_auf_heute_legt_bekommt_einen_hinweis() 
     s.ok(&["später", "1"]);
     assert!(!s.ok(&["heute", "1"]).contains("Hinweis"));
 }
+
+#[test]
+fn ohne_wochenende_ist_montag_am_freitag_schon_dringend() {
+    let s = Sandbox::new("wochenende");
+    // Freitag, 27.11.: Montag ist drei Tage weg, mit Wochenende also nicht dringend.
+    s.ok_on("2026-11-27", &["+", "Bericht", "#arbeit", "montag"]);
+    s.ok_on("2026-11-27", &["+", "Mama", "anrufen", "montag"]);
+    let heute = s.ok_on("2026-11-27", &[]);
+    assert!(!heute.contains("DRINGEND, ABER NICHT WICHTIG"), "{heute}");
+
+    fs::write(s.dir.join("einstellungen"), "wochenende = nein\n").unwrap();
+    let ohne = s.ok_on("2026-11-27", &[]);
+    assert!(ohne.contains("DRINGEND, ABER NICHT WICHTIG"), "{ohne}");
+    assert!(ohne.contains("Mama anrufen"));
+}

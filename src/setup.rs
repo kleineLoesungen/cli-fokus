@@ -165,7 +165,35 @@ fn ask_limits() -> Result<(), String> {
             " How many topics can be important at most?"
         ),
     )?;
+    ask_weekend()?;
     println!();
+    Ok(())
+}
+
+/// Zählt das Wochenende mit, wenn Focus ausrechnet, was bald fällig ist?
+fn ask_weekend() -> Result<(), String> {
+    println!(
+        " {}",
+        term::dim(trs!(
+            "Dringend ist, was in höchstens 2 Tagen fällig ist. Ohne Wochenende ist am Freitag eine Aufgabe für Montag schon dringend.",
+            "Urgent is what's due within 2 days. Without the weekend, on Friday a task for Monday is already urgent."
+        ))
+    );
+    let before = store::weekend_counts();
+    let question = trs!(
+        " Zählen Samstag und Sonntag bei „fällig in … Tagen“ mit?",
+        " Do Saturday and Sunday count for “due in … days”?"
+    );
+    let on = if before {
+        term::ask_yes(&format!("{question} {}", trs!("[J/n] ", "[Y/n] ")))
+    } else {
+        term::ask_no(&format!("{question} {}", trs!("[j/N] ", "[y/N] ")))
+    }
+    .map_err(term::io_err)?;
+    if on != before {
+        // Mitzählen ist der Standard und braucht keinen Eintrag.
+        config::set_str(config::WEEKEND_KEY, (!on).then_some("nein"))?;
+    }
     Ok(())
 }
 

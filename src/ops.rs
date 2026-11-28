@@ -1,7 +1,7 @@
 //! Was die Befehle an den Aufgaben ändern. Jede Funktion liefert die Rückmeldung als Text.
 
 use crate::store::{self, Status, Store, Task};
-use chrono::Days;
+use chrono::{Datelike, Days};
 
 use crate::{date, i18n, input, tags, term, tr, trs, view};
 
@@ -887,11 +887,16 @@ pub fn follow_up(store: &mut Store, nr: u32) -> Result<String, String> {
     put_today(store, new_nr, None)
 }
 
-/// „Diese Woche“: fällig am Sonntag, außer es ist schon früher fällig.
+/// „Diese Woche“: fällig am Sonntag, außer es ist schon früher fällig. Zählt
+/// das Wochenende nicht mit, ist es der Freitag (am Wochenende selbst bleibt es
+/// der Sonntag).
 pub fn this_week(store: &mut Store, nr: u32) -> Result<String, String> {
     let i = index(store, nr)?;
     let today = store.today;
-    let sunday = date::end_of_week(today);
+    let mut sunday = date::end_of_week(today);
+    if !store.weekend && today.weekday().num_days_from_monday() < 5 {
+        sunday = sunday - Days::new(2);
+    }
     let t = &mut store.tasks[i];
     // Ein früherer Termin bleibt, ein verstrichener nicht.
     t.due = Some(match t.due {

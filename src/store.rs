@@ -29,6 +29,20 @@ pub fn important_limit() -> usize {
     limit(config::IMPORTANT_KEY)
 }
 
+/// `wochenende = nein` heißt: Samstag und Sonntag zählen nicht mit. Ohne Eintrag
+/// zählen sie, wie bisher.
+pub fn weekend_counts() -> bool {
+    if cfg!(test) {
+        return true;
+    }
+    config::get_str(config::WEEKEND_KEY).is_none_or(|v| {
+        !matches!(
+            v.trim().to_lowercase().as_str(),
+            "nein" | "no" | "false" | "0" | "aus" | "off"
+        )
+    })
+}
+
 fn limit(key: &str) -> usize {
     if cfg!(test) {
         return DEFAULT_LIMIT;
@@ -200,6 +214,9 @@ pub struct Store {
     /// Themen unter der Linie.
     pub other: Vec<String>,
     pub today: NaiveDate,
+    /// Zählt das Wochenende mit, wenn Focus „fällig in … Tagen“ rechnet?
+    /// (`wochenende = nein` in den Einstellungen: nur Werktage.)
+    pub weekend: bool,
     /// Die Liste für heute ist noch Focus' Vorschlag.
     pub suggested: bool,
     pub tasks: Vec<Task>,
@@ -267,6 +284,7 @@ impl Store {
             tasks: Vec::new(),
             notes: Vec::new(),
             topic_notes: HashMap::new(),
+            weekend: weekend_counts(),
             messages: Vec::new(),
             original: text.to_string(),
         };
@@ -639,7 +657,7 @@ impl Store {
 
     pub fn is_urgent(&self, t: &Task) -> bool {
         t.due
-            .is_some_and(|d| (d - self.today).num_days() <= URGENT_DAYS)
+            .is_some_and(|d| date::days_until(self.today, d, self.weekend) <= URGENT_DAYS)
     }
 
     /// Termin verstrichen und nicht auf heute. Wiederholungen rücken selbst weiter.

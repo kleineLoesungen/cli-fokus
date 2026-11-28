@@ -21,6 +21,7 @@ pub const AWAY_KEY: &str = "unterwegs";
 pub const CLEAR_KEY: &str = "leeren";
 pub const TODAY_KEY: &str = "heute";
 pub const IMPORTANT_KEY: &str = "wichtig";
+pub const WEEKEND_KEY: &str = "wochenende";
 
 fn header() -> &'static str {
     trs!(
