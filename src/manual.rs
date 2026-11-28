@@ -4,7 +4,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use crate::term;
+use crate::{term, tr, trs};
 
 const README: &str = include_str!("../README.md");
 
@@ -17,8 +17,9 @@ pub fn run(args: &[String]) -> Result<(), String> {
     } else {
         let sections = find(README, query);
         if sections.is_empty() {
-            let mut msg = format!(
-                " Zu „{query}“ steht nichts in der Anleitung. Diese Abschnitte gibt es:\n\n"
+            let mut msg = tr!(
+                " Zu „{query}“ steht nichts in der Anleitung. Diese Abschnitte gibt es:\n\n",
+                " There's nothing on “{query}” in the manual. These sections exist:\n\n"
             );
             for (level, title) in headings(README) {
                 let indent = if level <= 2 { "   " } else { "     " };
@@ -26,7 +27,10 @@ pub fn run(args: &[String]) -> Result<(), String> {
             }
             msg.push_str(&format!(
                 "\n {}\n",
-                term::dim("Alles lesen: focus anleitung")
+                term::dim(trs!(
+                    "Alles lesen: focus anleitung",
+                    "Read it all: focus manual"
+                ))
             ));
             print!("{msg}");
             return Ok(());

@@ -3,6 +3,7 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::OnceLock;
 
+use crate::{tr, trs};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -204,11 +205,11 @@ pub fn ask_no(prompt: &str) -> io::Result<bool> {
     loop {
         match read_key()? {
             'j' | 'y' => {
-                println!("ja");
+                println!("{}", yes_word());
                 return Ok(true);
             }
             'n' | '\n' | '\x1b' => {
-                println!("nein");
+                println!("{}", no_word());
                 return Ok(false);
             }
             _ => {}
@@ -222,11 +223,11 @@ pub fn ask_yes(prompt: &str) -> io::Result<bool> {
     loop {
         match read_key()? {
             'j' | 'y' | '\n' => {
-                println!("ja");
+                println!("{}", yes_word());
                 return Ok(true);
             }
             'n' | '\x1b' => {
-                println!("nein");
+                println!("{}", no_word());
                 return Ok(false);
             }
             _ => {}
@@ -234,8 +235,19 @@ pub fn ask_yes(prompt: &str) -> io::Result<bool> {
     }
 }
 
+fn yes_word() -> &'static str {
+    trs!("ja", "yes")
+}
+
+fn no_word() -> &'static str {
+    trs!("nein", "no")
+}
+
 pub fn io_err(e: io::Error) -> String {
-    format!("Das Terminal hat nicht mitgespielt: {e}")
+    tr!(
+        "Das Terminal hat nicht mitgespielt: {e}",
+        "The terminal didn't play along: {e}"
+    )
 }
 
 #[cfg(test)]

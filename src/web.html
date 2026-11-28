@@ -119,7 +119,7 @@ async function run(cmd) {
   const head = '<span class="d"> › ' + escape(('focus ' + cmd).trim()) + '</span>\n\n';
   // „focus“ und „focus heute“ zeigen dasselbe wie die Übersicht. Ist sie offen,
   // genügt es, sie aufzufrischen; ist sie eingeklappt, kommt die Liste als Antwort.
-  if ((cmd === '' || cmd === 'heute') && !document.querySelector('main').classList.contains('zu')) {
+  if ((cmd === '' || cmd === 'heute' || cmd === 'today') && !document.querySelector('main').classList.contains('zu')) {
     antwort.innerHTML = '';
     return refresh();
   }

@@ -16,15 +16,31 @@ use std::process::Command;
 use chrono::{Datelike, NaiveDate};
 
 use crate::store::{Status, Store, Task};
-use crate::{config, date, ops, store, tags, term};
+use crate::{config, date, i18n, ops, store, tags, term, tr, trs};
 
-pub const FILE_NAME: &str = "Focus-unterwegs.md";
+/// Der Dateiname für einen neu eingerichteten Ordner. Ein schon eingerichteter
+/// Ort steht mit Dateinamen in den Einstellungen und bleibt.
+pub fn file_name() -> &'static str {
+    trs!("Focus-unterwegs.md", "Focus-mobile.md")
+}
 
-const NEW_HEADING: &str = "## Neu";
+fn new_heading() -> &'static str {
+    trs!("## Neu", "## New")
+}
 
 /// Welcher Dienst den Ordner zum Handy bringt, entscheidest du.
-pub const SYNC_HINT: &str = "Den Ordner muss ein Sync-Dienst zum Handy bringen, etwa iCloud Drive, Google Drive, Dropbox, OneDrive, Nextcloud oder Syncthing.";
-const STAND: &str = "Stand: ";
+pub fn sync_hint() -> &'static str {
+    trs!(
+        "Den Ordner muss ein Sync-Dienst zum Handy bringen, etwa iCloud Drive, Google Drive, Dropbox, OneDrive, Nextcloud oder Syncthing.",
+        "A sync service has to bring the folder to your phone, for example iCloud Drive, Google Drive, Dropbox, OneDrive, Nextcloud or Syncthing."
+    )
+}
+
+/// Vor dem Datum oben in der Datei. Gelesen werden beide.
+fn stand() -> &'static str {
+    trs!("Stand: ", "As of: ")
+}
+const STANDS: [&str; 2] = ["Stand: ", "As of: "];
 
 /// Wo die Unterwegs-Datei liegt, oder `None`, wenn es keine gibt.
 ///
@@ -33,7 +49,7 @@ const STAND: &str = "Stand: ";
 pub fn path() -> Option<PathBuf> {
     if let Some(v) = std::env::var_os("FOCUS_UNTERWEGS") {
         let s = v.to_string_lossy();
-        if s.trim().is_empty() || s.trim().eq_ignore_ascii_case("aus") {
+        if s.trim().is_empty() || i18n::word(s.trim()) == "aus" {
             return None;
         }
         return Some(file_in(config::expand(s.trim())));
@@ -52,7 +68,7 @@ pub fn file_in(p: PathBuf) -> PathBuf {
     if is_md && !p.is_dir() {
         p
     } else {
-        p.join(FILE_NAME)
+        p.join(file_name())
     }
 }
 
@@ -72,10 +88,10 @@ pub fn pick_up(store: &mut Store, path: &Path) -> Result<Pickup, String> {
     if still_in_cloud(path) {
         return Ok(Pickup {
             pending: true,
-            messages: vec![
-                "Die Unterwegs-Datei ist noch nicht aus iCloud geladen. Beim nächsten Aufruf hole ich sie ab."
-                    .into(),
-            ],
+            messages: vec![tr!(
+                "Die Unterwegs-Datei ist noch nicht aus iCloud geladen. Beim nächsten Aufruf hole ich sie ab.",
+                "The mobile file isn't downloaded from iCloud yet. I'll pick it up next time."
+            )],
             ..Pickup::default()
         });
     }
@@ -104,8 +120,9 @@ pub fn write(store: &Store, path: &Path, taken: &[String]) -> Result<bool, Strin
     }
     let dir = path.parent().unwrap_or(Path::new("."));
     if !dir.as_os_str().is_empty() && !dir.is_dir() {
-        return Err(format!(
+        return Err(tr!(
             "Den Ordner für die Unterwegs-Datei gibt es nicht mehr: {}. Neu festlegen: focus unterwegs <ordner>, abschalten: focus unterwegs aus",
+            "The folder for the mobile file is gone: {}. Set a new one: focus mobile <folder>, turn off: focus mobile off",
             dir.display()
         ));
     }
@@ -125,11 +142,17 @@ pub fn write(store: &Store, path: &Path, taken: &[String]) -> Result<bool, Strin
         ".{}.neu",
         path.file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or(FILE_NAME)
+            .unwrap_or(file_name())
     ));
     fs::write(&tmp, &text)
         .and_then(|()| fs::rename(&tmp, path))
-        .map_err(|e| format!("Ich kann {} nicht schreiben: {e}", path.display()))?;
+        .map_err(|e| {
+            tr!(
+                "Ich kann {} nicht schreiben: {e}",
+                "I can't write {}: {e}",
+                path.display()
+            )
+        })?;
     Ok(true)
 }
 
@@ -137,7 +160,11 @@ fn read(path: &Path) -> Result<String, String> {
     match fs::read_to_string(path) {
         Ok(s) => Ok(s),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(String::new()),
-        Err(e) => Err(format!("Ich kann {} nicht lesen: {e}", path.display())),
+        Err(e) => Err(tr!(
+            "Ich kann {} nicht lesen: {e}",
+            "I can't read {}: {e}",
+            path.display()
+        )),
     }
 }
 
@@ -163,7 +190,8 @@ fn new_lines(text: &str) -> Vec<String> {
     for line in text.lines() {
         let t = line.trim();
         if let Some(h) = t.strip_prefix("## ") {
-            inside = h.trim().to_lowercase().starts_with("neu");
+            let h = h.trim().to_lowercase();
+            inside = h.starts_with("neu") || h.starts_with("new");
             continue;
         }
         if inside && !t.is_empty() {
@@ -194,12 +222,16 @@ fn clean(line: &str) -> Option<String> {
 /// ein neuer Tag schon.
 fn without_stand(text: &str) -> String {
     text.lines()
-        .map(
-            |l| match l.strip_prefix(STAND).and_then(|r| r.rsplit_once(", ")) {
+        .map(|l| {
+            match STANDS
+                .iter()
+                .find_map(|p| l.strip_prefix(p))
+                .and_then(|r| r.rsplit_once(", "))
+            {
                 Some((day, _)) => day,
                 None => l,
-            },
-        )
+            }
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -208,19 +240,27 @@ fn without_stand(text: &str) -> String {
 /// nicht als „morgen“: Am Handy liest man sie vielleicht erst übermorgen.
 pub fn render(store: &Store, keep: &[String], now: &str) -> String {
     let today = store.today;
-    let mut s = String::from("# Focus unterwegs\n\n");
-    s.push_str(&format!("{STAND}{}, {now}\n\n", date::exact(today)));
-    s.push_str(
+    let mut s = String::from(trs!("# Focus unterwegs\n\n", "# Focus mobile\n\n"));
+    s.push_str(&format!("{}{}, {now}\n\n", stand(), date::exact(today)));
+    s.push_str(trs!(
         "Neues schreibst du ganz unten unter „Neu“: eine Zeile je Aufgabe, wie bei\n\
          „focus +“, etwa „Trikots bestellen #verein freitag“. Focus übernimmt sie beim\n\
          nächsten Aufruf am Computer. Alles darüber schreibt Focus jedes Mal neu;\n\
          abhaken und ändern geht am Computer.\n\n",
-    );
+        "Write new things at the very bottom under “New”: one line per task, like\n\
+         with “focus +”, for example “order jerseys #club friday”. Focus picks them up\n\
+         the next time it runs on your computer. Focus rewrites everything above each\n\
+         time; checking off and changing happens on the computer.\n\n"
+    ));
 
     let done = store.done_today();
     let open_today = store.today_open();
     if !done.is_empty() || !open_today.is_empty() {
-        s.push_str(&format!("## Heute · {}\n", date::exact(today)));
+        s.push_str(&format!(
+            "## {} · {}\n",
+            trs!("Heute", "Today"),
+            date::exact(today)
+        ));
         for &i in &done {
             s.push_str(&format!("- ✓ {}\n", store.tasks[i].display()));
             s.push_str(&note_lines(&store.tasks[i].notes));
@@ -238,7 +278,7 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
         .collect();
     soon.sort_by_key(|t| (t.due, t.nr));
     if !soon.is_empty() {
-        s.push_str("## Bald fällig\n");
+        s.push_str(trs!("## Bald fällig\n", "## Due soon\n"));
         for t in &soon {
             s.push_str(&item(store, t, true));
         }
@@ -252,13 +292,13 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
         .collect();
     waiting.sort_by_key(|t| (t.since, t.nr));
     if !waiting.is_empty() {
-        s.push_str("## Warte auf\n");
+        s.push_str(trs!("## Warte auf\n", "## Waiting for\n"));
         for t in &waiting {
             let mut line = format!("- {} {}", t.nr, t.display());
             if let Some(p) = &t.waiting_for {
-                line.push_str(&format!(" · bei {}", tags::display(p)));
+                line.push_str(&tr!(" · bei {}", " · with {}", tags::display(p)));
             }
-            line.push_str(&format!(" seit {}", short_date(t.since, today)));
+            line.push_str(&tr!(" seit {}", " since {}", short_date(t.since, today)));
             if let Some(d) = t.due {
                 line.push_str(&format!(" · {}", due_text(t, d, today)));
             }
@@ -275,7 +315,7 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
         .filter(|t| t.status == Status::Open && !store.is_urgent(t))
         .collect();
     if !rest.is_empty() {
-        s.push_str("## Offen\n");
+        s.push_str(trs!("## Offen\n", "## Open\n"));
         let mut groups: Vec<(Option<String>, bool)> = store
             .important
             .iter()
@@ -294,9 +334,9 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
             }
             tasks.sort_by_key(|t| (t.due.is_none(), t.due, t.nr));
             let title = match &name {
-                Some(n) if important => format!("{n} · wichtig"),
+                Some(n) if important => tr!("{n} · wichtig", "{n} · important"),
                 Some(n) => n.clone(),
-                None => "Ohne Thema".into(),
+                None => tr!("Ohne Thema", "No topic"),
             };
             s.push_str(&format!("\n### {title}\n"));
             if let Some(n) = &name {
@@ -312,14 +352,17 @@ pub fn render(store: &Store, keep: &[String], now: &str) -> String {
     }
 
     if !store.tasks.iter().any(Task::is_active) {
-        s.push_str("Gerade ist nichts offen.\n\n");
+        s.push_str(trs!(
+            "Gerade ist nichts offen.\n\n",
+            "Nothing is open right now.\n\n"
+        ));
     }
 
     // „Neu“ steht am Ende: Was Kurzbefehle oder andere Apps an die Datei
     // anhängen, landet so von selbst dort.
     let mut s = s.trim_end().to_string();
     s.push_str("\n\n");
-    s.push_str(NEW_HEADING);
+    s.push_str(new_heading());
     s.push('\n');
     for k in keep {
         s.push_str(k);
@@ -354,9 +397,13 @@ fn due_text(t: &Task, d: NaiveDate, today: NaiveDate) -> String {
         format!("{} {}", date::weekday(d), date::to_file(d))
     };
     match t.every {
-        Some(n) => format!("↻ {}, nächstes Mal {when}", date::recurrence_label(n, d)),
-        None if d < today => format!("überfällig seit {when}"),
-        None => format!("fällig {when}"),
+        Some(n) => tr!(
+            "↻ {}, nächstes Mal {when}",
+            "↻ {}, next time {when}",
+            date::recurrence_label(n, d)
+        ),
+        None if d < today => tr!("überfällig seit {when}", "overdue since {when}"),
+        None => tr!("fällig {when}", "due {when}"),
     }
 }
 
@@ -374,69 +421,85 @@ pub fn command(args: &[String]) -> Result<String, String> {
     let arg = arg.trim();
     if arg.is_empty() {
         return Ok(match path() {
-            Some(p) => format!(
+            Some(p) => tr!(
                 " Die Unterwegs-Datei liegt in {}\n {}",
+                " The mobile file is in {}\n {}",
                 p.display(),
-                term::dim(
-                    "Anderer Ort: focus unterwegs <ordner> · abschalten: focus unterwegs aus"
-                )
+                term::dim(trs!(
+                    "Anderer Ort: focus unterwegs <ordner> · abschalten: focus unterwegs aus",
+                    "Somewhere else: focus mobile <folder> · turn off: focus mobile off"
+                ))
             ),
-            None => format!(
+            None => tr!(
                 " Es gibt noch keine Unterwegs-Datei.\n {}",
-                term::dim(
-                    "Einschalten: focus unterwegs <ordner>, ein Ordner, den auch dein Handy sieht"
-                )
+                " There's no mobile file yet.\n {}",
+                term::dim(trs!(
+                    "Einschalten: focus unterwegs <ordner>, ein Ordner, den auch dein Handy sieht",
+                    "Turn on: focus mobile <folder>, a folder your phone can see too"
+                ))
             ),
         });
     }
     if std::env::var_os("FOCUS_UNTERWEGS").is_some() {
-        return Err("Gerade gilt FOCUS_UNTERWEGS. Ohne die Variable noch einmal versuchen.".into());
+        return Err(tr!(
+            "Gerade gilt FOCUS_UNTERWEGS. Ohne die Variable noch einmal versuchen.",
+            "FOCUS_UNTERWEGS is in effect. Try again without the variable."
+        ));
     }
     if let Some(p) = store::play_file() {
-        return Err(format!(
+        return Err(tr!(
             "Gerade gilt die Spieldatei FOCUS_DATEI={}. Die Unterwegs-Datei gehört zu deinen echten Aufgaben; ohne FOCUS_DATEI noch einmal versuchen.",
+            "The practice file FOCUS_DATEI={} is in effect. The mobile file belongs to your real tasks; try again without FOCUS_DATEI.",
             p.display()
         ));
     }
-    if arg.eq_ignore_ascii_case("aus") {
+    if i18n::word(arg) == "aus" {
         let before = path();
         config::set(config::AWAY_KEY, None)?;
         return Ok(match before {
-            Some(p) => format!(
+            Some(p) => tr!(
                 " {} Focus schreibt keine Unterwegs-Datei mehr. Die letzte bleibt in {}",
+                " {} Focus no longer writes a mobile file. The last one stays in {}",
                 term::green("✓"),
                 p.display()
             ),
-            None => " Es gab keine Unterwegs-Datei.".into(),
+            None => tr!(
+                " Es gab keine Unterwegs-Datei.",
+                " There was no mobile file."
+            ),
         });
     }
-    let target = file_in(
-        config::typed_path(arg).ok_or("Wohin? Zum Beispiel: focus unterwegs ~/Dropbox/Focus")?,
-    );
+    let target = file_in(config::typed_path(arg).ok_or_else(|| {
+        tr!(
+            "Wohin? Zum Beispiel: focus unterwegs ~/Dropbox/Focus",
+            "Where to? For example: focus mobile ~/Dropbox/Focus"
+        )
+    })?);
     set(&target)?;
-    let mut msg = format!(
+    let mut msg = tr!(
         " {} Focus schreibt den Stand jetzt nach {}\n   {}",
+        " {} Focus now writes the state to {}\n   {}",
         term::green("✓"),
         target.display(),
-        term::dim(
-            "Am Handy ganz unten unter „Neu“ aufschreiben; beim nächsten Aufruf hier holt Focus es ab."
-        )
+        term::dim(trs!(
+            "Am Handy ganz unten unter „Neu“ aufschreiben; beim nächsten Aufruf hier holt Focus es ab.",
+            "On your phone, write at the very bottom under “New”; Focus picks it up the next time it runs here."
+        ))
     );
-    msg.push_str(&format!("\n   {}", term::dim(SYNC_HINT)));
+    msg.push_str(&format!("\n   {}", term::dim(sync_hint())));
     Ok(msg)
 }
 
 /// Legt den Ort fest (auch aus `focus einrichten`). Den Ordner legt Focus an.
 pub fn set(target: &Path) -> Result<(), String> {
     if same_file(target, &store::file_path()) {
-        return Err(
-            "Das ist deine Aufgabendatei selbst. Die Unterwegs-Datei braucht einen eigenen Ort."
-                .into(),
-        );
+        return Err(tr!(
+            "Das ist deine Aufgabendatei selbst. Die Unterwegs-Datei braucht einen eigenen Ort.",
+            "That's your task file itself. The mobile file needs a place of its own."
+        ));
     }
     if let Some(dir) = target.parent() {
-        fs::create_dir_all(dir)
-            .map_err(|e| format!("Ich kann den Ordner {} nicht anlegen: {e}", dir.display()))?;
+        fs::create_dir_all(dir).map_err(|e| crate::setup::cant_create(dir, &e))?;
     }
     config::set(config::AWAY_KEY, Some(target))
 }
@@ -494,7 +557,7 @@ mod tests {
     fn was_zwischendurch_dazukam_bleibt_unter_neu_stehen() {
         let dir = std::env::temp_dir().join(format!("focus-unterwegs-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let file = dir.join(FILE_NAME);
+        let file = dir.join(file_name());
         // Abgeholt wurde „A“; während Focus lief, kam am Handy „B“ dazu.
         fs::write(&file, "# Focus unterwegs\n\n## Neu\n\n- A\n- B\n").unwrap();
         let today = NaiveDate::from_ymd_opt(2026, 11, 27).unwrap();

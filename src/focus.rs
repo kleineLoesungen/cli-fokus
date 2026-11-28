@@ -9,7 +9,7 @@ use crossterm::terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlt
 use crossterm::{execute, queue, style::Print};
 
 use crate::store::{Status, Store};
-use crate::{date, ops, term};
+use crate::{date, i18n, ops, term, tr, trs};
 
 const SESSION: Duration = Duration::from_secs(25 * 60);
 
@@ -44,11 +44,18 @@ pub fn run(store: &mut Store, nr: Option<u32>) -> Result<(), String> {
             store.find(n).ok_or_else(|| ops::not_found(n))?;
             n
         }
-        None => first_today(store)
-            .ok_or("Für heute steht nichts an. Leg eine Aufgabe fest: focus heute <Nr>")?,
+        None => first_today(store).ok_or_else(|| {
+            tr!(
+                "Für heute steht nichts an. Leg eine Aufgabe fest: focus heute <Nr>",
+                "Nothing is on for today. Pick a task: focus today <no>"
+            )
+        })?,
     };
     if !term::is_interactive() {
-        return Err("Der Focus-Modus braucht ein Terminalfenster.".into());
+        return Err(tr!(
+            "Der Focus-Modus braucht ein Terminalfenster.",
+            "Focus mode needs a terminal window."
+        ));
     }
 
     let mut report = Vec::new();
@@ -121,11 +128,11 @@ fn session(store: &Store, nr: u32) -> io::Result<Outcome> {
                 return Ok(Outcome::Quit);
             }
             match k.code {
-                KeyCode::Char('f' | 'F') => return Ok(Outcome::Done),
-                KeyCode::Char('s' | 'S') => return Ok(Outcome::Later),
+                KeyCode::Char('f' | 'F' | 'd' | 'D') => return Ok(Outcome::Done),
+                KeyCode::Char('s' | 'S' | 'l' | 'L') => return Ok(Outcome::Later),
                 KeyCode::Char('q' | 'Q') | KeyCode::Esc => return Ok(Outcome::Quit),
                 KeyCode::Char('p' | 'P') if !over => paused = !paused,
-                KeyCode::Char('w' | 'W') if over => {
+                KeyCode::Char('w' | 'W' | 'm' | 'M') if over => {
                     remaining = SESSION;
                     over = false;
                 }
@@ -176,9 +183,9 @@ fn draw(title: &str, sub: &str, remaining: Duration, paused: bool, over: bool) -
     let pad = |s: String| format!("    {s}");
     let secs = remaining.as_secs();
     let clock = if over {
-        "Zeit um".to_string()
+        tr!("Zeit um", "Time's up")
     } else if paused {
-        "Pause".to_string()
+        tr!("Pause", "Paused")
     } else {
         format!("{:02}:{:02}", secs / 60, secs % 60)
     };
@@ -190,12 +197,13 @@ fn draw(title: &str, sub: &str, remaining: Duration, paused: bool, over: bool) -
         term::cyan(&"━".repeat(filled)),
         term::dim(&"░".repeat(bar_w - filled))
     );
-    let keys = if over {
-        "[f] fertig   [w] weitere 25 Min.   [s] später"
-    } else if paused {
-        "[f] fertig   [p] weiter   [s] später   [q] zurück"
-    } else {
-        "[f] fertig   [p] Pause   [s] später   [q] zurück"
+    let keys = match (i18n::en(), over, paused) {
+        (false, true, _) => "[f] fertig   [w] weitere 25 Min.   [s] später",
+        (false, _, true) => "[f] fertig   [p] weiter   [s] später   [q] zurück",
+        (false, _, false) => "[f] fertig   [p] Pause   [s] später   [q] zurück",
+        (true, true, _) => "[d] done   [m] 25 more min.   [l] later",
+        (true, _, true) => "[d] done   [p] resume   [l] later   [q] back",
+        (true, _, false) => "[d] done   [p] pause   [l] later   [q] back",
     };
     let lines = vec![
         String::new(),
@@ -204,7 +212,10 @@ fn draw(title: &str, sub: &str, remaining: Duration, paused: bool, over: bool) -
         String::new(),
         pad(format!("{bar}  {}", term::pad_left(&clock, 7))),
         if over {
-            pad(term::yellow("Kurz durchatmen. Weiter oder Schluss?"))
+            pad(term::yellow(trs!(
+                "Kurz durchatmen. Weiter oder Schluss?",
+                "Take a breath. Keep going or stop?"
+            )))
         } else {
             String::new()
         },
@@ -221,15 +232,18 @@ fn ask_next(store: &Store, next: u32) -> io::Result<bool> {
     let pad = |s: String| format!("    {s}");
     let lines = vec![
         String::new(),
-        pad(term::green("✓ Geschafft.")),
+        pad(term::green(trs!("✓ Geschafft.", "✓ Done."))),
         String::new(),
-        pad(term::dim("Als Nächstes:")),
+        pad(term::dim(trs!("Als Nächstes:", "Up next:"))),
         pad(term::bold(&term::truncate(
             &store.tasks[i].display(),
             text_w,
         ))),
         String::new(),
-        pad(term::dim("[Enter] los   [q] Schluss für jetzt")),
+        pad(term::dim(trs!(
+            "[Enter] los   [q] Schluss für jetzt",
+            "[Enter] go   [q] stop for now"
+        ))),
         String::new(),
     ];
     draw_box(&lines)?;

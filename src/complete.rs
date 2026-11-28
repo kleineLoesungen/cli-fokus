@@ -9,7 +9,7 @@
 use std::path::Path;
 
 use crate::store::{Status, Store, Task};
-use crate::{date, tags, term};
+use crate::{date, i18n, tags, term, tr, trs};
 
 /// Ein Vorschlag: unter welcher Überschrift, was eingesetzt wird, was man sieht.
 pub struct Item {
@@ -30,6 +30,47 @@ fn item(group: &str, value: impl Into<String>, shown: impl Into<String>) -> Item
 fn described(group: &str, value: &str, what: &str) -> Item {
     item(group, value, format!("{value:<16}{what}"))
 }
+
+/// Die Befehle für die Tab-Taste, in der gewählten Sprache.
+fn commands() -> &'static [(&'static str, &'static str, &'static str)] {
+    if i18n::en() { COMMANDS_EN } else { COMMANDS }
+}
+
+const COMMANDS_EN: &[(&str, &str, &str)] = &[
+    ("For today", "+", "write down a task"),
+    ("For today", "today", "put a task on today"),
+    ("For today", "done", "check off a task"),
+    ("For today", "later", "take a task off today"),
+    ("For today", "now", "just one task, with a clock"),
+    ("View", "all", "all tasks in four quadrants"),
+    ("View", "topics", "your topics"),
+    ("View", "people", "everyone with open tasks"),
+    ("View", "waiting", "everything that's with others"),
+    ("View", "search", "find tasks, also in notes"),
+    ("View", "archive", "done and dropped, 14 days"),
+    ("Change", "edit", "change text, topic, person or date"),
+    ("Change", "delegate", "hand a task to someone"),
+    ("Change", "drop", "drop a task"),
+    ("Change", "restore", "bring back from the archive"),
+    ("Change", "review", "go through what got stuck"),
+    ("Notes", "note", "note or link for a task or topic"),
+    ("Notes", "open", "open a link from the notes"),
+    ("File and setup", "file", "open or move the task file"),
+    (
+        "File and setup",
+        "mobile",
+        "state for your phone, with “New”",
+    ),
+    ("File and setup", "setup", "language, shortcut and Tab key"),
+    ("File and setup", "web", "Focus in a browser tab"),
+    ("File and setup", "uninstall", "remove Focus"),
+    ("File and setup", "help", "all commands"),
+    (
+        "File and setup",
+        "manual",
+        "the whole manual, also for a keyword",
+    ),
+];
 
 const COMMANDS: &[(&str, &str, &str)] = &[
     ("Für heute", "+", "Aufgabe aufschreiben"),
@@ -63,7 +104,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "Datei und Einrichtung",
         "einrichten",
-        "Kurzbefehl und Tab-Taste einrichten",
+        "Sprache, Kurzbefehl und Tab-Taste",
     ),
     ("Datei und Einrichtung", "web", "Focus im Browser-Tab"),
     ("Datei und Einrichtung", "deinstallieren", "Focus entfernen"),
@@ -77,6 +118,21 @@ const COMMANDS: &[(&str, &str, &str)] = &[
 
 /// Statt eigener Vorschläge: die Shell soll Ordner und Dateien anbieten.
 const FILES: &str = "__dateien__";
+
+const DATE_WORDS_EN: &[&str] = &[
+    "today",
+    "tomorrow",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+    "weekend",
+    "next",
+    "every",
+];
 
 const DATE_WORDS: &[&str] = &[
     "heute",
@@ -100,14 +156,15 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
         Some((cur, prev)) => (prev, cur.as_str()),
         None => (&[][..], ""),
     };
-    let Some(first) = prev.first().map(|s| s.to_lowercase()) else {
+    // Englische Befehle heißen intern wie die deutschen.
+    let Some(first) = prev.first().map(|s| i18n::canonical(s)) else {
         if cur.starts_with('@') {
             return persons(store);
         }
         if cur.starts_with('#') {
             return topics_or_none(store);
         }
-        return COMMANDS
+        return commands()
             .iter()
             .map(|(g, c, d)| described(g, c, d))
             .collect();
@@ -118,14 +175,21 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
     };
     match first.as_str() {
         "heute" => {
-            if prev.last().is_some_and(|w| w.eq_ignore_ascii_case("statt")) {
+            if prev.last().is_some_and(|w| i18n::word(w) == "statt") {
                 return nrs(&|t| t.status == Status::Today);
             }
             let mut v = nrs(&|t| t.status != Status::Today);
             if prev.len() == 2 && store.today_open().len() >= crate::store::TODAY_LIMIT {
                 v.insert(
                     0,
-                    described("", "statt", "eine Aufgabe von heute dafür herunter"),
+                    described(
+                        "",
+                        trs!("statt", "instead"),
+                        trs!(
+                            "eine Aufgabe von heute dafür herunter",
+                            "take a task off today for it"
+                        ),
+                    ),
                 );
             }
             v
@@ -137,13 +201,27 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
         "abgeben" if prev.len() == 1 => nrs(&|t| t.status != Status::Waiting),
         "abgeben" if prev.len() == 2 => persons(store),
         "themen" | "thema" if prev.len() == 1 => vec![
-            described("", "ordnen", "die drei wichtigen Themen wählen"),
-            described("", "umbenennen", "ein Thema umbenennen oder zusammenlegen"),
+            described(
+                "",
+                trs!("ordnen", "order"),
+                trs!(
+                    "die drei wichtigen Themen wählen",
+                    "pick the three important topics"
+                ),
+            ),
+            described(
+                "",
+                trs!("umbenennen", "rename"),
+                trs!(
+                    "ein Thema umbenennen oder zusammenlegen",
+                    "rename or merge a topic"
+                ),
+            ),
         ],
-        "themen" | "thema" if prev.len() == 2 && prev[1].eq_ignore_ascii_case("umbenennen") => {
+        "themen" | "thema" if prev.len() == 2 && i18n::word(&prev[1]) == "umbenennen" => {
             bare(topics(store))
         }
-        "themen" | "thema" if prev[1].eq_ignore_ascii_case("ordnen") => {
+        "themen" | "thema" if i18n::word(&prev[1]) == "ordnen" => {
             let chosen: Vec<String> = prev[2..].iter().map(|w| tags::key(w)).collect();
             bare(topics(store))
                 .into_iter()
@@ -152,16 +230,25 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
         }
         "notiz" | "notizen" if prev.len() == 1 => note_targets(store, cur, false),
         "notiz" | "notizen" if prev.len() == 2 && prev[1].contains('.') => {
-            vec![described("", "löschen", "diese Notiz löschen")]
+            vec![described(
+                "",
+                trs!("löschen", "delete"),
+                trs!("diese Notiz löschen", "delete this note"),
+            )]
         }
         "öffnen" | "oeffnen" | "link" if prev.len() == 1 => note_targets(store, cur, true),
         "datei" if prev.len() == 1 => {
-            vec![described("", "verschieben", "an einen anderen Ort legen")]
+            vec![described(
+                "",
+                trs!("verschieben", "move"),
+                trs!("an einen anderen Ort legen", "move it somewhere else"),
+            )]
         }
         "datei" if prev.len() == 2 => vec![item("", FILES, "")],
         "unterwegs" if prev.len() == 1 => {
-            if "aus".starts_with(&cur.to_lowercase()) && !cur.is_empty() {
-                vec![described("", "aus", "abschalten")]
+            let off = trs!("aus", "off");
+            if off.starts_with(&cur.to_lowercase()) && !cur.is_empty() {
+                vec![described("", off, trs!("abschalten", "turn off"))]
             } else {
                 vec![item("", FILES, "")]
             }
@@ -172,11 +259,24 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
                 topics_or_none(store)
             } else if cur.starts_with('@') {
                 persons(store)
-            } else if prev.last().is_some_and(|w| w.eq_ignore_ascii_case("ohne")) {
+            } else if prev.last().is_some_and(|w| i18n::word(w) == "ohne") {
+                let g = trs!("Entfernen", "Remove");
                 let mut v = vec![
-                    described("Entfernen", "termin", "Termin entfernen"),
-                    described("Entfernen", "thema", "Thema entfernen"),
-                    described("Entfernen", "wiederholung", "Wiederholung beenden"),
+                    described(
+                        g,
+                        trs!("termin", "date"),
+                        trs!("Termin entfernen", "remove the date"),
+                    ),
+                    described(
+                        g,
+                        trs!("thema", "topic"),
+                        trs!("Thema entfernen", "remove the topic"),
+                    ),
+                    described(
+                        g,
+                        trs!("wiederholung", "repeat"),
+                        trs!("Wiederholung beenden", "end the repeat"),
+                    ),
                 ];
                 v.extend(persons(store));
                 v
@@ -184,8 +284,16 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
                 Vec::new()
             } else {
                 let mut v = date_words(cur);
-                if "ohne".starts_with(&cur.to_lowercase()) {
-                    v.insert(0, described("Entfernen", "ohne", "etwas entfernen"));
+                let no = trs!("ohne", "no");
+                if no.starts_with(&cur.to_lowercase()) {
+                    v.insert(
+                        0,
+                        described(
+                            trs!("Entfernen", "Remove"),
+                            no,
+                            trs!("etwas entfernen", "remove something"),
+                        ),
+                    );
                 }
                 v
             }
@@ -218,13 +326,22 @@ fn bare(items: Vec<Item>) -> Vec<Item> {
 
 fn date_words(cur: &str) -> Vec<Item> {
     let c = cur.to_lowercase();
-    DATE_WORDS
+    let words = if i18n::en() {
+        DATE_WORDS_EN
+    } else {
+        DATE_WORDS
+    };
+    let repeats = trs!("Wiederholungen", "Repeats");
+    let dates = trs!("Termine", "Dates");
+    words
         .iter()
         .filter(|w| w.starts_with(&c))
         .map(|w| match *w {
-            "jeden" => described("Wiederholungen", w, "jeden montag"),
-            "alle" => described("Wiederholungen", w, "alle 2 wochen freitag"),
-            _ => described("Termine", w, ""),
+            "jeden" => described(repeats, w, "jeden montag"),
+            "alle" => described(repeats, w, "alle 2 wochen freitag"),
+            "every" => described(repeats, w, "every monday · every 2 weeks friday"),
+            "next" => described(dates, w, "next friday · next week"),
+            _ => described(dates, w, ""),
         })
         .collect()
 }
@@ -235,21 +352,21 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<Item> {
     let today = store.today;
     let group = |t: &Task| -> (usize, String) {
         if t.status == Status::Today {
-            return (0, "Heute".into());
+            return (0, tr!("Heute", "Today"));
         }
         if t.status == Status::Waiting {
-            return (usize::MAX, "Bei anderen".into());
+            return (usize::MAX, tr!("Bei anderen", "With others"));
         }
         if store.is_urgent(t) {
-            return (1, "Dringend".into());
+            return (1, tr!("Dringend", "Urgent"));
         }
         match store.topic_name(t) {
             Some(name) if store.is_important(t) => (
                 2 + store.topic_rank(t),
-                format!("{} · wichtig", tags::topic_label(&name)),
+                tr!("{} · wichtig", "{} · important", tags::topic_label(&name)),
             ),
             Some(name) => (2 + store.topic_rank(t), tags::topic_label(&name)),
-            None => (usize::MAX - 1, "Ohne Thema".into()),
+            None => (usize::MAX - 1, tr!("Ohne Thema", "No topic")),
         }
     };
     let mut tasks: Vec<(&Task, (usize, String))> = store
@@ -267,7 +384,7 @@ fn numbers(store: &Store, keep: impl Fn(&Task) -> bool) -> Vec<Item> {
                 d.push_str(&format!("  · {}", date::due_short(due, today)));
             }
             if let Some(p) = &t.waiting_for {
-                d.push_str(&format!("  · bei {}", tags::person_label(p)));
+                d.push_str(&tr!("  · bei {}", "  · with {}", tags::person_label(p)));
             }
             item(&g, t.nr.to_string(), term::truncate(&d, 70))
         })
@@ -293,14 +410,14 @@ fn archived(store: &Store, skip: &[u32]) -> Vec<Item> {
         .iter()
         .map(|t| {
             let g = if t.status == Status::Done {
-                "Erledigt"
+                trs!("Erledigt", "Done")
             } else {
-                "Gestrichen"
+                trs!("Gestrichen", "Dropped")
             };
             let when = match t.done_on.or(t.archived_on).map(|d| (today - d).num_days()) {
-                Some(0) => "heute".to_string(),
-                Some(1) => "gestern".to_string(),
-                Some(n) => format!("vor {n} Tagen"),
+                Some(0) => tr!("heute", "today"),
+                Some(1) => tr!("gestern", "yesterday"),
+                Some(n) => tr!("vor {n} Tagen", "{n} days ago"),
                 None => String::new(),
             };
             let d = format!("{:<4}{}  · {when}", t.nr, t.display());
@@ -325,7 +442,7 @@ fn note_targets(store: &Store, cur: &str, links: bool) -> Vec<Item> {
             .map(|(k, n)| {
                 let v = format!("{name}.{}", k + 1);
                 item(
-                    "Notizen",
+                    trs!("Notizen", "Notes"),
                     v.clone(),
                     format!("{v:<10}{}", term::truncate(n, 60)),
                 )
@@ -351,8 +468,8 @@ fn topics(store: &Store) -> Vec<Item> {
     store
         .important
         .iter()
-        .map(|n| ("Wichtig", n))
-        .chain(store.other.iter().map(|n| ("Weitere", n)))
+        .map(|n| (trs!("Wichtig", "Important"), n))
+        .chain(store.other.iter().map(|n| (trs!("Weitere", "More"), n)))
         .map(|(g, n)| {
             let v = safe(&format!("#{}", tags::to_tag(n)));
             described(g, &v, n)
@@ -363,8 +480,12 @@ fn topics(store: &Store) -> Vec<Item> {
 /// Die Themen und dazu `#ohne`: zum Anzeigen und beim Ändern.
 fn topics_or_none(store: &Store) -> Vec<Item> {
     let mut v = topics(store);
-    let none = format!("#{}", tags::NO_TOPIC);
-    v.push(described("Weitere", &none, "kein Thema"));
+    let none = tags::no_topic_tag();
+    v.push(described(
+        trs!("Weitere", "More"),
+        &none,
+        trs!("kein Thema", "no topic"),
+    ));
     v
 }
 
@@ -384,8 +505,8 @@ fn persons(store: &Store) -> Vec<Item> {
     list.into_iter()
         .map(|(_, p, n)| {
             let v = safe(&tags::person_label(&p));
-            let what = format!("{v} · {n} offen");
-            described("Personen", &v, &what)
+            let what = tr!("{v} · {n} offen", "{v} · {n} open");
+            described(trs!("Personen", "People"), &v, &what)
         })
         .collect()
 }

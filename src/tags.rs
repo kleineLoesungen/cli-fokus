@@ -19,10 +19,29 @@ pub fn key(s: &str) -> String {
 /// zeigt die Aufgaben ohne Thema, `focus ändern 3 #ohne` nimmt es weg. Ein
 /// Thema „Ohne“ legt Focus deshalb nie an.
 pub const NO_TOPIC: &str = "ohne";
+/// Dasselbe auf Englisch: `#none`. Beide gelten immer.
+pub const NO_TOPIC_EN: &str = "none";
 
-/// Ist das Wort `#ohne`?
+/// Heißt dieser Schlüssel „kein Thema“?
+pub fn is_no_topic_key(k: &str) -> bool {
+    k == NO_TOPIC || k == NO_TOPIC_EN
+}
+
+/// `#ohne` oder `#none`, je nach Sprache.
+pub fn no_topic_tag() -> String {
+    format!(
+        "#{}",
+        if crate::i18n::en() {
+            NO_TOPIC_EN
+        } else {
+            NO_TOPIC
+        }
+    )
+}
+
+/// Ist das Wort `#ohne` (oder `#none`)?
 pub fn is_no_topic(word: &str) -> bool {
-    word.starts_with('#') && key(clean(word)) == NO_TOPIC
+    word.starts_with('#') && is_no_topic_key(&key(clean(word)))
 }
 
 /// Der Text ohne `#ohne`.

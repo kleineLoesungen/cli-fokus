@@ -10,6 +10,7 @@
 //! Sie steht nicht in der Aufgabendatei selbst: Focus muss den Ort kennen, bevor
 //! es die Datei lesen kann. Zeilen, die Focus nicht kennt, bleiben stehen.
 
+use crate::{tr, trs};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -19,7 +20,17 @@ pub const AWAY_KEY: &str = "unterwegs";
 /// `leeren = ja`: vor jeder Ausgabe den sichtbaren Bereich leeren, mit Kopfzeile.
 pub const CLEAR_KEY: &str = "leeren";
 
-const HEADER: &str = "# Focus-Einstellungen. Ändern geht am einfachsten mit „focus einrichten“.\n";
+fn header() -> &'static str {
+    trs!(
+        "# Focus-Einstellungen. Ändern geht am einfachsten mit „focus einrichten“.\n",
+        "# Focus settings. The easiest way to change them is “focus setup”.\n"
+    )
+}
+/// Beide Kopfzeilen, damit ein Wechsel der Sprache keine zweite einträgt.
+const HEADERS: [&str; 2] = [
+    "# Focus-Einstellungen. Ändern geht am einfachsten mit „focus einrichten“.",
+    "# Focus settings. The easiest way to change them is “focus setup”.",
+];
 
 /// `FOCUS_EINSTELLUNGEN`, sonst `$XDG_CONFIG_HOME/focus/einstellungen`, sonst `~/.config/…`.
 pub fn path() -> PathBuf {
@@ -52,6 +63,16 @@ pub fn get(key: &str) -> Option<PathBuf> {
     value_in(&text, key).map(|v| expand(&v))
 }
 
+/// Ein Wert als Text, wie er dasteht.
+pub fn get_str(key: &str) -> Option<String> {
+    let text = fs::read_to_string(path()).ok()?;
+    value_in(&text, key)
+}
+
+pub fn set_str(key: &str, value: Option<&str>) -> Result<(), String> {
+    set_text(key, value)
+}
+
 /// Ein Ja/Nein-Wert. Fehlt er, gilt nein.
 pub fn flag(key: &str) -> bool {
     fs::read_to_string(path())
@@ -75,7 +96,13 @@ fn set_text(key: &str, value: Option<&str>) -> Result<(), String> {
     let existing = match fs::read_to_string(&file) {
         Ok(s) => s,
         Err(e) if e.kind() == ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(format!("Ich kann {} nicht lesen: {e}", file.display())),
+        Err(e) => {
+            return Err(tr!(
+                "Ich kann {} nicht lesen: {e}",
+                "I can't read {}: {e}",
+                file.display()
+            ));
+        }
     };
     let updated = with_value(&existing, key, value);
     if updated == existing {
@@ -83,18 +110,30 @@ fn set_text(key: &str, value: Option<&str>) -> Result<(), String> {
     }
     if updated.is_empty() {
         return match fs::remove_file(&file) {
-            Err(e) if e.kind() != ErrorKind::NotFound => {
-                Err(format!("Ich kann {} nicht löschen: {e}", file.display()))
-            }
+            Err(e) if e.kind() != ErrorKind::NotFound => Err(tr!(
+                "Ich kann {} nicht löschen: {e}",
+                "I can't delete {}: {e}",
+                file.display()
+            )),
             _ => Ok(()),
         };
     }
     if let Some(dir) = file.parent() {
-        fs::create_dir_all(dir)
-            .map_err(|e| format!("Ich kann {} nicht anlegen: {e}", dir.display()))?;
+        fs::create_dir_all(dir).map_err(|e| {
+            tr!(
+                "Ich kann {} nicht anlegen: {e}",
+                "I can't create {}: {e}",
+                dir.display()
+            )
+        })?;
     }
-    fs::write(&file, updated)
-        .map_err(|e| format!("Ich kann {} nicht schreiben: {e}", file.display()))
+    fs::write(&file, updated).map_err(|e| {
+        tr!(
+            "Ich kann {} nicht schreiben: {e}",
+            "I can't write {}: {e}",
+            file.display()
+        )
+    })
 }
 
 fn value_in(text: &str, key: &str) -> Option<String> {
@@ -124,13 +163,15 @@ fn with_value(existing: &str, key: &str, value: Option<&str>) -> String {
     if !done && let Some(v) = value {
         lines.push(format!("{key} = {v}"));
     }
-    let header = HEADER.trim_end();
     // Steht nur noch die eigene Kopfzeile da, ist die Datei leer.
-    if lines.iter().all(|l| l.trim().is_empty() || l == header) {
+    if lines
+        .iter()
+        .all(|l| l.trim().is_empty() || HEADERS.contains(&l.as_str()))
+    {
         return String::new();
     }
     if existing.trim().is_empty() {
-        lines.insert(0, header.to_string());
+        lines.insert(0, header().trim_end().to_string());
     }
     let mut out = lines.join("\n");
     out.push('\n');
