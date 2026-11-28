@@ -22,37 +22,41 @@ fn page() -> String {
         return PAGE.to_string();
     }
     let mut p = PAGE.to_string();
-    for (de, en) in [
-        ("<html lang=\"de\">", "<html lang=\"en\">"),
-        (
-            "Übersicht ein- oder ausklappen",
-            "Expand or collapse the overview",
-        ),
-        ("▾ Übersicht", "▾ Overview"),
-        ("' Übersicht'", "' Overview'"),
-        (
-            "Hell, dunkel oder wie das System",
-            "Light, dark or like the system",
-        ),
-        (
-            "Ziehen ändert die Höhe, Doppelklick klappt ein",
-            "Drag to resize, double-click to collapse",
-        ),
-        (
-            "+ Text #thema @person termin · hilfe",
-            "+ text #topic @person date · help",
-        ),
-        (
-            "Focus antwortet nicht. Läuft „focus web“ noch?",
-            "Focus isn't answering. Is “focus web” still running?",
-        ),
-        ("'○ hell'", "'○ light'"),
-        ("'● dunkel'", "'● dark'"),
-    ] {
+    for (de, en) in EN {
         p = p.replace(de, en);
     }
     p
 }
+
+/// Die englischen Texte der Seite. Manche stehen in JavaScript zwischen einfachen
+/// Anführungszeichen – darum kein Apostroph darin („is not“ statt „isn't“).
+const EN: &[(&str, &str)] = &[
+    ("<html lang=\"de\">", "<html lang=\"en\">"),
+    (
+        "Übersicht ein- oder ausklappen",
+        "Expand or collapse the overview",
+    ),
+    ("▾ Übersicht", "▾ Overview"),
+    ("' Übersicht'", "' Overview'"),
+    (
+        "Hell, dunkel oder wie das System",
+        "Light, dark or like the system",
+    ),
+    (
+        "Ziehen ändert die Höhe, Doppelklick klappt ein",
+        "Drag to resize, double-click to collapse",
+    ),
+    (
+        "+ Text #thema @person termin · hilfe",
+        "+ text #topic @person date · help",
+    ),
+    (
+        "Focus antwortet nicht. Läuft „focus web“ noch?",
+        "Focus is not answering. Is “focus web” still running?",
+    ),
+    ("'○ hell'", "'○ light'"),
+    ("'● dunkel'", "'● dark'"),
+];
 const DEFAULT_PORT: u16 = 4711;
 
 pub fn run(args: &[String]) -> Result<(), String> {
@@ -434,6 +438,15 @@ fn escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn englische_texte_zerbrechen_kein_javascript() {
+        for (de, en) in EN {
+            assert!(PAGE.contains(de), "nicht in web.html: {de}");
+            let inner = en.trim_matches('\'');
+            assert!(!inner.contains('\''), "Apostroph in: {en}");
+        }
+    }
 
     #[test]
     fn farben_werden_zu_klassen() {
