@@ -11,7 +11,8 @@ der jeden Morgen eine Frage beantwortet: *Was ist heute dran?*
 * Focus erkennt selbst, was **dringend** ist (Termin bis übermorgen oder
   verstrichen) und was **wichtig** ist (Thema über der Linie, siehe unten).
 * Auf **heute** stehen höchstens **drei** offene Aufgaben, und **wichtig**
-  sind höchstens **drei** Themen. Mehr nicht, damit Wählen nötig bleibt.
+  sind höchstens **drei** Themen. Mehr nicht, damit Wählen nötig bleibt. (Beide
+  Zahlen lassen sich in `focus einrichten` ändern, von 1 bis 9.)
 
 Du vergibst keine Prioritäten und schätzt keine Stunden.
 
@@ -50,6 +51,24 @@ focus heute 5 statt 2    tauschen, wenn heute voll ist
 focus später 2           wieder von heute herunter
 focus fertig 2           abhaken – dann ist wieder ein Platz frei
 ```
+
+Bevor eine Aufgabe auf heute kommt, prüft Focus, ob Wichtigeres offen ist. Die
+Rangfolge: wichtig und dringend, wichtig, dringend, nichts davon. Steht etwas
+weiter oben, nennt Focus die Anzahl, zeigt bis zu drei davon und fragt, ob
+diese Aufgabe trotzdem deinem Fokus entspricht:
+
+```
+ Aufgabe 4 ist weder wichtig noch dringend.
+ Es gibt 3 wichtigere Aufgaben (1 wichtig und dringend, 1 wichtig, 1 dringend):
+     1  Steuer abgeben · #arbeit · fällig morgen (Freitag 27.11.)
+     2  Website-Texte · #arbeit
+     3  Reisekosten abrechnen · ohne Thema · fällig morgen (Freitag 27.11.)
+ Entspricht Aufgabe 4 trotzdem deinem Fokus für heute? [j/N]
+```
+
+Enter heißt nein. Was im selben Befehl mitkommt (`focus heute 1 2 4`), zählt
+nicht als wichtiger. Ohne Terminal zum Fragen, etwa im Browser, legt Focus die
+Aufgabe trotzdem auf heute und nennt die Nummern als Hinweis.
 
 ### Dir fällt etwas ein
 
@@ -205,10 +224,11 @@ focus themen
 ```
 
 Ein Punkt je Tag, rechts ist heute. Über der Linie stehen höchstens drei
-Themen; die ersten drei, die du anlegst, landen dort von selbst.
+Themen (oder so viele, wie du in `focus einrichten` eingestellt hast); die
+ersten, die du anlegst, landen dort von selbst.
 
 ```
-focus themen ordnen                    fragt, welche drei wichtig sind
+focus themen ordnen                    fragt, welche wichtig sind
 focus themen umbenennen arbiet arbeit  überall; gibt es „arbeit“ schon, wird es eins
 ```
 
@@ -458,7 +478,8 @@ focus einrichten
 `focus einrichten` fragt zuerst nach der Sprache (Englisch oder Deutsch; neue
 Installationen starten auf Englisch, bestehende mit deutscher Aufgabendatei
 bleiben Deutsch), dann, wo deine Aufgaben liegen sollen, ob es eine
-Unterwegs-Datei geben soll, ob `f` als Kurzbefehl gehen soll, ob jedes neue
+Unterwegs-Datei geben soll, wie viele Aufgaben auf heute und wie viele wichtige
+Themen es geben darf (1 bis 9, ohne Angabe 3), ob `f` als Kurzbefehl gehen soll, ob jedes neue
 Terminalfenster die Liste für heute zeigt, ob die Tab-Taste ergänzen soll
 (zsh) und ob Focus das Fenster vor jedem Befehl leeren soll. Es schreibt dafür
 einen markierten Block in deine `.zshrc` und die Einstellungen in

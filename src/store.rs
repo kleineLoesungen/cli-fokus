@@ -13,10 +13,31 @@ use chrono::NaiveDate;
 
 use crate::{config, date, tags, tr, trs};
 
-/// Höchstens so viele offene Aufgaben stehen auf heute.
-pub const TODAY_LIMIT: usize = 3;
-/// Höchstens so viele Themen stehen über der Linie.
-pub const IMPORTANT_LIMIT: usize = 3;
+/// So viele offene Aufgaben auf heute und Themen über der Linie, solange in den
+/// Einstellungen nichts anderes steht.
+pub const DEFAULT_LIMIT: usize = 3;
+/// Mehr lässt sich nicht einstellen: Sonst wäre Wählen nicht mehr nötig.
+pub const MAX_LIMIT: usize = 9;
+
+/// Höchstens so viele offene Aufgaben stehen auf heute (`heute = 3`).
+pub fn today_limit() -> usize {
+    limit(config::TODAY_KEY)
+}
+
+/// Höchstens so viele Themen stehen über der Linie (`wichtig = 3`).
+pub fn important_limit() -> usize {
+    limit(config::IMPORTANT_KEY)
+}
+
+fn limit(key: &str) -> usize {
+    if cfg!(test) {
+        return DEFAULT_LIMIT;
+    }
+    config::get_str(key)
+        .and_then(|v| v.trim().parse().ok())
+        .filter(|n| (1..=MAX_LIMIT).contains(n))
+        .unwrap_or(DEFAULT_LIMIT)
+}
 /// Dringend ist, was in so vielen Tagen fällig ist (oder schon überfällig).
 pub const URGENT_DAYS: i64 = 2;
 /// Ab so vielen Tagen ohne Bewegung fragt `focus aufräumen` nach.
@@ -174,7 +195,7 @@ enum Section {
 
 pub struct Store {
     pub path: PathBuf,
-    /// Themen über der Linie, in ihrer Reihenfolge. Höchstens drei.
+    /// Themen über der Linie, in ihrer Reihenfolge. Höchstens `important_limit()`.
     pub important: Vec<String>,
     /// Themen unter der Linie.
     pub other: Vec<String>,
@@ -329,12 +350,13 @@ impl Store {
             }
         }
 
+        let important_limit = important_limit();
         for (name, below) in topics {
             let k = tags::key(&name);
             if tags::is_no_topic_key(&k) || store.all_topics().any(|n| tags::key(n) == k) {
                 continue;
             }
-            if !below && store.important.len() < IMPORTANT_LIMIT {
+            if !below && store.important.len() < important_limit {
                 store.important.push(name);
             } else {
                 store.other.push(name);
@@ -470,12 +492,13 @@ impl Store {
         calm.sort_by_key(|&i| (self.topic_rank(&self.tasks[i]), self.tasks[i].since));
 
         let mut picks: Vec<usize> = Vec::new();
+        let limit = today_limit();
         for i in urgent
             .into_iter()
             .chain(leftovers.iter().copied())
             .chain(calm)
         {
-            if picks.len() == TODAY_LIMIT {
+            if picks.len() >= limit {
                 break;
             }
             if self.tasks[i].status == Status::Open && !picks.contains(&i) {
@@ -545,7 +568,7 @@ impl Store {
             return None;
         }
         let name = tags::display(tag);
-        if self.important.len() < IMPORTANT_LIMIT {
+        if self.important.len() < important_limit() {
             self.important.push(name);
             Some(true)
         } else {

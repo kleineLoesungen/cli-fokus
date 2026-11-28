@@ -11,7 +11,8 @@ answers one question every morning: *What's on for today?*
 * Focus works out on its own what is **urgent** (due within two days or
   overdue) and what is **important** (its topic is above the line, see below).
 * **Today** holds at most **three** open tasks, and at most **three** topics
-  are **important**. No more, so that choosing stays necessary.
+  are **important**. No more, so that choosing stays necessary. (You can change
+  both numbers in `focus setup`, from 1 to 9.)
 
 You don't set priorities and you don't estimate hours.
 
@@ -50,6 +51,24 @@ focus today 5 instead 2   swap when today is full
 focus later 2             take it off today again
 focus done 2              check it off – that frees up a spot
 ```
+
+Before a task goes onto today, Focus checks whether something more important
+is open. The order is: important and urgent, important, urgent, neither. If
+there's anything higher up, Focus says how many and shows up to three, and
+asks whether this task still matches your focus:
+
+```
+ Task 4 is neither important nor urgent.
+ There are 3 more important tasks (1 important and urgent, 1 important, 1 urgent):
+     1  file taxes · #work · due tomorrow (Friday, Nov 27)
+     2  website copy · #work
+     3  travel expenses · no topic · due tomorrow (Friday, Nov 27)
+ Does task 4 still match your focus for today? [y/N]
+```
+
+Enter means no. Tasks from the same command (`focus today 1 2 4`) don't count
+as more important. Without a terminal to ask in, for example in the browser,
+Focus does it anyway and adds a note with the numbers.
 
 ### Something comes to mind
 
@@ -205,10 +224,11 @@ focus topics
 ```
 
 One dot per day, today is on the right. At most three topics are above the
-line; the first three you create land there on their own.
+line (or as many as you set in `focus setup`); the first ones you create land
+there on their own.
 
 ```
-focus topics order                 asks which three are important
+focus topics order                 asks which ones are important
 focus topics rename wrok work      everywhere; if "work" exists, they merge
 ```
 
@@ -461,7 +481,8 @@ focus setup
 `focus setup` first asks for the language (English or German; new
 installations start in English, existing ones with a German task file stay
 German), then where your tasks should live, whether there should be a mobile
-file, whether `f` should work as a shortcut, whether every new terminal window
+file, how many tasks today and how many important topics there may be (1 to 9,
+3 if you don't say), whether `f` should work as a shortcut, whether every new terminal window
 shows today's list, whether the Tab key should complete (zsh) and whether
 Focus should clear the window before each command. For that it writes a marked
 block into your `.zshrc` and the settings into `~/.config/focus/einstellungen`.

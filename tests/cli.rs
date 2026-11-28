@@ -1035,3 +1035,56 @@ fn die_anleitung_gibt_es_in_beiden_sprachen() {
             .contains("Einmal pro Woche: aufräumen")
     );
 }
+
+#[test]
+fn die_hoechstzahlen_kommen_aus_den_einstellungen() {
+    let s = Sandbox::new("hoechstzahlen");
+    fs::write(s.dir.join("einstellungen"), "heute = 2\nwichtig = 1\n").unwrap();
+    s.ok(&["+", "A", "#eins"]);
+    s.ok(&["+", "B", "#zwei"]);
+    s.ok(&["+", "C", "#eins"]);
+    let datei = fs::read_to_string(s.file()).unwrap();
+    assert!(
+        datei.contains("## Themen\n1. Eins\n---\n- Zwei\n"),
+        "{datei}"
+    );
+    s.ok(&["heute", "1", "3"]);
+    let err = s.fails(&["heute", "2"]);
+    assert!(err.contains("Auf heute stehen schon 2 Aufgaben"), "{err}");
+    assert!(s.ok(&["themen"]).contains("Welche 1 wichtig sind"));
+    let err = s.fails(&["themen", "ordnen", "1", "2"]);
+    assert!(err.contains("Höchstens 1 Themen"), "{err}");
+
+    // Unsinnige Werte gelten nicht: Dann bleibt es bei drei.
+    fs::write(s.dir.join("einstellungen"), "heute = 0\nwichtig = 50\n").unwrap();
+    s.ok(&["heute", "2"]);
+    assert!(s.ok(&[]).contains("0 von 3 erledigt"));
+}
+
+#[test]
+fn wer_ohne_terminal_etwas_unwichtigeres_auf_heute_legt_bekommt_einen_hinweis() {
+    let s = Sandbox::new("fokus-hinweis");
+    s.ok(&["+", "Steuer", "#arbeit", "morgen"]);
+    s.ok(&["+", "Website", "#arbeit"]);
+    s.ok(&["+", "Keller", "ausmisten"]);
+    // Was Focus morgens schon vorgeschlagen hat, kommt erst wieder herunter.
+    for nr in ["1", "2"] {
+        s.run_on("2026-11-26", &["später", nr]);
+    }
+    let out = s.ok(&["heute", "3"]);
+    assert!(out.contains("Aufgabe 3 steht jetzt auf heute"), "{out}");
+    assert!(
+        out.contains("Hinweis: 2 wichtigere Aufgaben sind offen, etwa 1, 2."),
+        "{out}"
+    );
+    // Was im selben Befehl mit auf heute kommt, zählt nicht als wichtiger.
+    s.ok(&["später", "3"]);
+    for nr in ["1", "2"] {
+        s.run_on("2026-11-26", &["später", nr]);
+    }
+    let out = s.ok(&["heute", "1", "2", "3"]);
+    assert!(!out.contains("Hinweis"), "{out}");
+    // Für die wichtigste gibt es nichts Wichtigeres: kein Hinweis.
+    s.ok(&["später", "1"]);
+    assert!(!s.ok(&["heute", "1"]).contains("Hinweis"));
+}

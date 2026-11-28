@@ -1,6 +1,6 @@
 //! Was die Befehle an den Aufgaben ändern. Jede Funktion liefert die Rückmeldung als Text.
 
-use crate::store::{IMPORTANT_LIMIT, Status, Store, TODAY_LIMIT, Task};
+use crate::store::{self, Status, Store, Task};
 use chrono::Days;
 
 use crate::{date, i18n, input, tags, term, tr, trs, view};
@@ -54,7 +54,7 @@ pub fn add(store: &mut Store, raw: &str) -> Result<String, String> {
     Ok(msg)
 }
 
-/// `focus heute 4 [statt 2]` – höchstens drei offene Aufgaben auf heute.
+/// `focus heute 4 [statt 2]` – höchstens `today_limit()` offene Aufgaben auf heute.
 pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<String, String> {
     let i = index(store, nr)?;
     if store.tasks[i].status == Status::Today {
@@ -64,15 +64,16 @@ pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<Str
         ));
     }
     let mut out = String::new();
-    if store.today_open().len() >= TODAY_LIMIT {
+    let limit = store::today_limit();
+    if store.today_open().len() >= limit {
         let leave = match instead {
             Some(m) => m,
             None if term::is_interactive() => {
                 println!(
                     "{}",
                     tr!(
-                        " Auf heute stehen schon {TODAY_LIMIT} Aufgaben:\n\n{}",
-                        " Today already has {TODAY_LIMIT} tasks:\n\n{}",
+                        " Auf heute stehen schon {limit} Aufgaben:\n\n{}",
+                        " Today already has {limit} tasks:\n\n{}",
                         view::today_short(store)
                     )
                 );
@@ -89,8 +90,8 @@ pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<Str
             }
             None => {
                 return Err(tr!(
-                    "Auf heute stehen schon {TODAY_LIMIT} Aufgaben. Sag, welche weichen soll: focus heute {nr} statt <Nr>",
-                    "Today already has {TODAY_LIMIT} tasks. Say which one should make room: focus today {nr} instead <no>"
+                    "Auf heute stehen schon {limit} Aufgaben. Sag, welche weichen soll: focus heute {nr} statt <Nr>",
+                    "Today already has {limit} tasks. Say which one should make room: focus today {nr} instead <no>"
                 ));
             }
         };
@@ -121,6 +122,125 @@ pub fn put_today(store: &mut Store, nr: u32, instead: Option<u32>) -> Result<Str
         store.tasks[i].display()
     ));
     Ok(out)
+}
+
+/// Wie wichtig eine Aufgabe für heute ist: 0 wichtig und dringend, 1 wichtig,
+/// 2 dringend, 3 nichts davon.
+pub fn rank(store: &Store, t: &Task) -> u8 {
+    match (store.is_important(t), store.is_urgent(t)) {
+        (true, true) => 0,
+        (true, false) => 1,
+        (false, true) => 2,
+        (false, false) => 3,
+    }
+}
+
+fn rank_label(r: u8) -> String {
+    match r {
+        0 => tr!("wichtig und dringend", "important and urgent"),
+        1 => tr!("wichtig", "important"),
+        2 => tr!("dringend", "urgent"),
+        _ => tr!(
+            "weder wichtig noch dringend",
+            "neither important nor urgent"
+        ),
+    }
+}
+
+/// Was die Nachfrage vor `focus heute` ergab.
+pub enum Check {
+    /// Nichts Wichtigeres offen: einfach machen.
+    Go,
+    /// Ohne Terminal zum Fragen: machen, aber darauf hinweisen.
+    GoWithHint(String),
+    /// Du hast nein gesagt.
+    Stop(String),
+}
+
+/// Vor dem Legen auf heute: Gibt es Wichtigeres? Die Rangfolge ist wichtig und
+/// dringend, wichtig, dringend, nichts davon. Gibt es offene Aufgaben weiter
+/// oben, nennt Focus ihre Zahl und bis zu drei davon und fragt, ob es wirklich
+/// diese sein soll. `also`: Aufgaben aus demselben Befehl zählen nicht mit.
+pub fn focus_check(store: &Store, nr: u32, also: &[u32]) -> Result<Check, String> {
+    let i = index(store, nr)?;
+    let t = &store.tasks[i];
+    if t.status == Status::Today {
+        return Ok(Check::Go);
+    }
+    let mine = rank(store, t);
+    let mut higher: Vec<&Task> = store
+        .tasks
+        .iter()
+        .filter(|o| o.status == Status::Open && o.nr != nr && !also.contains(&o.nr))
+        .filter(|o| rank(store, o) < mine)
+        .collect();
+    if higher.is_empty() {
+        return Ok(Check::Go);
+    }
+    higher.sort_by_key(|o| (rank(store, o), o.due.is_none(), o.due, o.since));
+    let examples: Vec<&Task> = higher.iter().take(3).copied().collect();
+
+    if !term::is_interactive() {
+        let nrs: Vec<String> = examples.iter().map(|o| o.nr.to_string()).collect();
+        return Ok(Check::GoWithHint(tr!(
+            "Hinweis: {} wichtigere Aufgaben sind offen, etwa {}.",
+            "Note: {} more important tasks are open, for example {}.",
+            higher.len(),
+            nrs.join(", ")
+        )));
+    }
+
+    let counts: Vec<String> = (0..mine)
+        .filter_map(|r| {
+            let n = higher.iter().filter(|o| rank(store, o) == r).count();
+            (n > 0).then(|| format!("{n} {}", rank_label(r)))
+        })
+        .collect();
+    let width = term::width().saturating_sub(10);
+    println!(
+        "\n {}\n {}",
+        tr!("Aufgabe {nr} ist {}.", "Task {nr} is {}.", rank_label(mine)),
+        match (i18n::en(), higher.len()) {
+            (false, 1) => format!("Es gibt 1 wichtigere Aufgabe ({}):", counts.join(", ")),
+            (false, n) => format!("Es gibt {n} wichtigere Aufgaben ({}):", counts.join(", ")),
+            (true, 1) => format!("There is 1 more important task ({}):", counts.join(", ")),
+            (true, n) => format!(
+                "There are {n} more important tasks ({}):",
+                counts.join(", ")
+            ),
+        }
+    );
+    for o in &examples {
+        println!(
+            "   {}  {}",
+            term::dim(&format!("{:>3}", o.nr)),
+            term::truncate(&view::summary(store, o), width)
+        );
+    }
+    if higher.len() > examples.len() {
+        println!(
+            "   {}",
+            term::dim(&tr!(
+                "… und {} weitere",
+                "… and {} more",
+                higher.len() - examples.len()
+            ))
+        );
+    }
+    let yes = term::ask_no(&tr!(
+        " Entspricht Aufgabe {nr} trotzdem deinem Fokus für heute? [j/N] ",
+        " Does task {nr} still match your focus for today? [y/N] "
+    ))
+    .map_err(term::io_err)?;
+    if yes {
+        Ok(Check::Go)
+    } else {
+        Ok(Check::Stop(tr!(
+            " Aufgabe {nr} bleibt, wo sie ist. Stattdessen: focus heute {}",
+            " Task {nr} stays where it is. Instead: focus today {}",
+            examples[0].nr
+        )))
+    }
 }
 
 /// `focus fertig 4`
@@ -231,8 +351,9 @@ pub fn restore(store: &mut Store, nr: u32) -> Result<String, String> {
         }
     }
     let i = store.find_restorable(nr).expect("eben gefunden");
-    let back_today =
-        old.status == Status::Done && old.on_today && store.today_open().len() < TODAY_LIMIT;
+    let back_today = old.status == Status::Done
+        && old.on_today
+        && store.today_open().len() < store::today_limit();
     let t = &mut store.tasks[i];
     t.status = if back_today {
         Status::Today
@@ -283,7 +404,7 @@ pub fn delegate(store: &mut Store, nr: u32, person: &str) -> Result<String, Stri
 }
 
 /// Was heute fällig ist, gehört auf die Liste für heute – solange dort Platz ist.
-/// Die Grenze von drei bleibt; ist sie erreicht, sagt Focus, wie man tauscht.
+/// Die Grenze bleibt; ist sie erreicht, sagt Focus, wie man tauscht.
 fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     let i = store.find(nr)?;
     let t = &store.tasks[i];
@@ -295,7 +416,7 @@ fn due_today_note(store: &mut Store, nr: u32) -> Option<String> {
     } else {
         trs!("Fällig heute", "Due today")
     };
-    if store.today_open().len() >= TODAY_LIMIT {
+    if store.today_open().len() >= store::today_limit() {
         return Some(tr!(
             "{why}, aber heute ist voll. Tauschen: focus heute {nr} statt <Nr>",
             "{why}, but today is full. Swap: focus today {nr} instead <no>"
@@ -648,12 +769,13 @@ pub fn set_topic(store: &mut Store, nr: u32, choice: &str) -> Result<String, Str
     Ok(msg)
 }
 
-/// `focus themen ordnen 2 1 4` – genau diese (höchstens drei) kommen über die Linie.
+/// `focus themen ordnen 2 1 4` – genau diese (höchstens `important_limit()`) kommen über die Linie.
 pub fn reorder(store: &mut Store, picks: &[String]) -> Result<String, String> {
-    if picks.len() > IMPORTANT_LIMIT {
+    let limit = store::important_limit();
+    if picks.len() > limit {
         return Err(tr!(
-            "Höchstens {IMPORTANT_LIMIT} Themen dürfen über der Linie stehen. Genau darum geht es bei Focus: Wenn alles wichtig ist, ist nichts wichtig.",
-            "At most {IMPORTANT_LIMIT} topics can be above the line. That's the whole point of Focus: if everything is important, nothing is."
+            "Höchstens {limit} Themen dürfen über der Linie stehen. Genau darum geht es bei Focus: Wenn alles wichtig ist, ist nichts wichtig.",
+            "At most {limit} topics can be above the line. That's the whole point of Focus: if everything is important, nothing is."
         ));
     }
     let all: Vec<String> = store.all_topics().cloned().collect();
@@ -711,8 +833,9 @@ pub fn reorder_interactive(store: &mut Store) -> Result<String, String> {
     }
     if !term::is_interactive() {
         return Err(tr!(
-            "Sag, welche drei wichtig sind, zum Beispiel: focus themen ordnen 2 1 4",
-            "Say which three are important, for example: focus topics order 2 1 4"
+            "Sag, welche {} wichtig sind, zum Beispiel: focus themen ordnen 2 1 4",
+            "Say which {} are important, for example: focus topics order 2 1 4",
+            store::important_limit()
         ));
     }
     println!("\n {}\n", term::bold(trs!("DEINE THEMEN", "YOUR TOPICS")));
@@ -725,9 +848,10 @@ pub fn reorder_interactive(store: &mut Store) -> Result<String, String> {
         println!("   {:>2}  {n}{mark}", i + 1);
     }
     println!();
+    let limit = store::important_limit();
     let answer = term::read_line(&tr!(
-        " Welche {IMPORTANT_LIMIT} sind dir gerade am wichtigsten? Nummern der Reihe nach, z. B. 2 1 4\n Enter lässt alles, wie es ist: ",
-        " Which {IMPORTANT_LIMIT} matter most to you right now? Numbers in order, e.g. 2 1 4\n Enter leaves everything as it is: "
+        " Welche {limit} sind dir gerade am wichtigsten? Nummern der Reihe nach, z. B. 2 1 4\n Enter lässt alles, wie es ist: ",
+        " Which {limit} matter most to you right now? Numbers in order, e.g. 2 1 4\n Enter leaves everything as it is: "
     ))
     .map_err(term::io_err)?
     .unwrap_or_default();
