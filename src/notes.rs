@@ -230,7 +230,7 @@ fn listing(store: &Store, target: &Target) -> String {
 
 fn topic_heading(store: &Store, target: &Target) -> String {
     match target {
-        Target::Topic(name, _) => topic_name(store, name).to_uppercase(),
+        Target::Topic(name, _) => tags::topic_label(&topic_name(store, name)),
         Target::Task(..) => String::new(),
     }
 }

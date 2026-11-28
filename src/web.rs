@@ -290,7 +290,7 @@ fn task_nrs(line: &str) -> Vec<(usize, usize, String)> {
     found
 }
 
-/// HTML-sicher machen; Links und die Aufgabennummer werden anklickbar.
+/// HTML-sicher machen; Links, Aufgabennummern, `#themen` und `@personen` werden anklickbar.
 /// `offset` ist die Lage von `s` in der ganzen Zeile.
 fn linkify(s: &str, offset: usize, nrs: &[(usize, usize, String)]) -> String {
     let mut out = String::new();
@@ -319,11 +319,39 @@ fn linkify(s: &str, offset: usize, nrs: &[(usize, usize, String)]) -> String {
                 .len();
             continue;
         }
+        let at_word_start = s[..i]
+            .chars()
+            .next_back()
+            .is_none_or(|p| p.is_whitespace() || p == '(');
+        if at_word_start && let Some(tag) = tag_at(here) {
+            let tag = escape(tag);
+            out.push_str(&format!("<a href=\"#\" data-cmd=\"{tag}\">{tag}</a>"));
+            i += tag.len();
+            continue;
+        }
         let c = here.chars().next().unwrap_or(' ');
         out.push_str(&escape(&c.to_string()));
         i += c.len_utf8();
     }
     out
+}
+
+/// `#thema` oder `@person` am Anfang von `s`, ohne Satzzeichen dahinter.
+/// Die Platzhalter aus den Hinweisen (`@name`, `#thema`) zählen nicht.
+fn tag_at(s: &str) -> Option<&str> {
+    if !s.starts_with(['#', '@']) {
+        return None;
+    }
+    // Ein Punkt gehört dazu, wenn danach noch etwas kommt: `@michael.l`, aber nicht `@tom.`
+    let end = s[1..]
+        .find(|c: char| !(c.is_alphanumeric() || matches!(c, '-' | '_' | '.')))
+        .map_or(s.len(), |p| p + 1);
+    let tag = s[..end].trim_end_matches(['-', '_', '.']);
+    // Angeschnitten („@michael…“): lieber kein Link als einer zum falschen Namen.
+    if s[tag.len()..].starts_with('…') {
+        return None;
+    }
+    (tag.len() > 1 && !matches!(tag, "@name" | "#thema")).then_some(tag)
 }
 
 fn escape(s: &str) -> String {
@@ -361,6 +389,26 @@ mod tests {
         let h = to_html("   WICHTIG │ 12   Bericht   morgen │  7 ▶ Keller │");
         assert!(h.contains("data-cmd=\"12\""), "{h}");
         assert!(h.contains("data-cmd=\"7\""), "{h}");
+    }
+
+    #[test]
+    fn themen_und_personen_sind_anklickbar() {
+        let h = to_html("   3 · Keller ausmisten    bei @tom  #eigenes-projekt");
+        assert!(
+            h.contains("<a href=\"#\" data-cmd=\"@tom\">@tom</a>"),
+            "{h}"
+        );
+        assert!(h.contains("data-cmd=\"#eigenes-projekt\""), "{h}");
+        let h = to_html(" Aufgabe 1 liegt jetzt bei @michael.l: Retro");
+        assert!(h.contains("data-cmd=\"@michael.l\""), "{h}");
+        assert!(to_html(" Frag @tom.").contains("data-cmd=\"@tom\">@tom</a>."));
+        assert!(!to_html(" Retro @michael…").contains("data-cmd"));
+        let h = to_html(" Neues Thema #haus, über der Linie.");
+        assert!(h.contains(">#haus</a>,"), "{h}");
+        assert!(!to_html(" Alles zu einer Person: fokus @name").contains("data-cmd"));
+        assert!(!to_html(" C#-Kurs").contains("data-cmd"));
+        let h = to_html(" https://x.de/a#teil");
+        assert_eq!(h.matches("<a ").count(), 1, "{h}");
     }
 
     #[test]

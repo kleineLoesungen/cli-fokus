@@ -549,6 +549,11 @@ impl Store {
         self.tasks.iter().position(|t| t.is_active() && t.nr == nr)
     }
 
+    /// Das Thema einer Aufgabe zum Anzeigen: `#arbeit`.
+    pub fn topic_label(&self, t: &Task) -> Option<String> {
+        self.topic_name(t).map(|n| tags::topic_label(&n))
+    }
+
     pub fn topic_name(&self, t: &Task) -> Option<String> {
         let tag = t.topic_tag()?;
         let k = tags::key(&tag);

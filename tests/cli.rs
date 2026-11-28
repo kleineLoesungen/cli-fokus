@@ -122,7 +122,7 @@ fn aufschreiben_erkennt_thema_person_und_termin() {
     let out = s.ok(&["+", "Urlaub", "abstimmen", "@anna", "#familie", "morgen"]);
     assert!(
         out.contains(
-            "Aufgabe 1: Urlaub abstimmen @anna · Familie · fällig morgen (Freitag 27.11.)"
+            "Aufgabe 1: Urlaub abstimmen @anna · #familie · fällig morgen (Freitag 27.11.)"
         )
     );
     let datei = fs::read_to_string(s.file()).unwrap();
@@ -185,13 +185,12 @@ fn abgeben_erscheint_bei_der_person() {
     s.ok(&["+", "Ausflug", "klären", "@anna"]);
     s.ok(&["abgeben", "1", "@anna"]);
     let p = s.ok(&["@anna"]);
-    assert!(p.contains("ANNA"));
     assert!(p.contains("Ausflug klären @anna"));
-    assert!(p.contains("WARTE AUF ANNA"));
+    assert!(p.contains("WARTE AUF @anna"));
     assert!(p.contains("Fotos schicken"));
     let alle = s.ok(&["personen"]);
     assert!(
-        alle.contains("Anna                1            1"),
+        alle.contains("@anna               1            1"),
         "{alle}"
     );
 }
@@ -270,10 +269,10 @@ fn ein_thema_zeigt_offenes_abgegebenes_und_erledigtes() {
     s.ok(&["abgeben", "2", "@tom"]);
     s.ok(&["fertig", "3"]);
     let out = s.ok(&["#arbeit"]);
-    assert!(out.contains("ARBEIT   wichtig"), "{out}");
+    assert!(out.contains("#arbeit   wichtig"), "{out}");
     assert!(out.contains("Präsentation"));
     assert!(out.contains("LIEGT BEI ANDEREN"));
-    assert!(out.contains("bei Tom"));
+    assert!(out.contains("bei @tom"));
     assert!(out.contains("erledigt: Rechnung"));
     assert!(!out.contains("Keller"));
 }
@@ -348,7 +347,7 @@ fn unterwegs_aufgeschriebenes_wird_abgeholt_und_der_stand_geschrieben() {
     let out = s.ok_away(&[]);
     assert!(out.contains("Von unterwegs:"));
     assert!(
-        out.contains("Aufgabe 3: Trikots bestellen · Verein · fällig übermorgen (Samstag 28.11.)")
+        out.contains("Aufgabe 3: Trikots bestellen · #verein · fällig übermorgen (Samstag 28.11.)")
     );
     assert!(out.contains("Aufgabe 4: Idee für den Talentpfad"));
 
@@ -559,7 +558,7 @@ fn ohne_heisst_ueberall_kein_thema() {
     s.ok(&["+", "Idee", "#ohne"]);
 
     let out = s.ok(&["#ohne"]);
-    assert!(out.contains("OHNE THEMA"));
+    assert!(out.contains("#ohne"));
     assert!(out.contains("Mama anrufen"));
     assert!(out.contains("Idee"));
     assert!(!out.contains("Bericht"));
@@ -576,7 +575,7 @@ fn ohne_heisst_ueberall_kein_thema() {
         !datei.to_lowercase().contains("ohne"),
         "„ohne“ darf nicht in der Datei landen:\n{datei}"
     );
-    assert!(s.ok(&["themen"]).contains("fokus #ohne"));
+    assert!(s.ok(&["themen"]).contains("#ohne"));
     assert!(
         s.fails(&["themen", "umbenennen", "arbeit", "ohne"])
             .contains("„Ohne“ ist vergeben")
@@ -736,7 +735,7 @@ fn themen_mit_notizen_bleiben_und_ziehen_beim_umbenennen_mit() {
     // „Vier“ steht unter der Linie; mit Notiz bleibt es, auch ohne Aufgaben.
     s.ok(&["notiz", "#vier", "Idee", "für", "später"]);
     s.ok(&["streichen", "4"]);
-    assert!(s.ok(&["themen"]).contains("Vier"));
+    assert!(s.ok(&["themen"]).contains("#vier"));
 
     s.ok(&["themen", "umbenennen", "vier", "garten"]);
     assert!(

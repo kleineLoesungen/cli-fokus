@@ -51,6 +51,16 @@ pub fn display(tag: &str) -> String {
     }
 }
 
+/// So zeigt Fokus ein Thema: mit `#`, so wie man es tippt. „Eigenes Projekt“ → `#eigenes-projekt`.
+pub fn topic_label(name: &str) -> String {
+    format!("#{}", to_tag(&display(name)))
+}
+
+/// So zeigt Fokus eine Person: mit `@`, so wie man sie tippt. „Anna“ → `@anna`.
+pub fn person_label(raw: &str) -> String {
+    format!("@{}", clean(raw).to_lowercase())
+}
+
 /// Aus einem Themennamen das Wort für den Aufgabentext: „Eigenes Projekt“ → `eigenes-projekt`.
 pub fn to_tag(name: &str) -> String {
     name.split_whitespace()
@@ -62,6 +72,14 @@ pub fn to_tag(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn themen_und_personen_mit_vorzeichen() {
+        assert_eq!(topic_label("Eigenes Projekt"), "#eigenes-projekt");
+        assert_eq!(topic_label("arbeit"), "#arbeit");
+        assert_eq!(person_label("Anna"), "@anna");
+        assert_eq!(person_label("@tom,"), "@tom");
+    }
 
     #[test]
     fn satzzeichen_gehoeren_nicht_zum_namen() {

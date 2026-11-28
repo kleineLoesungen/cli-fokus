@@ -43,6 +43,34 @@ pub fn cyan(s: &str) -> String {
     paint("36", s)
 }
 
+/// Läuft Fokus für `fokus web`?
+pub fn web() -> bool {
+    std::env::var_os("FOKUS_WEB").is_some()
+}
+
+/// Breite der Listen: im Terminal höchstens 90, damit das Auge die Zeile hält;
+/// im Browser so breit wie der Tab, damit weniger gekürzt werden muss.
+pub fn list_width() -> usize {
+    if web() { width() } else { width().min(90) }
+}
+
+/// Kürzt wie `truncate`, schneidet aber kein `#thema` und keine `@person` an:
+/// lieber fällt das ganze Wort weg, als dass ein falscher Name stehen bleibt.
+pub fn truncate_words(s: &str, max: usize) -> String {
+    let cut = truncate(s, max);
+    let Some(body) = cut.strip_suffix('…') else {
+        return cut;
+    };
+    let rest_starts_word = s[body.len()..].starts_with(char::is_whitespace);
+    match body.rfind(char::is_whitespace) {
+        Some(p) if !rest_starts_word && body[p + 1..].starts_with(['#', '@']) => {
+            format!("{}…", body[..p].trim_end())
+        }
+        None if body.starts_with(['#', '@']) => "…".to_string(),
+        _ => cut,
+    }
+}
+
 /// Breite für die Ansichten. Ohne Terminal (in eine Datei umgeleitet) 80.
 pub fn width() -> usize {
     let w = if io::stdout().is_terminal() {
@@ -52,7 +80,7 @@ pub fn width() -> usize {
     };
     w.or_else(|| std::env::var("COLUMNS").ok()?.parse().ok())
         .unwrap_or(80)
-        .clamp(40, 100)
+        .clamp(40, if web() { 140 } else { 100 })
 }
 
 /// Leert den sichtbaren Bereich und setzt den Cursor nach oben links. Der
@@ -211,5 +239,14 @@ mod tests {
         assert_eq!(fit("Haus", 6), "Haus  ");
         assert_eq!(pad_left("3", 3), "  3");
         assert_eq!(center("ab", 6), "  ab  ");
+        assert_eq!(
+            truncate_words("Retro zu Inference @michael.l", 25),
+            "Retro zu Inference…"
+        );
+        assert_eq!(
+            truncate_words("Retro zu Inference Projekt", 22),
+            "Retro zu Inference Pr…"
+        );
+        assert_eq!(truncate_words("kurz @tom", 20), "kurz @tom");
     }
 }

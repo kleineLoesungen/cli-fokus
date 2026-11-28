@@ -89,7 +89,7 @@ fn session(store: &Store, nr: u32) -> io::Result<Outcome> {
     let t = &store.tasks[i];
     let title = t.display();
     let mut sub: Vec<String> = Vec::new();
-    if let Some(n) = store.topic_name(t) {
+    if let Some(n) = store.topic_label(t) {
         sub.push(n);
     }
     if let Some(d) = t.due {

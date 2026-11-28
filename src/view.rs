@@ -67,7 +67,7 @@ fn due_cell(store: &Store, task: &Task) -> (String, Tone) {
 }
 
 fn topic_cell(store: &Store, t: &Task) -> (String, Tone) {
-    (store.topic_name(t).unwrap_or_default(), Tone::Dim)
+    (store.topic_label(t).unwrap_or_default(), Tone::Dim)
 }
 
 fn row(store: &Store, t: &Task, mark: &'static str) -> Row {
@@ -86,9 +86,9 @@ fn row(store: &Store, t: &Task, mark: &'static str) -> Row {
 /// der Text gekürzt werden muss.
 fn fit_marked(text: &str, marker: &str, w: usize) -> String {
     if marker.is_empty() || w < 4 {
-        return term::fit(text, w);
+        return term::pad_right(&term::truncate_words(text, w), w);
     }
-    let body = term::truncate(text, w - 2);
+    let body = term::truncate_words(text, w - 2);
     term::pad_right(&format!("{body} {marker}"), w)
 }
 
@@ -189,7 +189,7 @@ fn header(left: &str, right: &str, width: usize) -> String {
 
 /// `fokus` – was heute dran ist.
 pub fn today(store: &Store) -> String {
-    let width = term::width().min(90);
+    let width = term::list_width();
     let done = store.done_today();
     let open = store.today_open();
     let total = done.len() + open.len();
@@ -614,8 +614,8 @@ pub fn topics(store: &Store) -> String {
     let today = store.today;
     let name_w = store
         .all_topics()
-        .map(|n| term::text_width(n))
-        .chain([term::text_width("ohne Thema")])
+        .map(|n| term::text_width(&tags::topic_label(n)))
+        .chain([term::text_width("#ohne")])
         .max()
         .unwrap_or(10)
         .clamp(10, 24);
@@ -688,7 +688,7 @@ pub fn topics(store: &Store) -> String {
         out.push_str(&format!(
             " {}  {}  {:>5}    {}   {}\n",
             term::bold(&(i + 1).to_string()),
-            term::bold(&term::fit(name, name_w)),
+            term::bold(&term::fit(&tags::topic_label(name), name_w)),
             s.open,
             dots(&s.days),
             term::yellow(&warn),
@@ -720,7 +720,7 @@ pub fn topics(store: &Store) -> String {
         let s = stats(name);
         out.push_str(&format!(
             "    {}  {:>5}    {}\n",
-            term::fit(name, name_w),
+            term::fit(&tags::topic_label(name), name_w),
             s.open,
             dots(&s.days)
         ));
@@ -728,9 +728,9 @@ pub fn topics(store: &Store) -> String {
     if inbox > 0 {
         out.push_str(&format!(
             "    {}  {:>5}    {}\n",
-            term::dim(&term::fit("ohne Thema", name_w)),
+            term::dim(&term::fit("#ohne", name_w)),
             inbox,
-            term::dim("fokus #ohne")
+            term::dim("ohne Thema")
         ));
     }
     out.push_str(&format!(
@@ -759,7 +759,7 @@ fn person_counts(store: &Store) -> Vec<PersonCount> {
     let mut entry = |raw: &str| -> String {
         let k = tags::key(raw);
         map.entry(k.clone()).or_insert_with(|| PersonCount {
-            name: tags::display(raw),
+            name: tags::person_label(raw),
             with: 0,
             waiting: 0,
         });
@@ -846,8 +846,8 @@ pub fn person(store: &Store, raw: &str) -> String {
         .filter(|t| t.is_active())
         .flat_map(|t| t.persons().into_iter().chain(t.waiting_for.clone()))
         .find(|p| tags::key(p) == k)
-        .map(|p| tags::display(&p))
-        .unwrap_or_else(|| tags::display(raw));
+        .map(|p| tags::person_label(&p))
+        .unwrap_or_else(|| tags::person_label(raw));
     let with: Vec<&Task> = store
         .tasks
         .iter()
@@ -869,7 +869,7 @@ pub fn person(store: &Store, raw: &str) -> String {
     }
     let blocks = vec![
         Block {
-            title: name.to_uppercase(),
+            title: name.clone(),
             hint: String::new(),
             rows: with
                 .iter()
@@ -888,7 +888,7 @@ pub fn person(store: &Store, raw: &str) -> String {
             note: None,
         },
         Block {
-            title: format!("WARTE AUF {}", name.to_uppercase()),
+            title: format!("WARTE AUF {name}"),
             hint: String::new(),
             rows: waiting
                 .iter()
@@ -902,7 +902,7 @@ pub fn person(store: &Store, raw: &str) -> String {
         },
     ];
     let mut out = String::from("\n");
-    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&layout(&blocks, term::list_width()));
     out
 }
 
@@ -971,10 +971,14 @@ pub fn topic(store: &Store, raw: &str) -> String {
         out.push_str(&format!(" {}\n", term::dim("Deine Themen: fokus themen")));
         return out;
     }
-    let width = term::width().min(90);
+    let width = term::list_width();
     let blocks = vec![
         Block {
-            title: name.to_uppercase(),
+            title: if none {
+                "#ohne".to_string()
+            } else {
+                tags::topic_label(&name)
+            },
             hint: if none {
                 "zählt als nicht wichtig"
             } else if important {
@@ -1036,7 +1040,7 @@ fn waiting_row(store: &Store, t: &Task) -> Row {
     let who = t
         .waiting_for
         .as_deref()
-        .map(tags::display)
+        .map(tags::person_label)
         .unwrap_or_default();
     let tone_age = if store.is_stale(t) {
         Tone::Warn
@@ -1080,7 +1084,7 @@ pub fn waiting(store: &Store) -> String {
         note: None,
     }];
     let mut out = String::from("\n");
-    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&layout(&blocks, term::list_width()));
     out.push_str(&format!(
         " {}\n",
         term::dim("Zurück zu dir: fokus heute <Nr> · kam erledigt zurück: fokus fertig <Nr>")
@@ -1171,7 +1175,7 @@ pub fn search(store: &Store, words: &[String]) -> String {
         },
     ];
     let mut out = String::from("\n");
-    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&layout(&blocks, term::list_width()));
     out
 }
 
@@ -1227,7 +1231,7 @@ pub fn archive(store: &Store) -> String {
         },
     ];
     let mut out = String::from("\n");
-    out.push_str(&layout(&blocks, term::width().min(90)));
+    out.push_str(&layout(&blocks, term::list_width()));
     out.push_str(&format!(
         " {}\n",
         term::dim(&format!(
@@ -1358,9 +1362,9 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
 /// Für Bestätigungen: „Präsentation vorbereiten · Arbeit · fällig Freitag 27.11.“
 pub fn summary(store: &Store, t: &Task) -> String {
     let mut parts = vec![t.display()];
-    match store.topic_name(t) {
+    match store.topic_label(t) {
         Some(n) => parts.push(n),
-        None => parts.push("im Eingang, ohne Thema".into()),
+        None => parts.push("ohne Thema".into()),
     }
     if let (Some(n), Some(d)) = (t.every, t.due) {
         parts.push(format!("↻ {}", date::recurrence_label(n, d)));
@@ -1385,12 +1389,12 @@ pub fn detail(store: &Store, nr: u32) -> String {
         Status::Today => facts.push("steht auf heute".to_string()),
         Status::Waiting => {
             if let Some(p) = &t.waiting_for {
-                facts.push(format!("liegt bei {}", tags::display(p)));
+                facts.push(format!("liegt bei {}", tags::person_label(p)));
             }
         }
         _ => {}
     }
-    if let Some(n) = store.topic_name(t) {
+    if let Some(n) = store.topic_label(t) {
         facts.push(n);
     } else {
         facts.push("ohne Thema".into());

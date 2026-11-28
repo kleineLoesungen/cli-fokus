@@ -161,11 +161,11 @@ fn describe(store: &Store, i: usize) -> String {
         let who = t
             .waiting_for
             .as_deref()
-            .map(tags::display)
+            .map(tags::person_label)
             .unwrap_or_default();
         parts.push(format!("wartet auf {who}"));
     } else {
-        parts.push(store.topic_name(t).unwrap_or_else(|| "kein Thema".into()));
+        parts.push(store.topic_label(t).unwrap_or_else(|| "kein Thema".into()));
     }
     if let Some(d) = t.due {
         parts.push(date::due_label(d, store.today));
