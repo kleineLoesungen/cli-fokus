@@ -68,6 +68,7 @@ pub fn run() -> Result<(), String> {
     }
 
     ask_places()?;
+    ask_limits()?;
 
     let alias = term::ask_yes(trs!(
         " Soll „f“ als Kurzbefehl für „focus“ funktionieren? [J/n] ",
@@ -137,6 +138,65 @@ fn self_not_found(e: &std::io::Error) -> String {
         "Ich finde mich selbst nicht: {e}",
         "I can't find my own program: {e}"
     )
+}
+
+/// Wie viele Aufgaben auf heute, wie viele wichtige Themen. Wenig ist Absicht.
+fn ask_limits() -> Result<(), String> {
+    println!(
+        " {}",
+        term::dim(trs!(
+            "Wenig ist Absicht: Wer wählen muss, setzt Schwerpunkte.",
+            "Few is on purpose: having to choose is what sets priorities."
+        ))
+    );
+    ask_limit(
+        config::TODAY_KEY,
+        store::today_limit(),
+        trs!(
+            " Wie viele Aufgaben dürfen höchstens auf heute stehen?",
+            " How many tasks can be on today at most?"
+        ),
+    )?;
+    ask_limit(
+        config::IMPORTANT_KEY,
+        store::important_limit(),
+        trs!(
+            " Wie viele Themen dürfen höchstens wichtig sein?",
+            " How many topics can be important at most?"
+        ),
+    )?;
+    println!();
+    Ok(())
+}
+
+fn ask_limit(key: &str, now: usize, question: &str) -> Result<(), String> {
+    loop {
+        let answer = term::read_line(&tr!(
+            "{question} 1–{}, Enter behält {now}: ",
+            "{question} 1–{}, Enter keeps {now}: ",
+            store::MAX_LIMIT
+        ))
+        .map_err(term::io_err)?
+        .unwrap_or_default();
+        if answer.is_empty() {
+            return Ok(());
+        }
+        match answer.trim().parse::<usize>() {
+            Ok(n) if (1..=store::MAX_LIMIT).contains(&n) => {
+                // Der Standard braucht keinen Eintrag.
+                let value = (n != store::DEFAULT_LIMIT).then(|| n.to_string());
+                return config::set_str(key, value.as_deref());
+            }
+            _ => println!(
+                " {}",
+                term::red(&tr!(
+                    "Bitte eine Zahl von 1 bis {}.",
+                    "Please a number from 1 to {}.",
+                    store::MAX_LIMIT
+                ))
+            ),
+        }
+    }
 }
 
 /// Die erste Frage, in beiden Sprachen: Ab der Antwort spricht Focus so.

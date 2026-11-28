@@ -19,6 +19,8 @@ pub const DATA_KEY: &str = "datei";
 pub const AWAY_KEY: &str = "unterwegs";
 /// `leeren = ja`: vor jeder Ausgabe den sichtbaren Bereich leeren, mit Kopfzeile.
 pub const CLEAR_KEY: &str = "leeren";
+pub const TODAY_KEY: &str = "heute";
+pub const IMPORTANT_KEY: &str = "wichtig";
 
 fn header() -> &'static str {
     trs!(

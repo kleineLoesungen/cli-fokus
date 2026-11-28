@@ -179,7 +179,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
                 return nrs(&|t| t.status == Status::Today);
             }
             let mut v = nrs(&|t| t.status != Status::Today);
-            if prev.len() == 2 && store.today_open().len() >= crate::store::TODAY_LIMIT {
+            if prev.len() == 2 && store.today_open().len() >= crate::store::today_limit() {
                 v.insert(
                     0,
                     described(
@@ -204,10 +204,7 @@ pub fn candidates(store: &Store, words: &[String]) -> Vec<Item> {
             described(
                 "",
                 trs!("ordnen", "order"),
-                trs!(
-                    "die drei wichtigen Themen wählen",
-                    "pick the three important topics"
-                ),
+                trs!("die wichtigen Themen wählen", "pick the important topics"),
             ),
             described(
                 "",

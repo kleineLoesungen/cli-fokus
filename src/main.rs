@@ -156,8 +156,16 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
         Some("heute") if rest.is_empty() => print!("{}", view::today(store)),
         Some("heute") => {
             let (nrs, instead) = numbers_with_instead(rest)?;
-            for nr in nrs {
-                println!("{}", ops::put_today(store, nr, instead)?);
+            for &nr in &nrs {
+                // Erst fragen, ob es Wichtigeres gibt, dann (wenn heute voll ist) tauschen.
+                match ops::focus_check(store, nr, &nrs)? {
+                    ops::Check::Stop(msg) => println!("{msg}"),
+                    ops::Check::Go => println!("{}", ops::put_today(store, nr, instead)?),
+                    ops::Check::GoWithHint(hint) => {
+                        println!("{}", ops::put_today(store, nr, instead)?);
+                        println!("   {}", term::dim(&hint));
+                    }
+                }
             }
             list_after_change(store);
         }

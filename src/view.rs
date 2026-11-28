@@ -5,7 +5,7 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 
-use crate::store::{self, IMPORTANT_LIMIT, KEEP_DAYS, Status, Store, TODAY_LIMIT, Task};
+use crate::store::{self, KEEP_DAYS, Status, Store, Task};
 use crate::{date, i18n, notes, tags, term, tr, trs};
 
 #[derive(Clone, Copy)]
@@ -232,9 +232,10 @@ pub fn today(store: &Store) -> String {
             suggestion.join(" ")
         ))
     } else if open.is_empty() && any_open {
+        let limit = store::today_limit();
         Some(tr!(
-            "Noch nichts für heute. Wähle bis zu {TODAY_LIMIT}: focus heute <Nr>  (Nummern: focus alles)",
-            "Nothing for today yet. Pick up to {TODAY_LIMIT}: focus today <no>  (numbers: focus all)"
+            "Noch nichts für heute. Wähle bis zu {limit}: focus heute <Nr>  (Nummern: focus alles)",
+            "Nothing for today yet. Pick up to {limit}: focus today <no>  (numbers: focus all)"
         ))
     } else if open.is_empty() {
         Some(tr!("Noch nichts für heute.", "Nothing for today yet."))
@@ -761,7 +762,7 @@ pub fn topics(store: &Store) -> String {
             term::yellow(&warn),
         ));
     }
-    let free = IMPORTANT_LIMIT - store.important.len();
+    let free = store::important_limit().saturating_sub(store.important.len());
     if free > 0 {
         out.push_str(&format!(
             "    {}\n",
@@ -801,9 +802,10 @@ pub fn topics(store: &Store) -> String {
     }
     out.push_str(&format!(
         "\n {}\n",
-        term::dim(trs!(
-            "Welche drei wichtig sind, wählst du mit: focus themen ordnen",
-            "Pick which three are important with: focus topics order"
+        term::dim(&tr!(
+            "Welche {} wichtig sind, wählst du mit: focus themen ordnen",
+            "Pick which {} are important with: focus topics order",
+            store::important_limit()
         ))
     ));
     if term::color() {
@@ -1405,7 +1407,7 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
             "focus themen",
             "zeigt deine Themen und wie es dort vorangeht",
         ),
-        ("focus themen ordnen", "wählt die drei wichtigen Themen"),
+        ("focus themen ordnen", "wählt die wichtigen Themen"),
         (
             "focus themen umbenennen a b",
             "benennt Thema a in b um (überall)",
@@ -1486,7 +1488,7 @@ pub fn help(path: &Path, away: Option<&Path>) -> String {
         ("focus now", "shows just one task, with a clock"),
         ("focus all", "shows all tasks in four quadrants"),
         ("focus topics", "shows your topics and how they're going"),
-        ("focus topics order", "picks the three important topics"),
+        ("focus topics order", "picks the important topics"),
         (
             "focus topics rename a b",
             "renames topic a to b (everywhere)",
