@@ -19,7 +19,8 @@ pub fn run() -> Result<(), String> {
         .map(PathBuf::from)
         .ok_or("Ich finde dein Benutzerverzeichnis nicht.")?;
     let shell = std::env::var("SHELL").unwrap_or_default();
-    let rc = if shell.ends_with("bash") {
+    let zsh = !shell.ends_with("bash");
+    let rc = if !zsh {
         home.join(".bash_profile")
     } else {
         std::env::var_os("ZDOTDIR")
@@ -63,6 +64,7 @@ pub fn run() -> Result<(), String> {
         alias,
         start,
         complete,
+        zsh,
     };
     let updated = with_block(&existing, &block(&exe, &wishes, in_path(&exe)));
     if updated == existing {
@@ -492,17 +494,27 @@ struct Wishes {
     alias: bool,
     start: bool,
     complete: bool,
+    /// zsh bricht bei `?`/`*` ohne Treffer ab, bevor Fokus startet (z. B. bei
+    /// Links mit `?msg=…`). `noglob` vor dem Alias reicht die Wörter unverändert durch.
+    zsh: bool,
 }
 
 /// Der Block für die Shell-Datei; leer, wenn nichts gewünscht ist.
 fn block(exe: &Path, w: &Wishes, found: bool) -> String {
-    let exe = format!("'{}'", exe.display().to_string().replace('\'', r"'\''"));
+    let exe = sq(&exe.display().to_string());
+    // Der Alias-Text wird beim Aufruf noch einmal gelesen, deshalb doppelt quoten.
+    let target = if w.zsh {
+        sq(&format!("noglob {exe}"))
+    } else {
+        exe.clone()
+    };
     let mut lines = Vec::new();
-    if !found {
-        lines.push(format!("alias fokus={exe}"));
+    // In zsh auch dann, wenn „fokus“ im PATH liegt: der Alias bringt das noglob mit.
+    if w.zsh || !found {
+        lines.push(format!("alias fokus={target}"));
     }
     if w.alias {
-        lines.push(format!("alias f={exe}"));
+        lines.push(format!("alias f={target}"));
     }
     if w.complete {
         lines.push(format!("eval \"$({exe} _zsh)\""));
@@ -514,6 +526,11 @@ fn block(exe: &Path, w: &Wishes, found: bool) -> String {
         return String::new();
     }
     format!("{BEGIN}\n{}\n{END}\n", lines.join("\n"))
+}
+
+/// Setzt `s` in einfache Anführungszeichen, sicher für die Shell.
+fn sq(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"'\''"))
 }
 
 /// Ersetzt einen vorhandenen Fokus-Block oder hängt ihn an.
@@ -556,6 +573,7 @@ mod tests {
             alias: true,
             start: true,
             complete: true,
+            zsh: false,
         };
         let b = block(exe, &alle, true);
         let einmal = with_block("export X=1\n", &b);
@@ -598,8 +616,22 @@ mod tests {
             alias: false,
             start: false,
             complete: false,
+            zsh: false,
         };
         let b = block(Path::new("/a/fokus"), &nichts, false);
         assert!(b.contains("alias fokus='/a/fokus'"));
+    }
+
+    #[test]
+    fn in_zsh_stoeren_fragezeichen_in_links_nicht() {
+        let w = Wishes {
+            alias: true,
+            start: false,
+            complete: false,
+            zsh: true,
+        };
+        let b = block(Path::new("/Users/x y/fokus"), &w, true);
+        assert!(b.contains(r"alias fokus='noglob '\''/Users/x y/fokus'\'''"));
+        assert!(b.contains(r"alias f='noglob '\''/Users/x y/fokus'\'''"));
     }
 }

@@ -397,7 +397,9 @@ fokus einrichten
 Unterwegs-Datei geben soll, ob `f` als Kurzbefehl gehen soll, ob jedes neue
 Terminalfenster die Liste für heute zeigt und ob die Tab-Taste ergänzen soll
 (zsh). Es schreibt dafür einen markierten Block in deine `.zshrc` und die Orte
-in `~/.config/fokus/einstellungen`. Einen Ordner kannst du aus dem Finder ins
+in `~/.config/fokus/einstellungen`. In zsh stehen `fokus` und `f` dort mit
+`noglob`, damit Links mit `?` oder `*` nicht an zsh scheitern („no matches
+found“). Einen Ordner kannst du aus dem Finder ins
 Terminal ziehen, statt den Pfad zu tippen.
 
 **Aktualisieren:** `cargo install --path .` noch einmal. Deine Aufgaben bleiben.
