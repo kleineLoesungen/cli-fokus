@@ -43,6 +43,15 @@ pub fn cyan(s: &str) -> String {
     paint("36", s)
 }
 
+/// Das Programm, das Dateien und Links mit dem Standardprogramm öffnet.
+pub fn opener() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    }
+}
+
 /// Läuft Fokus für `fokus web`?
 pub fn web() -> bool {
     std::env::var_os("FOKUS_WEB").is_some()

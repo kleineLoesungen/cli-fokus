@@ -388,13 +388,7 @@ fn launch(url: &str) -> Result<(), String> {
     let program = std::env::var("FOKUS_BROWSER")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| {
-            if cfg!(target_os = "macos") {
-                "open".into()
-            } else {
-                "xdg-open".into()
-            }
-        });
+        .unwrap_or_else(|| term::opener().into());
     match Command::new(&program).arg(url).status() {
         Ok(s) if s.success() => Ok(()),
         _ => Err(format!("Ich konnte den Link nicht öffnen: {url}")),

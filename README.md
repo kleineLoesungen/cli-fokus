@@ -426,11 +426,25 @@ etwas, das gepflegt werden will.
 
 ## Installieren, aktualisieren, entfernen
 
-Einmalig brauchst du [Rust](https://rustup.rs). Dann im Projektordner:
+Fokus läuft auf macOS (Apple Silicon und Intel) und Linux.
+
+**Mit Homebrew** (macOS und Linux):
 
 ```bash
-cargo install --path .
+brew install kleineLoesungen/tap/fokus
 ```
+
+**Ohne Homebrew** lädt ein Skript das passende Programm von GitHub nach
+`~/.cargo/bin`:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/kleineLoesungen/cli-fokus/releases/latest/download/fokus-installer.sh | sh
+```
+
+**Aus dem Quelltext:** Mit [Rust](https://rustup.rs) im Projektordner
+`cargo install --path .`.
+
+Danach einmal:
 
 ```bash
 fokus einrichten
@@ -454,7 +468,14 @@ Hochscrollen oder `⌘↑` zeigt das Alte. Leitest du die Ausgabe um
 Einen Ordner kannst du aus dem Finder ins
 Terminal ziehen, statt den Pfad zu tippen.
 
-**Aktualisieren:** `cargo install --path .` noch einmal. Deine Aufgaben bleiben.
+**Unter Linux** schreibt `fokus einrichten` bei bash in die `.bashrc`. Die
+Tab-Ergänzung gibt es nur für zsh. Links und `fokus datei` öffnet Fokus mit
+`xdg-open`, beim Deinstallieren landen die Aufgaben auf Wunsch im Papierkorb
+des Desktops (`~/.local/share/Trash`).
+
+**Aktualisieren:** `brew upgrade fokus`, das Skript noch einmal, oder
+`cargo install --path .` – je nachdem, wie du installiert hast. Deine Aufgaben
+bleiben.
 
 **Entfernen:** `fokus deinstallieren`. Es zeigt erst, was es tut, und fragt
 nach. Deine Aufgaben bleiben, außer du sagst ausdrücklich ja – dann kommen sie
@@ -463,7 +484,9 @@ in den Papierkorb. Die Einstellungen löscht es mit, die Unterwegs-Datei nicht.
 Zum Ausprobieren mit einer Spieldatei: `export FOKUS_DATEI=/tmp/spiel.md`.
 Solange die gilt, lässt Fokus deine Unterwegs-Datei in Ruhe (außer du setzt
 auch `FOKUS_UNTERWEGS`).
-Tests: `cargo test`.
+Tests: `cargo test`. Eine neue Version erscheint mit einem Tag, etwa
+`git tag v0.2.0 && git push --tags`: GitHub baut dann die Programme für macOS
+und Linux, hängt sie an ein Release und aktualisiert die Homebrew-Formel.
 
 ## Lizenz
 

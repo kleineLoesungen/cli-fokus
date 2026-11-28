@@ -300,10 +300,12 @@ fn dispatch(store: &mut Store, first: Option<&str>, args: &[String]) -> Result<(
             println!(" Deine Aufgaben liegen in {}", store.path.display());
             if term::is_interactive() {
                 store.save()?;
-                let _ = std::process::Command::new("open")
-                    .arg("-t")
-                    .arg(&store.path)
-                    .status();
+                // Am Mac im Texteditor, sonst mit dem Standardprogramm für .md.
+                let mut open = std::process::Command::new(term::opener());
+                if cfg!(target_os = "macos") {
+                    open.arg("-t");
+                }
+                let _ = open.arg(&store.path).status();
             }
         }
         Some(other) => {
