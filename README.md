@@ -520,9 +520,11 @@ deletes the settings too, but not the mobile file.
 To try things out with a practice file: `export FOCUS_DATEI=/tmp/practice.md`.
 While that's set, Focus leaves your mobile file alone (unless you also set
 `FOCUS_UNTERWEGS`). `FOCUS_SPRACHE=de` or `en` sets the language for one call.
-Tests: `cargo test`. A new version comes out with a tag, for example
-`git tag v0.2.0 && git push --tags`: GitHub then builds the programs for macOS
-and Linux, attaches them to a release and updates the Homebrew formula.
+Tests: `cargo test`. A new version comes out with a tag: first raise the
+`version` in `Cargo.toml` (for example to `0.3.0`) and merge, then
+`git tag v0.3.0 && git push --tags`. Tag and version must match, otherwise the
+release stops. GitHub then builds the programs for macOS and Linux, attaches
+them to a release and updates the Homebrew formula.
 
 ## License
 

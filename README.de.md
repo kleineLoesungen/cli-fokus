@@ -518,9 +518,11 @@ in den Papierkorb. Die Einstellungen löscht es mit, die Unterwegs-Datei nicht.
 Zum Ausprobieren mit einer Spieldatei: `export FOCUS_DATEI=/tmp/spiel.md`.
 Solange die gilt, lässt Focus deine Unterwegs-Datei in Ruhe (außer du setzt
 auch `FOCUS_UNTERWEGS`).
-Tests: `cargo test`. Eine neue Version erscheint mit einem Tag, etwa
-`git tag v0.2.0 && git push --tags`: GitHub baut dann die Programme für macOS
-und Linux, hängt sie an ein Release und aktualisiert die Homebrew-Formel.
+Tests: `cargo test`. Eine neue Version erscheint mit einem Tag: erst in
+`Cargo.toml` die `version` erhöhen (etwa auf `0.3.0`) und mergen, dann
+`git tag v0.3.0 && git push --tags`. Tag und Version müssen gleich sein, sonst
+bricht der Release ab. GitHub baut dann die Programme für macOS und Linux,
+hängt sie an ein Release und aktualisiert die Homebrew-Formel.
 
 ## Lizenz
 
